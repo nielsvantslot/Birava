@@ -32,6 +32,7 @@ export default async function LeaderboardPage() {
 
     const today = new Date();
     const perUser: Record<string, LeaderboardEntry> = {};
+    const daysByUser: Record<string, Set<string>> = {};
 
     for (const e of entries ?? []) {
       const uid = e.user_id;
@@ -45,9 +46,11 @@ export default async function LeaderboardPage() {
           today: 0,
           avg_per_day: 0,
         };
+        daysByUser[uid] = new Set();
       }
       perUser[uid].total += e.amount;
       const d = new Date(e.created_at);
+      daysByUser[uid].add(d.toLocaleDateString());
       if (
         d.getDate() === today.getDate() &&
         d.getMonth() === today.getMonth() &&
@@ -57,12 +60,8 @@ export default async function LeaderboardPage() {
       }
     }
 
-    // Calculate avg per day
     for (const uid in perUser) {
-      const userEntries = (entries ?? []).filter((e) => e.user_id === uid);
-      const days = new Set(
-        userEntries.map((e) => new Date(e.created_at).toLocaleDateString())
-      );
+      const days = daysByUser[uid];
       perUser[uid].avg_per_day =
         days.size > 0
           ? Math.round((perUser[uid].total / days.size) * 10) / 10

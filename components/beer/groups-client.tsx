@@ -46,21 +46,21 @@ export function GroupsClient({ groups, userId }: GroupsClientProps) {
     if (!inviteCode.trim()) return;
     startTransition(async () => {
       const supabase = createClient();
-      const { data: group } = await supabase
+      const { data: group, error } = await supabase
         .from("groups")
         .select("id")
         .eq("invite_code", inviteCode.trim().toUpperCase())
         .single();
-      if (group) {
-        await supabase.from("group_members").upsert({
-          group_id: group.id,
-          user_id: userId,
-        });
-        setInviteCode("");
-        router.refresh();
-      } else {
+      if (error || !group) {
         alert("Group not found. Check the invite code.");
+        return;
       }
+      await supabase.from("group_members").upsert({
+        group_id: group.id,
+        user_id: userId,
+      });
+      setInviteCode("");
+      router.refresh();
     });
   };
 
