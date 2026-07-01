@@ -60,7 +60,7 @@ create table if not exists group_members (
 -- ============================================================
 create table if not exists beer_entries (
   id uuid primary key default uuid_generate_v4(),
-  user_id uuid references auth.users(id) on delete cascade not null,
+  user_id uuid references profiles(id) on delete cascade not null,
   group_id uuid references groups(id) on delete set null,
   beer_name text,
   brewery text,
