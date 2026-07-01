@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { StatCard } from "@/components/beer/stat-card";
 import { BeerCard } from "@/components/beer/beer-card";
-import { Last24hRecap } from "@/components/beer/last-24h-recap";
 import { getEarnedAchievements } from "@/lib/achievements";
 import { BeerEntry } from "@/lib/types";
 
@@ -57,30 +56,6 @@ function getAvgPerDay(entries: BeerEntry[]): string {
   return (total / days.size).toFixed(1);
 }
 
-function getTopCategory(
-  entries: BeerEntry[],
-  selector: (entry: BeerEntry) => string | null
-) {
-  const scores = new Map<string, number>();
-
-  for (const entry of entries) {
-    const key = selector(entry);
-    if (!key) continue;
-    scores.set(key, (scores.get(key) ?? 0) + entry.amount);
-  }
-
-  let top: string | null = null;
-  let topScore = 0;
-  for (const [key, score] of scores.entries()) {
-    if (score > topScore) {
-      top = key;
-      topScore = score;
-    }
-  }
-
-  return top;
-}
-
 export default async function DashboardPage() {
   const supabase = await createClient();
   const {
@@ -101,16 +76,6 @@ export default async function DashboardPage() {
   const avg = getAvgPerDay(all);
   const recent = all.slice(0, 5);
   const achievements = getEarnedAchievements(total);
-  const last24WindowStartDate = new Date();
-  last24WindowStartDate.setHours(last24WindowStartDate.getHours() - 24);
-  const last24WindowStart = last24WindowStartDate.getTime();
-  const last24Entries = all.filter(
-    (entry) => new Date(entry.created_at).getTime() >= last24WindowStart
-  );
-  const last24Total = last24Entries.reduce((sum, entry) => sum + entry.amount, 0);
-  const last24Pace = last24Total / 24;
-  const topStyle24h = getTopCategory(last24Entries, (entry) => entry.style);
-  const topBrewery24h = getTopCategory(last24Entries, (entry) => entry.brewery);
 
   return (
     <div className="space-y-6 py-4">
@@ -129,14 +94,6 @@ export default async function DashboardPage() {
         <StatCard label="Streak" value={`${streak}d`} emoji="🔥" sub="days in a row" />
         <StatCard label="Avg / Day" value={avg} emoji="📊" />
       </div>
-
-      <Last24hRecap
-        totalBeers={last24Total}
-        checkins={last24Entries.length}
-        beersPerHour={last24Pace}
-        topStyle={topStyle24h}
-        topBrewery={topBrewery24h}
-      />
 
       {/* Achievements */}
       {achievements.length > 0 && (
