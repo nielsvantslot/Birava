@@ -6,8 +6,9 @@
 -- Helper function (bypasses RLS to avoid recursion)
 -- ============================================================
 create or replace function public.get_user_group_ids(user_uuid uuid)
-returns setof uuid as $$
-  select group_id from public.group_members where user_id = user_uuid
+returns uuid[] as $$
+  select coalesce(array_agg(group_id), '{}')
+  from public.group_members where user_id = user_uuid
 $$ language sql security definer stable;
 
 -- ============================================================

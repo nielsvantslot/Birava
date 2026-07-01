@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:migrate": "npx supabase db push"
+    "db:migrate": "npx supabase link --project-ref \"$SUPABASE_PROJECT_REF\" && npx supabase db push --linked"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.2.1",
