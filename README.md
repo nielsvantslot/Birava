@@ -104,6 +104,11 @@ Set the environment variables in Vercel dashboard under **Settings → Environme
 |-----|-------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon key |
+| `SUPABASE_ACCESS_TOKEN` | Personal access token from Supabase (for CLI auth during build) |
+| `SUPABASE_DB_PASSWORD` | Database password for your Supabase project |
+| `SUPABASE_PROJECT_REF` | `gkjqgypqhkptnshoyrym` |
+
+Vercel builds run `npm run db:migrate` before `npm run build`, so migrations in `supabase/migrations/` are applied automatically on each deployment.
 
 ### Option B – GitHub Integration
 

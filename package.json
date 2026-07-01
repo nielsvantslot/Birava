@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:migrate": "npx supabase db push"
+    "db:migrate": "if [ -n \"$SUPABASE_ACCESS_TOKEN\" ] && [ -n \"$SUPABASE_DB_PASSWORD\" ]; then npx supabase link --project-ref ${SUPABASE_PROJECT_REF:-gkjqgypqhkptnshoyrym} && npx supabase db push --password \"$SUPABASE_DB_PASSWORD\"; else npx supabase db push; fi"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.2.1",
