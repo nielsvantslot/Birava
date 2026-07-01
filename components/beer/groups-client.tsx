@@ -28,18 +28,14 @@ export function GroupsClient({ groups, userId }: GroupsClientProps) {
     startTransition(async () => {
       const supabase = createClient();
       const code = generateInviteCode();
-      const { data: group } = await supabase
+      const groupId = crypto.randomUUID();
+      await supabase
         .from("groups")
-        .insert({ name: newGroupName.trim(), invite_code: code })
-        .select()
-        .single();
-      if (group) {
-        await supabase.from("group_members").insert({
-          group_id: group.id,
-          user_id: userId,
-        });
-        // Update all future beer entries with this group
-      }
+        .insert({ id: groupId, name: newGroupName.trim(), invite_code: code });
+      await supabase.from("group_members").insert({
+        group_id: groupId,
+        user_id: userId,
+      });
       setNewGroupName("");
       router.refresh();
     });
