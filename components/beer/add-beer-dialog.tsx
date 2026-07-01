@@ -43,6 +43,20 @@ const BEER_STYLES = [
   "Other",
 ];
 
+function getInitialForm(entry?: BeerEntry) {
+  return {
+    beer_name: entry?.beer_name ?? "",
+    brewery: entry?.brewery ?? "",
+    style: entry?.style ?? "",
+    amount: entry?.amount?.toString() ?? "1",
+    notes: entry?.notes ?? "",
+    group_id: entry?.group_id ?? "none",
+    created_at: entry?.created_at
+      ? new Date(entry.created_at).toISOString().slice(0, 16)
+      : new Date().toISOString().slice(0, 16),
+  };
+}
+
 interface AddBeerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -54,18 +68,14 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
   const [isPending, startTransition] = useTransition();
   const isEditing = !!entry;
   const [groups, setGroups] = useState<Array<{ id: string; name: string }>>([]);
+  const [form, setForm] = useState(() => getInitialForm(entry));
+  const [error, setError] = useState<string | null>(null);
 
-  const [form, setForm] = useState({
-    beer_name: entry?.beer_name ?? "",
-    brewery: entry?.brewery ?? "",
-    style: entry?.style ?? "",
-    amount: entry?.amount?.toString() ?? "1",
-    notes: entry?.notes ?? "",
-    group_id: entry?.group_id ?? "none",
-    created_at: entry?.created_at
-      ? new Date(entry.created_at).toISOString().slice(0, 16)
-      : new Date().toISOString().slice(0, 16),
-  });
+  useEffect(() => {
+    if (!open) return;
+    setForm(getInitialForm(entry));
+    setError(null);
+  }, [entry, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -91,11 +101,43 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setError("You need to be signed in to save beers.");
+      return;
+    }
 
     startTransition(async () => {
+      const { data: profile, error: profileLookupError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profileLookupError) {
+        setError(profileLookupError.message);
+        return;
+      }
+
+      if (!profile) {
+        const username =
+          typeof user.user_metadata?.username === "string" &&
+          user.user_metadata.username.trim().length > 0
+            ? user.user_metadata.username.trim()
+            : `${(user.email?.split("@")[0] ?? "beerlover").replace(/[^a-zA-Z0-9_-]/g, "") || "beerlover"}-${user.id.slice(0, 8)}`;
+
+        const { error: profileInsertError } = await supabase
+          .from("profiles")
+          .insert({ id: user.id, username });
+
+        if (profileInsertError) {
+          setError(profileInsertError.message);
+          return;
+        }
+      }
+
       const payload = {
         user_id: user.id,
         beer_name: form.beer_name || null,
@@ -107,19 +149,39 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
         created_at: new Date(form.created_at).toISOString(),
       };
 
+      let saveError: { message: string } | null = null;
+
       if (isEditing) {
-        await supabase.from("beer_entries").update(payload).eq("id", entry.id);
+        const { error: updateError } = await supabase
+          .from("beer_entries")
+          .update(payload)
+          .eq("id", entry.id);
+        saveError = updateError;
       } else {
-        await supabase.from("beer_entries").insert(payload);
+        const { error: insertError } = await supabase
+          .from("beer_entries")
+          .insert(payload);
+        saveError = insertError;
+      }
+
+      if (saveError) {
+        setError(saveError.message);
+        return;
+      }
+
+      if (!isEditing) {
         // Check achievements
-        const { count } = await supabase
+        const { count, error: countError } = await supabase
           .from("beer_entries")
           .select("*", { count: "exact", head: true })
           .eq("user_id", user.id);
-        const achieved = checkAchievements(count ?? 0);
-        if (achieved) triggerConfetti();
+        if (!countError) {
+          const achieved = checkAchievements(count ?? 0);
+          if (achieved) triggerConfetti();
+        }
       }
 
+      setForm(getInitialForm());
       onOpenChange(false);
       router.refresh();
     });
@@ -226,6 +288,12 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
               rows={2}
             />
           </div>
+
+          {error && (
+            <p className="rounded-lg bg-[var(--destructive)]/10 px-3 py-2 text-sm text-[var(--destructive)]">
+              {error}
+            </p>
+          )}
 
           <DialogFooter>
             <Button
