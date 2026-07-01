@@ -1,6 +1,6 @@
 {
-  "name": "Brava – Beer Tracker",
-  "short_name": "Brava",
+  "name": "Birava – Beer Tracker",
+  "short_name": "Birava",
   "description": "Strava, but for beer. Track your holiday beers.",
   "start_url": "/dashboard",
   "display": "standalone",

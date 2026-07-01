@@ -1,4 +1,4 @@
-const CACHE_NAME = "brava-v2";
+const CACHE_NAME = "birava-v2";
 const STATIC_ASSETS = [
   "/manifest.json",
   "/icons/icon-192x192.png",

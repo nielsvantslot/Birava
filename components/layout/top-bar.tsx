@@ -37,7 +37,7 @@ export function TopBar({ username, avatarUrl }: TopBarProps) {
             <Beer className="h-5 w-5 text-white" />
           </div>
           <span className="text-xl font-black tracking-tight text-[var(--foreground)]">
-            Brava
+            Birava
           </span>
         </Link>
 
