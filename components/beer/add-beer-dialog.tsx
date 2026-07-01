@@ -61,7 +61,7 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
     style: entry?.style ?? "",
     amount: entry?.amount?.toString() ?? "1",
     notes: entry?.notes ?? "",
-    group_id: entry?.group_id ?? "",
+    group_id: entry?.group_id ?? "none",
     created_at: entry?.created_at
       ? new Date(entry.created_at).toISOString().slice(0, 16)
       : new Date().toISOString().slice(0, 16),
@@ -103,7 +103,7 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
         style: form.style || null,
         amount: parseFloat(form.amount) || 1,
         notes: form.notes || null,
-        group_id: form.group_id || null,
+        group_id: form.group_id === "none" ? null : (form.group_id || null),
         created_at: new Date(form.created_at).toISOString(),
       };
 
@@ -205,7 +205,7 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
                   <SelectValue placeholder="No group" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No group</SelectItem>
+                  <SelectItem value="none">No group</SelectItem>
                   {groups.map((g) => (
                     <SelectItem key={g.id} value={g.id}>
                       {g.name}

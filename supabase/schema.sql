@@ -101,9 +101,7 @@ alter table groups enable row level security;
 create policy "Groups are viewable by members"
   on groups for select
   using (
-    id in (
-      select group_id from group_members where user_id = auth.uid()
-    )
+    id = any(public.get_user_group_ids(auth.uid()))
   );
 
 create policy "Anyone can create a group"
@@ -121,13 +119,19 @@ create policy "Group members can update group"
 -- Group Members
 alter table group_members enable row level security;
 
+-- Helper function to fetch a user's group IDs without triggering RLS
+-- (security definer avoids the infinite recursion that would occur if
+--  the group_members select policy referenced group_members itself)
+create or replace function public.get_user_group_ids(user_uuid uuid)
+returns setof uuid as $$
+  select group_id from public.group_members where user_id = user_uuid
+$$ language sql security definer stable;
+
 create policy "Members can view their group memberships"
   on group_members for select
   using (
     user_id = auth.uid() or
-    group_id in (
-      select group_id from group_members where user_id = auth.uid()
-    )
+    group_id = any(public.get_user_group_ids(auth.uid()))
   );
 
 create policy "Users can join groups"
@@ -165,3 +169,26 @@ create policy "Users can update their own beer entries"
 create policy "Users can delete their own beer entries"
   on beer_entries for delete
   using (user_id = auth.uid());
+
+-- ============================================================
+-- RPC Functions
+-- ============================================================
+
+-- Join a group by invite code.
+-- Runs as security definer so it can look up any group by
+-- invite_code without the caller needing to be a member first.
+create or replace function public.join_group_by_invite_code(invite text)
+returns uuid as $$
+declare
+  gid uuid;
+begin
+  select id into gid from public.groups where invite_code = invite;
+  if gid is null then
+    raise exception 'Group not found';
+  end if;
+  insert into public.group_members (group_id, user_id)
+  values (gid, auth.uid())
+  on conflict do nothing;
+  return gid;
+end;
+$$ language plpgsql security definer;
