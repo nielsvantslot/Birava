@@ -153,9 +153,7 @@ create policy "Group members can view group beer entries"
   on beer_entries for select
   using (
     group_id is not null and
-    group_id in (
-      select group_id from group_members where user_id = auth.uid()
-    )
+    group_id = any(public.get_user_group_ids(auth.uid()))
   );
 
 create policy "Users can insert their own beer entries"
