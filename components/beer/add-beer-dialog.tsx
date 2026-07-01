@@ -73,12 +73,6 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
 
   useEffect(() => {
     if (!open) return;
-    setForm(getInitialForm(entry));
-    setError(null);
-  }, [entry, open]);
-
-  useEffect(() => {
-    if (!open) return;
     const fetchGroups = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -96,8 +90,10 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
     fetchGroups();
   }, [open]);
 
-  const set = (key: keyof typeof form) => (val: string) =>
+  const set = (key: keyof typeof form) => (val: string) => {
+    if (error) setError(null);
     setForm((f) => ({ ...f, [key]: val }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
