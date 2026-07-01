@@ -68,7 +68,7 @@ export default function SignupPage() {
             <Beer className="h-8 w-8 text-white" />
           </div>
         </div>
-        <h1 className="text-3xl font-black">Brava 🍺</h1>
+        <h1 className="text-3xl font-black">Birava 🍺</h1>
         <p className="text-[var(--muted-foreground)] text-sm">
           Create your account
         </p>

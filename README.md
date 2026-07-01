@@ -1,8 +1,8 @@
-# Brava 🍺
+# Birava 🍺
 
 > Strava, but for beer. Track your holiday beers, compete with friends, earn achievements.
 
-Brava is a mobile-first PWA built with Next.js, Supabase, and Tailwind CSS. Log beers, see stats, run a holiday leaderboard, and install it on your phone's home screen.
+Birava is a mobile-first PWA built with Next.js, Supabase, and Tailwind CSS. Log beers, see stats, run a holiday leaderboard, and install it on your phone's home screen.
 
 ---
 

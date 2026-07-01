@@ -3,16 +3,16 @@ import "./globals.css";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 
 export const metadata: Metadata = {
-  title: "Brava 🍺 – Track Your Holiday Beers",
+  title: "Birava 🍺 – Track Your Holiday Beers",
   description: "Strava, but for beer. Track your holiday beers, compete with friends, earn achievements.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Brava",
+    title: "Birava",
   },
   openGraph: {
-    title: "Brava 🍺",
+    title: "Birava 🍺",
     description: "Track your holiday beers",
     type: "website",
   },

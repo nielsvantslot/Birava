@@ -49,7 +49,7 @@ function buildStorySvg({
   </defs>
   <rect width="1080" height="1920" fill="url(#bg)" />
   <rect x="70" y="220" width="940" height="1210" rx="48" fill="rgba(17,24,39,0.2)" />
-  <text x="540" y="360" text-anchor="middle" fill="#fff7ed" font-size="56" font-weight="700" font-family="Inter, system-ui, sans-serif">Brava 24h Recap 🍺</text>
+  <text x="540" y="360" text-anchor="middle" fill="#fff7ed" font-size="56" font-weight="700" font-family="Inter, system-ui, sans-serif">Birava 24h Recap 🍺</text>
   <text x="540" y="450" text-anchor="middle" fill="#ffedd5" font-size="30" font-family="Inter, system-ui, sans-serif">Last 24 hours</text>
 
   <text x="130" y="620" fill="#ffedd5" font-size="36" font-family="Inter, system-ui, sans-serif">Total beers</text>
@@ -68,7 +68,7 @@ function buildStorySvg({
   <text x="130" y="1310" fill="#fff" font-size="44" font-weight="600" font-family="Inter, system-ui, sans-serif">${escapeSvgText(brewery)}</text>
 
   <text x="540" y="1590" text-anchor="middle" fill="#ffedd5" font-size="30" font-family="Inter, system-ui, sans-serif">${escapeSvgText(timestamp)}</text>
-  <text x="540" y="1680" text-anchor="middle" fill="#fff7ed" font-size="38" font-weight="700" font-family="Inter, system-ui, sans-serif">brava.app</text>
+  <text x="540" y="1680" text-anchor="middle" fill="#fff7ed" font-size="38" font-weight="700" font-family="Inter, system-ui, sans-serif">birava.app</text>
 </svg>
 `.trim();
 }
@@ -116,7 +116,7 @@ export function Last24hRecap(props: Last24hRecapProps) {
 
     try {
       const blob = await svgToPngBlob(storySvg);
-      const filename = `brava-24h-recap-${new Date().toISOString().slice(0, 10)}.png`;
+      const filename = `birava-24h-recap-${new Date().toISOString().slice(0, 10)}.png`;
       const file = new File([blob], filename, { type: "image/png" });
 
       if (
@@ -126,8 +126,8 @@ export function Last24hRecap(props: Last24hRecapProps) {
       ) {
         await navigator.share({
           files: [file],
-          title: "My Brava 24h recap",
-          text: "My Brava stats from the last 24 hours 🍺",
+          title: "My Birava 24h recap",
+          text: "My Birava stats from the last 24 hours 🍺",
         });
         setStatus("Shared!");
         return;
