@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:migrate": "if [ -n \"$SUPABASE_DB_URL\" ]; then npx supabase db push --db-url \"$SUPABASE_DB_URL\"; elif [ -n \"$SUPABASE_PROJECT_REF\" ]; then npx supabase db push --project-ref \"$SUPABASE_PROJECT_REF\"; else npx supabase db push; fi"
+    "db:migrate": "if [ -n \"$SUPABASE_DB_URL\" ]; then npx supabase db push --db-url \"$SUPABASE_DB_URL\"; else npx supabase db push --linked; fi"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.2.1",
