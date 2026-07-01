@@ -31,7 +31,10 @@ export async function updateSession(request: NextRequest) {
 
   const url = request.nextUrl.clone();
   const isAuthPage =
-    url.pathname.startsWith("/login") || url.pathname.startsWith("/signup");
+    url.pathname.startsWith("/login") ||
+    url.pathname.startsWith("/signup") ||
+    url.pathname.startsWith("/forgot-password") ||
+    url.pathname.startsWith("/reset-password");
 
   if (!user && !isAuthPage) {
     url.pathname = "/login";

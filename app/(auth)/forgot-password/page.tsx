@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Beer } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -10,27 +9,31 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
-export default function LoginPage() {
-  const router = useRouter();
+export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccess(null);
+
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
     if (error) {
       setError(error.message);
       setLoading(false);
-    } else {
-      setLoading(false);
-      router.push("/dashboard");
-      router.refresh();
+      return;
     }
+
+    setSuccess("If this email exists, a password reset link has been sent.");
+    setLoading(false);
   };
 
   return (
@@ -43,17 +46,17 @@ export default function LoginPage() {
         </div>
         <h1 className="text-3xl font-black">Brava 🍺</h1>
         <p className="text-[var(--muted-foreground)] text-sm">
-          Strava, but for beer
+          Reset your password
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Sign in</CardTitle>
-          <CardDescription>Enter your details to continue</CardDescription>
+          <CardTitle>Forgot password</CardTitle>
+          <CardDescription>Enter your email to receive a reset link</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -66,26 +69,6 @@ export default function LoginPage() {
                 autoComplete="email"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-              />
-            </div>
-            <div className="text-right -mt-2">
-              <Link
-                href="/forgot-password"
-                className="text-sm text-[var(--primary)] font-semibold hover:underline"
-              >
-                Forgot password?
-              </Link>
-            </div>
 
             {error && (
               <p className="text-sm text-[var(--destructive)] bg-[var(--destructive)]/10 rounded-lg px-3 py-2">
@@ -93,17 +76,23 @@ export default function LoginPage() {
               </p>
             )}
 
+            {success && (
+              <p className="text-sm text-emerald-600 bg-emerald-500/10 rounded-lg px-3 py-2">
+                {success}
+              </p>
+            )}
+
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? "Sending link..." : "Send reset link"}
             </Button>
           </form>
         </CardContent>
       </Card>
 
       <p className="text-center text-sm text-[var(--muted-foreground)]">
-        No account?{" "}
-        <Link href="/signup" className="text-[var(--primary)] font-semibold hover:underline">
-          Sign up free
+        Remembered your password?{" "}
+        <Link href="/login" className="text-[var(--primary)] font-semibold hover:underline">
+          Back to sign in
         </Link>
       </p>
     </div>
