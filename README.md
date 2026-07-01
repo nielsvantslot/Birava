@@ -75,6 +75,7 @@ Edit `.env`:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
 ```
 
 ### 4. Run locally
@@ -104,6 +105,7 @@ Set the environment variables in Vercel dashboard under **Settings → Environme
 |-----|-------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role key for server-side signup |
 
 ### Option B – GitHub Integration
 
