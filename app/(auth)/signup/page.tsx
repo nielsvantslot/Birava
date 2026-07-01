@@ -1,0 +1,133 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Beer } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+
+export default function SignupPage() {
+  const router = useRouter();
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    const supabase = createClient();
+
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { username },
+      },
+    });
+
+    if (signUpError) {
+      setError(signUpError.message);
+      setLoading(false);
+      return;
+    }
+
+    // Create profile row
+    if (data.user) {
+      await supabase.from("profiles").upsert({
+        id: data.user.id,
+        username: username.trim(),
+      });
+    }
+
+    router.push("/dashboard");
+    router.refresh();
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="text-center space-y-2">
+        <div className="flex justify-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--primary)] shadow-lg shadow-orange-500/30">
+            <Beer className="h-8 w-8 text-white" />
+          </div>
+        </div>
+        <h1 className="text-3xl font-black">Brava 🍺</h1>
+        <p className="text-[var(--muted-foreground)] text-sm">
+          Create your account
+        </p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Sign up</CardTitle>
+          <CardDescription>Start tracking your holiday beers</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSignup} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                placeholder="beerlover42"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                minLength={2}
+                maxLength={30}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="At least 8 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+                autoComplete="new-password"
+              />
+            </div>
+
+            {error && (
+              <p className="text-sm text-[var(--destructive)] bg-[var(--destructive)]/10 rounded-lg px-3 py-2">
+                {error}
+              </p>
+            )}
+
+            <Button type="submit" className="w-full" size="lg" disabled={loading}>
+              {loading ? "Creating account..." : "Create account 🍺"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <p className="text-center text-sm text-[var(--muted-foreground)]">
+        Already have an account?{" "}
+        <Link href="/login" className="text-[var(--primary)] font-semibold hover:underline">
+          Sign in
+        </Link>
+      </p>
+    </div>
+  );
+}
