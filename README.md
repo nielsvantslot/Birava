@@ -47,11 +47,22 @@ cd Brava
 npm install
 ```
 
-### 2. Create a Supabase project
+### 2. Create and link a Supabase project
 
 1. Go to [supabase.com](https://supabase.com) and create a new project
-2. Go to **SQL Editor** and run the contents of `supabase/schema.sql`
-3. Copy your project URL and anon key from **Settings → API**
+2. Install and authenticate Supabase CLI:
+
+```bash
+npx supabase login
+```
+
+3. Link this repo to your project:
+
+```bash
+npx supabase link --project-ref your-project-ref
+```
+
+4. Copy your project URL and anon key from **Settings → API**
 
 ### 3. Configure environment variables
 
@@ -71,6 +82,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
 ```bash
 npm run dev
 ```
+
+`npm run dev` now automatically runs `supabase db push` first, so pending migrations in `supabase/migrations/` are applied without manually pasting SQL in the Supabase SQL editor.
 
 Open [http://localhost:3000](http://localhost:3000).
 
@@ -179,7 +192,8 @@ All tables have Row Level Security enabled. Users can only read/write their own 
 │   └── achievements.ts          Achievement logic + confetti
 ├── middleware.ts                 Auth redirect middleware
 ├── supabase/
-│   └── schema.sql               Full Postgres schema + RLS policies
+│   ├── migrations/              Versioned SQL migrations used by Supabase CLI
+│   └── schema.sql               Canonical schema reference
 └── public/
     ├── manifest.json             PWA manifest
     └── icons/                   App icons (72–512px)
