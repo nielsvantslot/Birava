@@ -68,7 +68,7 @@ function buildStorySvg({
   <text x="130" y="1310" fill="#fff" font-size="44" font-weight="600" font-family="Inter, system-ui, sans-serif">${escapeSvgText(brewery)}</text>
 
   <text x="540" y="1590" text-anchor="middle" fill="#ffedd5" font-size="30" font-family="Inter, system-ui, sans-serif">${escapeSvgText(timestamp)}</text>
-  <text x="540" y="1680" text-anchor="middle" fill="#fff7ed" font-size="38" font-weight="700" font-family="Inter, system-ui, sans-serif">birava.app</text>
+  <text x="540" y="1680" text-anchor="middle" fill="#fff7ed" font-size="38" font-weight="700" font-family="Inter, system-ui, sans-serif">birava.nl</text>
 </svg>
 `.trim();
 }
