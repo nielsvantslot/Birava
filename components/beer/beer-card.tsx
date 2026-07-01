@@ -26,7 +26,14 @@ export function BeerCard({ entry, showUser }: BeerCardProps) {
     if (!confirm("Delete this beer entry?")) return;
     startTransition(async () => {
       const supabase = createClient();
-      await supabase.from("beer_entries").delete().eq("id", entry.id);
+      const { error } = await supabase
+        .from("beer_entries")
+        .delete()
+        .eq("id", entry.id);
+      if (error) {
+        alert(`Failed to delete: ${error.message}`);
+        return;
+      }
       router.refresh();
     });
   };

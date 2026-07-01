@@ -38,14 +38,20 @@ export default function SignupPage() {
       return;
     }
 
-    // Create profile row
+    // Ensure profile row exists (the DB trigger may have already created it)
     if (data.user) {
-      await supabase.from("profiles").upsert({
+      const { error: profileError } = await supabase.from("profiles").upsert({
         id: data.user.id,
         username: username.trim(),
       });
+      if (profileError) {
+        setError(profileError.message);
+        setLoading(false);
+        return;
+      }
     }
 
+    setLoading(false);
     router.push("/dashboard");
     router.refresh();
   };
