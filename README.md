@@ -202,4 +202,4 @@ Confetti fires automatically when you hit a milestone!
 
 ## License
 
-MIT – have fun and drink responsibly 🍺
+MIT – have fun and drink irresponsibly 🍺
