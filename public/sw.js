@@ -1,7 +1,5 @@
-const CACHE_NAME = "brava-v1";
+const CACHE_NAME = "brava-v2";
 const STATIC_ASSETS = [
-  "/",
-  "/dashboard",
   "/manifest.json",
   "/icons/icon-192x192.png",
   "/icons/icon-512x512.png",
@@ -30,11 +28,15 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   if (url.hostname.includes("supabase.co")) return;
 
+  // Never cache HTML navigation requests — they are server-rendered and
+  // auth-protected. Caching them causes stale/broken pages after session expiry.
+  if (event.request.mode === "navigate") return;
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
       return fetch(event.request).then((response) => {
-        // Cache static assets
+        // Cache only static assets
         if (
           response.ok &&
           (url.pathname.startsWith("/_next/static") ||
