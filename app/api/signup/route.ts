@@ -54,17 +54,31 @@ export async function POST(request: Request) {
     },
   });
 
-  const { error } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: {
-      username,
-    },
-  });
+  let createError: unknown = null;
+  try {
+    const { error } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        username,
+      },
+    });
+    createError = error;
+  } catch (err) {
+    createError = err;
+  }
 
-  if (error) {
-    return Response.json({ error: error.message }, { status: 400 });
+  if (createError) {
+    const raw =
+      createError instanceof Error ? createError.message : String(createError);
+    // auth-js returns "{}" as the message when Supabase responds with a 5xx and
+    // the response body cannot be extracted from the raw Response object.
+    const message =
+      raw && raw !== "{}"
+        ? raw
+        : "Failed to create account. Please try again.";
+    return Response.json({ error: message }, { status: 400 });
   }
 
   return Response.json({ success: true });
