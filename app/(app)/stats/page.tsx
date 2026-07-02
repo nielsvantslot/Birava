@@ -3,7 +3,6 @@ import { StatsCharts } from "@/components/beer/stats-charts";
 import { Last24hRecap } from "@/components/beer/last-24h-recap";
 import { BeerEntry } from "@/lib/types";
 
-export const dynamic = "force-dynamic";
 
 function getTopCategory(
   entries: BeerEntry[],

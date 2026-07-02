@@ -21,9 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createClient } from "@/lib/supabase/client";
 import { BeerEntry } from "@/lib/types";
-import { triggerConfetti, checkAchievements } from "@/lib/achievements";
+import { triggerConfetti } from "@/lib/achievements";
+import { addBeer, editBeer } from "@/lib/actions/beer";
 
 
 const BEER_STYLES = [
@@ -49,16 +49,18 @@ function toDatetimeLocalValue(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-function getInitialForm(entry?: BeerEntry) {
+function getInitialForm(entry?: BeerEntry, now?: Date) {
   return {
     beer_name: entry?.beer_name ?? "",
     brewery: entry?.brewery ?? "",
     style: entry?.style ?? "",
     amount: entry?.amount?.toString() ?? "1",
     notes: entry?.notes ?? "",
-    created_at: toDatetimeLocalValue(
-      entry?.created_at ? new Date(entry.created_at) : new Date()
-    ),
+    created_at: entry?.created_at
+      ? toDatetimeLocalValue(new Date(entry.created_at))
+      : now
+      ? toDatetimeLocalValue(now)
+      : "",
   };
 }
 
@@ -75,10 +77,18 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
   const [form, setForm] = useState(() => getInitialForm(entry));
   const [error, setError] = useState<string | null>(null);
 
+  // Populate created_at with current time on the client only
+  useEffect(() => {
+    setForm((prev) => ({
+      ...prev,
+      created_at: prev.created_at || toDatetimeLocalValue(new Date()),
+    }));
+  }, []);
+
   useEffect(() => {
     if (open) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setForm(getInitialForm(entry));
+      setForm(getInitialForm(entry, new Date()));
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -90,85 +100,35 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setError("You need to be signed in to save beers.");
-      return;
-    }
+
+    const payload = {
+      beer_name: form.beer_name || null,
+      brewery: form.brewery || null,
+      style: form.style || null,
+      amount: parseFloat(form.amount) || 1,
+      notes: form.notes || null,
+      created_at: new Date(form.created_at).toISOString(),
+    };
 
     startTransition(async () => {
-      const { data: profile, error: profileLookupError } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (profileLookupError) {
-        setError(profileLookupError.message);
-        return;
-      }
-
-      if (!profile) {
-        const username =
-          typeof user.user_metadata?.username === "string" &&
-          user.user_metadata.username.trim().length > 0
-            ? user.user_metadata.username.trim()
-            : `${(user.email?.split("@")[0] ?? "beerlover").replace(/[^a-zA-Z0-9_-]/g, "") || "beerlover"}-${user.id.slice(0, 8)}`;
-
-        const { error: profileInsertError } = await supabase
-          .from("profiles")
-          .insert({ id: user.id, username });
-
-        if (profileInsertError) {
-          setError(profileInsertError.message);
-          return;
-        }
-      }
-
-      const payload = {
-        user_id: user.id,
-        beer_name: form.beer_name || null,
-        brewery: form.brewery || null,
-        style: form.style || null,
-        amount: parseFloat(form.amount) || 1,
-        notes: form.notes || null,
-        created_at: new Date(form.created_at).toISOString(),
-      };
-
-      let saveError: { message: string } | null = null;
+      let result: { error?: string; achievementUnlocked?: boolean };
 
       if (isEditing) {
-        const { error: updateError } = await supabase
-          .from("beer_entries")
-          .update(payload)
-          .eq("id", entry.id);
-        saveError = updateError;
+        result = await editBeer(entry.id, payload);
       } else {
-        const { error: insertError } = await supabase
-          .from("beer_entries")
-          .insert(payload);
-        saveError = insertError;
+        result = await addBeer(payload);
       }
 
-      if (saveError) {
-        setError(saveError.message);
+      if (result.error) {
+        setError(result.error);
         return;
       }
 
-      if (!isEditing) {
-        // Check achievements
-        const { count, error: countError } = await supabase
-          .from("beer_entries")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", user.id);
-        if (!countError) {
-          const achieved = checkAchievements(count ?? 0);
-          if (achieved) triggerConfetti();
-        }
+      if (!isEditing && result.achievementUnlocked) {
+        triggerConfetti();
       }
 
-      setForm(getInitialForm(isEditing ? entry : undefined));
+      setForm(getInitialForm(isEditing ? entry : undefined, isEditing ? undefined : new Date()));
       onOpenChange(false);
       router.refresh();
     });
