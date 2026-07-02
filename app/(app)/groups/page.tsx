@@ -12,7 +12,7 @@ export default async function GroupsPage() {
 
   const { data: memberships } = await supabase
     .from("group_members")
-    .select("groups(id, name, invite_code)")
+    .select("groups(id, name, invite_code, owner_id)")
     .eq("user_id", user.id);
 
   const groups =

@@ -9,6 +9,7 @@ export type Group = {
   id: string;
   name: string;
   invite_code: string;
+  owner_id: string | null;
   created_at: string;
 };
 

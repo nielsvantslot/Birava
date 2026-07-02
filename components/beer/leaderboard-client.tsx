@@ -1,9 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { LeaderboardEntry } from "@/lib/types";
 
 export type LeaderboardTab = {
@@ -87,6 +94,8 @@ function LeaderboardList({
 }
 
 export function LeaderboardClient({ tabs, currentUserId }: LeaderboardClientProps) {
+  const [selectedTabId, setSelectedTabId] = useState(tabs[0]?.id ?? "");
+
   if (tabs.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -105,20 +114,24 @@ export function LeaderboardClient({ tabs, currentUserId }: LeaderboardClientProp
     );
   }
 
+  const selectedTab = tabs.find((tab) => tab.id === selectedTabId) ?? tabs[0];
+
   return (
-    <Tabs defaultValue={tabs[0].id}>
-      <TabsList className="w-full overflow-x-auto flex">
-        {tabs.map((tab) => (
-          <TabsTrigger key={tab.id} value={tab.id} className="flex-1 min-w-fit">
-            {tab.label}
-          </TabsTrigger>
-        ))}
-      </TabsList>
-      {tabs.map((tab) => (
-        <TabsContent key={tab.id} value={tab.id}>
-          <LeaderboardList entries={tab.entries} currentUserId={currentUserId} />
-        </TabsContent>
-      ))}
-    </Tabs>
+    <div className="space-y-4">
+      <Select value={selectedTab.id} onValueChange={setSelectedTabId}>
+        <SelectTrigger aria-label="Select leaderboard">
+          <SelectValue placeholder="Select leaderboard" />
+        </SelectTrigger>
+        <SelectContent>
+          {tabs.map((tab) => (
+            <SelectItem key={tab.id} value={tab.id}>
+              {tab.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <LeaderboardList entries={selectedTab.entries} currentUserId={currentUserId} />
+    </div>
   );
 }
