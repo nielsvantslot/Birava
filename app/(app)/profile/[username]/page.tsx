@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -53,9 +53,7 @@ function getAvgPerDay(entries: { created_at: string; amount: number }[]): string
 export default async function PublicProfilePage({ params }: Props) {
   const { username } = await params;
   const supabase = await createClient();
-  const {
-    data: { user: currentUser },
-  } = await supabase.auth.getUser();
+  const currentUser = await getUser();
 
   // Fetch the target profile
   const { data: profile } = await supabase

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { StatCard } from "@/components/beer/stat-card";
 import { BeerCard } from "@/components/beer/beer-card";
 import { getEarnedAchievements } from "@/lib/achievements";
@@ -59,9 +59,7 @@ function getAvgPerDay(entries: BeerEntry[]): string {
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return null;
 
   const { data: entries = [] } = await supabase

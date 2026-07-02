@@ -1,13 +1,11 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { PeopleClient } from "@/components/beer/people-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function PeoplePage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return null;
 
   // Load the IDs the current user already follows
