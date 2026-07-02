@@ -1,13 +1,11 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { BoardGroupsClient } from "@/components/beer/board-groups-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function LeaderboardPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return null;
 
   const [followsResult, membershipsResult] = await Promise.all([

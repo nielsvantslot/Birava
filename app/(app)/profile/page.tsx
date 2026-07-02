@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { ProfileClient } from "@/components/beer/profile-client";
 import { BeerEntry } from "@/lib/types";
 import { getFollowCounts } from "@/lib/actions/social";
@@ -43,9 +43,7 @@ function getAvgPerDay(entries: BeerEntry[]): string {
 
 export default async function ProfilePage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return null;
 
   const [{ data: profile }, { data: entries = [] }] = await Promise.all([

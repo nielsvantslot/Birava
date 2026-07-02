@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { StatsCharts } from "@/components/beer/stats-charts";
 import { Last24hRecap } from "@/components/beer/last-24h-recap";
 import { BeerEntry } from "@/lib/types";
@@ -31,9 +31,7 @@ function getTopCategory(
 
 export default async function StatsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return null;
 
   const { data: entries = [] } = await supabase
