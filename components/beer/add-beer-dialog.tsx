@@ -72,6 +72,13 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setForm(getInitialForm(entry));
+    }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
     if (!open) return;
     const fetchGroups = async () => {
       const supabase = createClient();
@@ -177,7 +184,7 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
         }
       }
 
-      setForm(getInitialForm());
+      setForm(getInitialForm(isEditing ? entry : undefined));
       onOpenChange(false);
       router.refresh();
     });
