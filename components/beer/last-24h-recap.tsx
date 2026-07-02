@@ -138,6 +138,7 @@ async function buildShareImageBlob(props: Last24hRecapProps): Promise<Blob> {
 
 export function Last24hRecap(props: Last24hRecapProps) {
   const [isSharing, setIsSharing] = useState(false);
+  const [blobReady, setBlobReady] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   // Pre-generated blob so handleShare never awaits before calling navigator.share().
   // iOS Safari revokes the user-gesture ("transient activation") the moment any
@@ -147,9 +148,16 @@ export function Last24hRecap(props: Last24hRecapProps) {
 
   useEffect(() => {
     blobRef.current = null;
+    setBlobReady(false);
     buildShareImageBlob(props)
-      .then((b) => { blobRef.current = b; })
-      .catch(() => {});
+      .then((b) => {
+        blobRef.current = b;
+        setBlobReady(true);
+      })
+      .catch(() => {
+        // Allow the user to try anyway; handleShare will build on demand.
+        setBlobReady(true);
+      });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.totalBeers, props.checkins, props.beersPerHour, props.topStyle, props.topBrewery]);
 
@@ -171,11 +179,9 @@ export function Last24hRecap(props: Last24hRecapProps) {
         navigator.share &&
         navigator.canShare({ files: [file] })
       ) {
-        await navigator.share({
-          files: [file],
-          title: "My Birava 24h recap",
-          text: "My Birava stats from the last 24 hours 🍺",
-        });
+        // Share only the file — omitting title/text prevents Snapchat and some
+        // other iOS apps from silently dropping the image attachment.
+        await navigator.share({ files: [file] });
         setStatus("Shared!");
         return;
       }
@@ -228,9 +234,9 @@ export function Last24hRecap(props: Last24hRecapProps) {
             onClick={handleShare}
             variant="secondary"
             className="bg-white text-orange-700 hover:bg-amber-50"
-            disabled={isSharing}
+            disabled={isSharing || !blobReady}
           >
-            {isSharing ? "Preparing image..." : "Share 24h recap"}
+            {isSharing ? "Sharing..." : !blobReady ? "Preparing image..." : "Share 24h recap"}
           </Button>
           {status && <span className="text-xs text-white/90">{status}</span>}
         </div>
