@@ -74,72 +74,6 @@ export function BoardGroupsClient({ groups, userId, hasFriends }: BoardGroupsCli
 
   return (
     <div className="space-y-6">
-      {/* Friends */}
-      {hasFriends && (
-        <div>
-          <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-widest mb-2">
-            Friends
-          </p>
-          <Link href="/leaderboard/friends">
-            <Card className="hover:border-[var(--primary)] transition-colors cursor-pointer">
-              <CardContent className="py-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">👥</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold">Friends</p>
-                    <p className="text-xs text-[var(--muted-foreground)]">People you follow</p>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-[var(--muted-foreground)]" />
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        </div>
-      )}
-
-      {/* Groups */}
-      <div>
-        <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-widest mb-2">
-          Groups
-        </p>
-        {groups.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <span className="text-4xl mb-3">🍺</span>
-            <p className="font-semibold">No groups yet</p>
-            <p className="text-sm text-[var(--muted-foreground)] mt-1">
-              Create or join a group below.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {groups.map((group) => {
-              const isOwner = group.owner_id === userId;
-              return (
-                <Link key={group.id} href={`/leaderboard/${group.id}`}>
-                  <Card className="hover:border-[var(--primary)] transition-colors cursor-pointer">
-                    <CardContent className="py-4">
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">🍺</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="font-semibold truncate">{group.name}</p>
-                            {isOwner && <Badge variant="secondary">owner</Badge>}
-                          </div>
-                          <p className="text-xs text-[var(--muted-foreground)] font-mono">
-                            {group.invite_code}
-                          </p>
-                        </div>
-                        <ChevronRight className="h-5 w-5 text-[var(--muted-foreground)]" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
       {/* Create group */}
       <Card>
         <CardHeader>
@@ -185,6 +119,72 @@ export function BoardGroupsClient({ groups, userId, hasFriends }: BoardGroupsCli
           </form>
         </CardContent>
       </Card>
+
+      {/* Friends */}
+      {hasFriends && (
+        <div>
+          <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-widest mb-2">
+            Friends
+          </p>
+          <Link href="/leaderboard/friends">
+            <Card className="hover:border-[var(--primary)] transition-colors cursor-pointer">
+              <CardContent className="py-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">👥</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold">Friends</p>
+                    <p className="text-xs text-[var(--muted-foreground)]">People you follow</p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-[var(--muted-foreground)]" />
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+      )}
+
+      {/* Groups */}
+      <div>
+        <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-widest mb-2">
+          Groups
+        </p>
+        {groups.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <span className="text-4xl mb-3">🍺</span>
+            <p className="font-semibold">No groups yet</p>
+            <p className="text-sm text-[var(--muted-foreground)] mt-1">
+              Create or join a group above.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {groups.map((group) => {
+              const isOwner = group.owner_id === userId;
+              return (
+                <Link key={group.id} href={`/leaderboard/${group.id}`}>
+                  <Card className="hover:border-[var(--primary)] transition-colors cursor-pointer">
+                    <CardContent className="py-4">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">🍺</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold truncate">{group.name}</p>
+                            {isOwner && <Badge variant="secondary">owner</Badge>}
+                          </div>
+                          <p className="text-xs text-[var(--muted-foreground)] font-mono">
+                            {group.invite_code}
+                          </p>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-[var(--muted-foreground)]" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
