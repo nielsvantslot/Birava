@@ -73,7 +73,7 @@ function buildStorySvg({
 `.trim();
 }
 
-async function svgToPngBlob(svg: string) {
+async function svgToShareImageBlob(svg: string) {
   const svgBlob = new Blob([svg], {
     type: "image/svg+xml;charset=utf-8",
   });
@@ -92,14 +92,16 @@ async function svgToPngBlob(svg: string) {
     canvas.height = 1920;
     const context = canvas.getContext("2d");
     if (!context) throw new Error("Canvas is not supported");
+    context.fillStyle = "#f97316";
+    context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(image, 0, 0);
 
-    const pngBlob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/png")
+    const shareBlob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", 0.92)
     );
 
-    if (!pngBlob) throw new Error("Failed to generate recap image");
-    return pngBlob;
+    if (!shareBlob) throw new Error("Failed to generate recap image");
+    return shareBlob;
   } finally {
     URL.revokeObjectURL(url);
   }
@@ -115,9 +117,9 @@ export function Last24hRecap(props: Last24hRecapProps) {
     setStatus(null);
 
     try {
-      const blob = await svgToPngBlob(storySvg);
-      const filename = `birava-24h-recap-${new Date().toISOString().slice(0, 10)}.png`;
-      const file = new File([blob], filename, { type: "image/png" });
+      const blob = await svgToShareImageBlob(storySvg);
+      const filename = `birava-24h-recap-${new Date().toISOString().slice(0, 10)}.jpg`;
+      const file = new File([blob], filename, { type: "image/jpeg" });
 
       if (
         navigator.canShare &&
