@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { generateInviteCode } from "@/lib/utils";
 
 interface GroupsClientProps {
-  groups: Array<{ id: string; name: string; invite_code: string; owner_id: string }>;
+  groups: Array<{ id: string; name: string; invite_code: string; owner_id: string | null }>;
   userId: string;
 }
 
@@ -84,11 +84,9 @@ export function GroupsClient({ groups, userId }: GroupsClientProps) {
     startTransition(async () => {
       setActiveGroupAction(groupId);
       const supabase = createClient();
-      const { error } = await supabase
-        .from("group_members")
-        .delete()
-        .eq("group_id", groupId)
-        .eq("user_id", userId);
+      const { error } = await supabase.rpc("leave_group", {
+        target_group_id: groupId,
+      });
 
       setActiveGroupAction(null);
 
