@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -136,13 +136,30 @@ async function buildShareImageBlob(props: Last24hRecapProps): Promise<Blob> {
 export function Last24hRecap(props: Last24hRecapProps) {
   const [isSharing, setIsSharing] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  // Pre-generated blob so handleShare never awaits before calling navigator.share().
+  // iOS Safari revokes the user-gesture ("transient activation") the moment any
+  // await is encountered, which causes the share sheet to silently fail on the
+  // first tap when the blob is built inside the handler.
+  const blobRef = useRef<Blob | null>(null);
+
+  useEffect(() => {
+    blobRef.current = null;
+    buildShareImageBlob(props)
+      .then((b) => { blobRef.current = b; })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.totalBeers, props.checkins, props.beersPerHour, props.topStyle, props.topBrewery]);
 
   const handleShare = async () => {
+    if (isSharing) return;
     setIsSharing(true);
     setStatus(null);
 
     try {
-      const blob = await buildShareImageBlob(props);
+      // Use the pre-generated blob when available so no await precedes
+      // navigator.share() — required for iOS Safari user-gesture trust.
+      // Fall back to building it now on platforms that don't need the sync path.
+      const blob = blobRef.current ?? await buildShareImageBlob(props);
       const filename = `birava-24h-recap-${new Date().toISOString().slice(0, 10)}.jpg`;
       const file = new File([blob], filename, { type: "image/jpeg" });
 
