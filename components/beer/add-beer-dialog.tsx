@@ -43,6 +43,11 @@ const BEER_STYLES = [
   "Other",
 ];
 
+function toDatetimeLocalValue(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 function getInitialForm(entry?: BeerEntry) {
   return {
     beer_name: entry?.beer_name ?? "",
@@ -51,9 +56,9 @@ function getInitialForm(entry?: BeerEntry) {
     amount: entry?.amount?.toString() ?? "1",
     notes: entry?.notes ?? "",
     group_id: entry?.group_id ?? "none",
-    created_at: entry?.created_at
-      ? new Date(entry.created_at).toISOString().slice(0, 16)
-      : new Date().toISOString().slice(0, 16),
+    created_at: toDatetimeLocalValue(
+      entry?.created_at ? new Date(entry.created_at) : new Date()
+    ),
   };
 }
 
