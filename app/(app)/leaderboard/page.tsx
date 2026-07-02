@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { LeaderboardEntry } from "@/lib/types";
 import { LeaderboardClient, LeaderboardTab } from "@/components/beer/leaderboard-client";
+import { GroupsClient } from "@/components/beer/groups-client";
 
 export const dynamic = "force-dynamic";
 
@@ -71,14 +72,19 @@ export default async function LeaderboardPage() {
       .eq("follower_id", user.id),
     supabase
       .from("group_members")
-      .select("group_id, groups(id, name)")
+      .select("group_id, groups(id, name, invite_code, owner_id)")
       .eq("user_id", user.id),
   ]);
 
   const followedIds = (followsResult.data ?? []).map((f) => f.following_id);
   const friendIds = [...new Set([user.id, ...followedIds])];
 
-  const groups: Array<{ id: string; name: string }> =
+  const groups: Array<{
+    id: string;
+    name: string;
+    invite_code: string;
+    owner_id: string | null;
+  }> =
     (membershipsResult.data ?? []).flatMap((m) =>
       Array.isArray(m.groups) ? m.groups : m.groups ? [m.groups] : []
     );
@@ -149,11 +155,32 @@ export default async function LeaderboardPage() {
       <div>
         <h1 className="text-2xl font-black">Leaderboard 🏆</h1>
         <p className="text-[var(--muted-foreground)] text-sm mt-0.5">
-          Holiday beer rankings
+          Holiday beer rankings and group management
         </p>
       </div>
 
       <LeaderboardClient tabs={tabs} currentUserId={user.id} />
+
+      <div className="space-y-6 pt-2">
+        <div>
+          <h2 className="text-xl font-black">Groups 👥</h2>
+          <p className="text-[var(--muted-foreground)] text-sm mt-0.5">
+            Create or join groups from the board
+          </p>
+        </div>
+
+        {groups.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <span className="text-6xl mb-4">👥</span>
+            <p className="font-semibold text-lg">No groups yet</p>
+            <p className="text-sm text-[var(--muted-foreground)] mt-1">
+              Create a group or join one with an invite code.
+            </p>
+          </div>
+        )}
+
+        <GroupsClient groups={groups} userId={user.id} />
+      </div>
     </div>
   );
 }

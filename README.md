@@ -12,8 +12,7 @@ Birava is a mobile-first PWA built with Next.js, Supabase, and Tailwind CSS. Log
 - 📊 **Dashboard** — Total beers, today's count, streak, and avg/day at a glance
 - 📋 **History** — Full chronological list grouped by day with edit/delete
 - 📈 **Statistics** — Recharts graphs: beers per day, beer styles pie, top breweries
-- 🏆 **Leaderboard** — Holiday group ranking by total beers
-- 👥 **Groups** — Create or join a shared group with a 6-char invite code
+- 🏆 **Board + Groups** — Holiday rankings plus create/join group management in one page
 - 🏅 **Achievements** — First Beer, 10 Beers, 50 Beers, Beer Marathon + confetti
 - 📱 **PWA** — Installable on iOS/Android, offline support, app icons, splash screen
 - 🌙 **Dark Mode** — Auto dark/light based on system preference
@@ -179,8 +178,8 @@ All tables have Row Level Security enabled. Users can only read/write their own 
 │   │   ├── dashboard/page.tsx   Home dashboard with stats
 │   │   ├── history/page.tsx     Full beer log
 │   │   ├── stats/page.tsx       Recharts statistics
-│   │   ├── leaderboard/page.tsx Group leaderboard
-│   │   └── groups/page.tsx      Create/join groups
+│   │   ├── leaderboard/page.tsx Combined board and group management
+│   │   └── groups/page.tsx      Redirects to leaderboard
 │   ├── layout.tsx               Root layout with PWA metadata
 │   └── globals.css              Theme variables + Tailwind
 ├── components/

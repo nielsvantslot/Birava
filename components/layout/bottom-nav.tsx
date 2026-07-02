@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, BarChart2, Trophy, Rss, Users } from "lucide-react";
+import { LayoutDashboard, BarChart2, Trophy, Rss } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -10,7 +10,6 @@ const navItems = [
   { href: "/stats", icon: BarChart2, label: "Stats" },
   { href: "/leaderboard", icon: Trophy, label: "Board" },
   { href: "/feed", icon: Rss, label: "Feed" },
-  { href: "/groups", icon: Users, label: "Groups" },
 ];
 
 export function BottomNav() {
