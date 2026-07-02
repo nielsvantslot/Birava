@@ -126,8 +126,11 @@ async function buildShareImageBlob(props: Last24hRecapProps): Promise<Blob> {
   ctx.font = "700 38px system-ui, sans-serif";
   ctx.fillText("birava.nl", W / 2, 1680);
 
+  // Use PNG instead of JPEG: iOS Safari's JPEG encoder for large canvases can
+  // silently produce a blank image, and Snapchat on iOS rejects JPEG files
+  // received via the Web Share API. PNG encoding is reliable on all platforms.
   const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob(resolve, "image/jpeg", 0.92)
+    canvas.toBlob(resolve, "image/png")
   );
   if (!blob) throw new Error("Failed to generate recap image");
   return blob;
@@ -160,8 +163,8 @@ export function Last24hRecap(props: Last24hRecapProps) {
       // navigator.share() — required for iOS Safari user-gesture trust.
       // Fall back to building it now on platforms that don't need the sync path.
       const blob = blobRef.current ?? await buildShareImageBlob(props);
-      const filename = `birava-24h-recap-${new Date().toISOString().slice(0, 10)}.jpg`;
-      const file = new File([blob], filename, { type: "image/jpeg" });
+      const filename = `birava-24h-recap-${new Date().toISOString().slice(0, 10)}.png`;
+      const file = new File([blob], filename, { type: "image/png" });
 
       if (
         navigator.canShare &&
