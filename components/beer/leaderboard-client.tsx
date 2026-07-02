@@ -22,6 +22,8 @@ export type LeaderboardTab = {
 interface LeaderboardClientProps {
   tabs: LeaderboardTab[];
   currentUserId: string;
+  selectedTabId?: string;
+  onSelectedTabIdChange?: (tabId: string) => void;
 }
 
 const medals = ["🥇", "🥈", "🥉"];
@@ -93,8 +95,15 @@ function LeaderboardList({
   );
 }
 
-export function LeaderboardClient({ tabs, currentUserId }: LeaderboardClientProps) {
-  const [selectedTabId, setSelectedTabId] = useState(tabs[0]?.id ?? "");
+export function LeaderboardClient({
+  tabs,
+  currentUserId,
+  selectedTabId: controlledSelectedTabId,
+  onSelectedTabIdChange,
+}: LeaderboardClientProps) {
+  const [internalSelectedTabId, setInternalSelectedTabId] = useState(tabs[0]?.id ?? "");
+  const selectedTabId = controlledSelectedTabId ?? internalSelectedTabId;
+  const setSelectedTabId = onSelectedTabIdChange ?? setInternalSelectedTabId;
 
   if (tabs.length === 0) {
     return (

@@ -8,14 +8,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { generateInviteCode } from "@/lib/utils";
+import { cn, generateInviteCode } from "@/lib/utils";
 
 interface GroupsClientProps {
   groups: Array<{ id: string; name: string; invite_code: string; owner_id: string | null }>;
   userId: string;
+  selectedGroupId?: string;
+  onSelectGroup?: (groupId: string) => void;
 }
 
-export function GroupsClient({ groups, userId }: GroupsClientProps) {
+export function GroupsClient({ groups, userId, selectedGroupId, onSelectGroup }: GroupsClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [newGroupName, setNewGroupName] = useState("");
@@ -128,14 +130,31 @@ export function GroupsClient({ groups, userId }: GroupsClientProps) {
           {groups.map((group) => {
             const isOwner = group.owner_id === userId;
             const isActingOnGroup = activeGroupAction === group.id;
+            const isSelectedGroup = selectedGroupId === group.id;
 
             return (
-              <Card key={group.id}>
+              <Card
+                key={group.id}
+                className={cn(
+                  onSelectGroup && "transition-colors",
+                  isSelectedGroup && "border-[var(--primary)] bg-[var(--primary)]/5"
+                )}
+              >
                 <CardContent className="py-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="font-semibold truncate">{group.name}</p>
+                        {onSelectGroup ? (
+                          <button
+                            type="button"
+                            onClick={() => onSelectGroup(group.id)}
+                            className="font-semibold truncate text-left hover:text-[var(--primary)]"
+                          >
+                            {group.name}
+                          </button>
+                        ) : (
+                          <p className="font-semibold truncate">{group.name}</p>
+                        )}
                         {isOwner && <Badge variant="secondary">owner</Badge>}
                       </div>
                       <p className="text-xs text-[var(--muted-foreground)] font-mono mt-0.5">
@@ -146,7 +165,10 @@ export function GroupsClient({ groups, userId }: GroupsClientProps) {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => copyCode(group.invite_code, group.id)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          copyCode(group.invite_code, group.id);
+                        }}
                         className="gap-1.5"
                       >
                         <Copy className="h-3.5 w-3.5" />
@@ -157,7 +179,10 @@ export function GroupsClient({ groups, userId }: GroupsClientProps) {
                           variant="destructive"
                           size="sm"
                           disabled={isPending && isActingOnGroup}
-                          onClick={() => deleteGroup(group.id, group.name)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            deleteGroup(group.id, group.name);
+                          }}
                           className="gap-1.5"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -168,7 +193,10 @@ export function GroupsClient({ groups, userId }: GroupsClientProps) {
                           variant="outline"
                           size="sm"
                           disabled={isPending && isActingOnGroup}
-                          onClick={() => leaveGroup(group.id, group.name)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            leaveGroup(group.id, group.name);
+                          }}
                           className="gap-1.5"
                         >
                           <LogOut className="h-3.5 w-3.5" />
