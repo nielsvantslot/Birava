@@ -80,3 +80,37 @@ export type LeaderboardEntry = {
   today: number;
   avg_per_day: number;
 };
+
+export type Follow = {
+  follower_id: string;
+  following_id: string;
+  created_at: string;
+};
+
+export type FollowCounts = {
+  followers: number;
+  following: number;
+};
+
+export type FeedEntry = {
+  id: string;
+  user_id: string;
+  group_id: string | null;
+  beer_name: string | null;
+  brewery: string | null;
+  style: string | null;
+  amount: number;
+  notes: string | null;
+  created_at: string;
+  username: string;
+  avatar_url: string | null;
+};
+
+export type PublicProfile = {
+  id: string;
+  username: string;
+  avatar_url: string | null;
+  member_since: string;
+  total_beers: number;
+  streak_days: number;
+};

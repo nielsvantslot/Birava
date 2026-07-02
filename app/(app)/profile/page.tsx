@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { ProfileClient } from "@/components/beer/profile-client";
 import { BeerEntry } from "@/lib/types";
+import { getFollowCounts } from "@/lib/actions/social";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +65,7 @@ export default async function ProfilePage() {
   const totalBeers = all.reduce((sum, e) => sum + e.amount, 0);
   const streak = getStreak(all);
   const avgPerDay = getAvgPerDay(all);
+  const followCounts = await getFollowCounts(user.id);
 
   const memberSince = new Date(
     profile?.created_at ?? user.created_at
@@ -78,6 +80,8 @@ export default async function ProfilePage() {
       streak={streak}
       avgPerDay={avgPerDay}
       memberSince={memberSince}
+      followers={followCounts.followers}
+      following={followCounts.following}
     />
   );
 }

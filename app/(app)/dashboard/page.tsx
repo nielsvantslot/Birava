@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { StatCard } from "@/components/beer/stat-card";
 import { BeerCard } from "@/components/beer/beer-card";
@@ -119,9 +120,17 @@ export default async function DashboardPage() {
 
       {/* Recent beers */}
       <div>
-        <h2 className="text-sm font-semibold text-[var(--muted-foreground)] uppercase tracking-wide mb-3">
-          Recent Beers
-        </h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
+            Recent Beers
+          </h2>
+          <Link
+            href="/history"
+            className="text-xs font-medium text-[var(--primary)] hover:underline"
+          >
+            View all →
+          </Link>
+        </div>
         {recent.length > 0 ? (
           <div className="space-y-2">
             {recent.map((entry: BeerEntry) => (

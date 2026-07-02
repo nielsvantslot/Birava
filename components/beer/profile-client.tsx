@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Pencil, Check, X } from "lucide-react";
+import { LogOut, Pencil, Check, X, Users } from "lucide-react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,8 @@ interface ProfileClientProps {
   streak: number;
   avgPerDay: string;
   memberSince: string;
+  followers: number;
+  following: number;
 }
 
 export function ProfileClient({
@@ -28,6 +31,8 @@ export function ProfileClient({
   streak,
   avgPerDay,
   memberSince,
+  followers,
+  following,
 }: ProfileClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -159,6 +164,20 @@ export function ProfileClient({
               <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
                 Member since {memberSince}
               </p>
+              <div className="flex gap-4 mt-1.5 text-xs text-[var(--muted-foreground)]">
+                <span>
+                  <span className="font-semibold text-[var(--foreground)]">
+                    {followers}
+                  </span>{" "}
+                  followers
+                </span>
+                <span>
+                  <span className="font-semibold text-[var(--foreground)]">
+                    {following}
+                  </span>{" "}
+                  following
+                </span>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -198,6 +217,14 @@ export function ProfileClient({
           </Card>
         </div>
       </div>
+
+      {/* Find friends */}
+      <Button asChild variant="outline" className="w-full gap-2">
+        <Link href="/people">
+          <Users className="h-4 w-4" />
+          Find Friends
+        </Link>
+      </Button>
 
       {/* Achievements */}
       {achievements.length > 0 && (
