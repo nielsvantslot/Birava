@@ -42,6 +42,7 @@ create table if not exists groups (
   id uuid primary key default uuid_generate_v4(),
   name text not null,
   invite_code text not null unique,
+  owner_id uuid references auth.users(id) on delete cascade not null,
   created_at timestamptz default now() not null
 );
 
@@ -74,6 +75,7 @@ create table if not exists beer_entries (
 create index if not exists beer_entries_user_id_idx on beer_entries(user_id);
 create index if not exists beer_entries_created_at_idx on beer_entries(created_at desc);
 create index if not exists beer_entries_group_id_idx on beer_entries(group_id);
+create index if not exists groups_owner_id_idx on groups(owner_id);
 create index if not exists group_members_user_id_idx on group_members(user_id);
 
 -- ============================================================
@@ -106,15 +108,15 @@ create policy "Groups are viewable by members"
 
 create policy "Anyone can create a group"
   on groups for insert
-  with check (auth.uid() is not null);
+  with check (auth.uid() = owner_id);
 
-create policy "Group members can update group"
+create policy "Group owners can update group"
   on groups for update
-  using (
-    id in (
-      select group_id from group_members where user_id = auth.uid()
-    )
-  );
+  using (owner_id = auth.uid());
+
+create policy "Group owners can delete group"
+  on groups for delete
+  using (owner_id = auth.uid());
 
 -- Group Members
 alter table group_members enable row level security;
@@ -125,6 +127,16 @@ alter table group_members enable row level security;
 create or replace function public.get_user_group_ids(user_uuid uuid)
 returns setof uuid as $$
   select group_id from public.group_members where user_id = user_uuid
+$$ language sql security definer stable;
+
+create or replace function public.is_group_owner(group_uuid uuid, user_uuid uuid)
+returns boolean as $$
+  select exists (
+    select 1
+    from public.groups
+    where id = group_uuid
+      and owner_id = user_uuid
+  );
 $$ language sql security definer stable;
 
 create policy "Members can view their group memberships"
@@ -140,7 +152,10 @@ create policy "Users can join groups"
 
 create policy "Users can leave groups"
   on group_members for delete
-  using (user_id = auth.uid());
+  using (
+    user_id = auth.uid() and
+    not public.is_group_owner(group_id, auth.uid())
+  );
 
 -- Beer Entries
 alter table beer_entries enable row level security;
@@ -188,5 +203,23 @@ begin
   values (gid, auth.uid())
   on conflict do nothing;
   return gid;
+end;
+$$ language plpgsql security definer;
+
+create or replace function public.delete_owned_group(target_group_id uuid)
+returns uuid as $$
+declare
+  deleted_group_id uuid;
+begin
+  delete from public.groups
+  where id = target_group_id
+    and owner_id = auth.uid()
+  returning id into deleted_group_id;
+
+  if deleted_group_id is null then
+    raise exception 'Only the group owner can delete this group';
+  end if;
+
+  return deleted_group_id;
 end;
 $$ language plpgsql security definer;

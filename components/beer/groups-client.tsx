@@ -2,16 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Copy, Plus, UserPlus } from "lucide-react";
+import { Copy, LogOut, Plus, Trash2, UserPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { generateInviteCode } from "@/lib/utils";
 
 interface GroupsClientProps {
-  groups: Array<{ id: string; name: string; invite_code: string }>;
+  groups: Array<{ id: string; name: string; invite_code: string; owner_id: string }>;
   userId: string;
 }
 
@@ -21,6 +21,7 @@ export function GroupsClient({ groups, userId }: GroupsClientProps) {
   const [newGroupName, setNewGroupName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [activeGroupAction, setActiveGroupAction] = useState<string | null>(null);
 
   const createGroup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,13 +30,26 @@ export function GroupsClient({ groups, userId }: GroupsClientProps) {
       const supabase = createClient();
       const code = generateInviteCode();
       const groupId = crypto.randomUUID();
-      await supabase
+      const { error: createGroupError } = await supabase
         .from("groups")
-        .insert({ id: groupId, name: newGroupName.trim(), invite_code: code });
-      await supabase.from("group_members").insert({
+        .insert({ id: groupId, name: newGroupName.trim(), invite_code: code, owner_id: userId });
+
+      if (createGroupError) {
+        alert("Could not create the group.");
+        return;
+      }
+
+      const { error: addOwnerError } = await supabase.from("group_members").insert({
         group_id: groupId,
         user_id: userId,
       });
+
+      if (addOwnerError) {
+        await supabase.rpc("delete_owned_group", { target_group_id: groupId });
+        alert("Could not create the group.");
+        return;
+      }
+
       setNewGroupName("");
       router.refresh();
     });
@@ -64,34 +78,111 @@ export function GroupsClient({ groups, userId }: GroupsClientProps) {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const leaveGroup = (groupId: string, groupName: string) => {
+    if (!window.confirm(`Leave ${groupName}?`)) return;
+
+    startTransition(async () => {
+      setActiveGroupAction(groupId);
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("group_members")
+        .delete()
+        .eq("group_id", groupId)
+        .eq("user_id", userId);
+
+      setActiveGroupAction(null);
+
+      if (error) {
+        alert("Could not leave the group.");
+        return;
+      }
+
+      router.refresh();
+    });
+  };
+
+  const deleteGroup = (groupId: string, groupName: string) => {
+    if (!window.confirm(`Delete ${groupName}? This cannot be undone.`)) return;
+
+    startTransition(async () => {
+      setActiveGroupAction(groupId);
+      const supabase = createClient();
+      const { error } = await supabase.rpc("delete_owned_group", {
+        target_group_id: groupId,
+      });
+
+      setActiveGroupAction(null);
+
+      if (error) {
+        alert("Could not delete the group.");
+        return;
+      }
+
+      router.refresh();
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Existing groups */}
       {groups.length > 0 && (
         <div className="space-y-3">
-          {groups.map((group) => (
-            <Card key={group.id}>
-              <CardContent className="py-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold">{group.name}</p>
-                    <p className="text-xs text-[var(--muted-foreground)] font-mono mt-0.5">
-                      {group.invite_code}
-                    </p>
+          {groups.map((group) => {
+            const isOwner = group.owner_id === userId;
+            const isActingOnGroup = activeGroupAction === group.id;
+
+            return (
+              <Card key={group.id}>
+                <CardContent className="py-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold truncate">{group.name}</p>
+                        {isOwner && <Badge variant="secondary">owner</Badge>}
+                      </div>
+                      <p className="text-xs text-[var(--muted-foreground)] font-mono mt-0.5">
+                        {group.invite_code}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyCode(group.invite_code, group.id)}
+                        className="gap-1.5"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        {copiedId === group.id ? "Copied!" : "Copy Code"}
+                      </Button>
+                      {isOwner ? (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={isPending && isActingOnGroup}
+                          onClick={() => deleteGroup(group.id, group.name)}
+                          className="gap-1.5"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete Group
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isPending && isActingOnGroup}
+                          onClick={() => leaveGroup(group.id, group.name)}
+                          className="gap-1.5"
+                        >
+                          <LogOut className="h-3.5 w-3.5" />
+                          Leave Group
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => copyCode(group.invite_code, group.id)}
-                    className="gap-1.5"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                    {copiedId === group.id ? "Copied!" : "Copy Code"}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 

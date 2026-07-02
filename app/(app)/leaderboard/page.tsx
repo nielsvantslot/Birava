@@ -84,7 +84,7 @@ export default async function LeaderboardPage() {
     );
 
   // Collect all group member IDs
-  let groupMembersMap: Record<string, string[]> = {};
+  const groupMembersMap: Record<string, string[]> = {};
   if (groups.length > 0) {
     const groupIds = groups.map((g) => g.id);
     const { data: allMembers } = await supabase
@@ -109,12 +109,22 @@ export default async function LeaderboardPage() {
     .in("user_id", allUserIds);
 
   const entries = allEntries ?? [];
+  const entriesByUserId = entries.reduce<
+    Record<string, typeof entries>
+  >((accumulator, entry) => {
+    if (!accumulator[entry.user_id]) {
+      accumulator[entry.user_id] = [];
+    }
+
+    accumulator[entry.user_id].push(entry);
+    return accumulator;
+  }, {});
 
   // Build tabs
   const tabs: LeaderboardTab[] = [];
 
   // Friends tab (current user + people they follow)
-  const friendEntries = entries.filter((e) => friendIds.includes(e.user_id));
+  const friendEntries = friendIds.flatMap((friendId) => entriesByUserId[friendId] ?? []);
   if (friendEntries.length > 0 || followedIds.length > 0) {
     tabs.push({
       id: "friends",
@@ -126,7 +136,7 @@ export default async function LeaderboardPage() {
   // One tab per group
   for (const group of groups) {
     const memberIds = groupMembersMap[group.id] ?? [];
-    const groupEntries = entries.filter((e) => memberIds.includes(e.user_id));
+    const groupEntries = memberIds.flatMap((memberId) => entriesByUserId[memberId] ?? []);
     tabs.push({
       id: group.id,
       label: group.name,
@@ -147,4 +157,3 @@ export default async function LeaderboardPage() {
     </div>
   );
 }
-
