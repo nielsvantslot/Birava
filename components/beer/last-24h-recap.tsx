@@ -74,37 +74,32 @@ function buildStorySvg({
 }
 
 async function svgToShareImageBlob(svg: string) {
-  const svgBlob = new Blob([svg], {
-    type: "image/svg+xml;charset=utf-8",
+  // Use a data URL instead of a blob URL — iOS Safari fails to render SVG
+  // blob URLs onto canvas, resulting in a blank image.
+  const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Failed to load recap image"));
+    img.src = url;
   });
-  const url = URL.createObjectURL(svgBlob);
 
-  try {
-    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error("Failed to load recap image"));
-      img.src = url;
-    });
+  const canvas = document.createElement("canvas");
+  canvas.width = 1080;
+  canvas.height = 1920;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Canvas is not supported");
+  context.fillStyle = "#f97316";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(image, 0, 0);
 
-    const canvas = document.createElement("canvas");
-    canvas.width = 1080;
-    canvas.height = 1920;
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Canvas is not supported");
-    context.fillStyle = "#f97316";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(image, 0, 0);
+  const shareBlob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, "image/jpeg", 0.92)
+  );
 
-    const shareBlob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", 0.92)
-    );
-
-    if (!shareBlob) throw new Error("Failed to generate recap image");
-    return shareBlob;
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+  if (!shareBlob) throw new Error("Failed to generate recap image");
+  return shareBlob;
 }
 
 export function Last24hRecap(props: Last24hRecapProps) {
