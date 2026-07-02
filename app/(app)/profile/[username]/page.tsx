@@ -9,7 +9,6 @@ import { BeerEntry } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import { Beer } from "lucide-react";
 
-export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ username: string }>;

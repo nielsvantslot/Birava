@@ -1,7 +1,6 @@
 import { createClient, getUser } from "@/lib/supabase/server";
 import { PeopleClient } from "@/components/beer/people-client";
 
-export const dynamic = "force-dynamic";
 
 export default async function PeoplePage() {
   const supabase = await createClient();

@@ -8,9 +8,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AddBeerDialog } from "@/components/beer/add-beer-dialog";
-import { createClient } from "@/lib/supabase/client";
 import { BeerEntry } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
+import { deleteBeer } from "@/lib/actions/beer";
 
 interface BeerCardProps {
   entry: BeerEntry;
@@ -25,13 +25,9 @@ export function BeerCard({ entry, showUser }: BeerCardProps) {
   const handleDelete = () => {
     if (!confirm("Delete this beer entry?")) return;
     startTransition(async () => {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("beer_entries")
-        .delete()
-        .eq("id", entry.id);
-      if (error) {
-        alert(`Failed to delete: ${error.message}`);
+      const result = await deleteBeer(entry.id);
+      if (result.error) {
+        alert(`Failed to delete: ${result.error}`);
         return;
       }
       router.refresh();

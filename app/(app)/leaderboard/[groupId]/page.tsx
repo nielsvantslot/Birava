@@ -6,7 +6,6 @@ import { buildLeaderboard } from "@/lib/leaderboard";
 import { LeaderboardClient } from "@/components/beer/leaderboard-client";
 import { GroupLeaderboardClient } from "@/components/beer/group-leaderboard-client";
 
-export const dynamic = "force-dynamic";
 
 export default async function GroupLeaderboardPage({
   params,

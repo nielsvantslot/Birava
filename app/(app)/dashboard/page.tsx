@@ -5,7 +5,6 @@ import { BeerCard } from "@/components/beer/beer-card";
 import { getEarnedAchievements } from "@/lib/achievements";
 import { BeerEntry } from "@/lib/types";
 
-export const dynamic = "force-dynamic";
 
 function getTodayBeers(entries: BeerEntry[]) {
   const today = new Date();

@@ -3,7 +3,6 @@ import { ProfileClient } from "@/components/beer/profile-client";
 import { BeerEntry } from "@/lib/types";
 import { getFollowCounts } from "@/lib/actions/social";
 
-export const dynamic = "force-dynamic";
 
 function getStreak(entries: BeerEntry[]): number {
   if (!entries.length) return 0;

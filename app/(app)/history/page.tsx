@@ -2,7 +2,6 @@ import { createClient, getUser } from "@/lib/supabase/server";
 import { BeerCard } from "@/components/beer/beer-card";
 import { BeerEntry } from "@/lib/types";
 
-export const dynamic = "force-dynamic";
 
 export default async function HistoryPage() {
   const supabase = await createClient();

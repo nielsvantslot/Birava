@@ -8,7 +8,6 @@ import { FeedEntry } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import { Beer } from "lucide-react";
 
-export const dynamic = "force-dynamic";
 
 export default async function FeedPage() {
   const supabase = await createClient();
