@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -12,112 +12,137 @@ interface Last24hRecapProps {
   topBrewery: string | null;
 }
 
-function escapeSvgText(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number
+) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
 }
 
-function buildStorySvg({
-  totalBeers,
-  checkins,
-  beersPerHour,
-  topStyle,
-  topBrewery,
-}: Last24hRecapProps) {
-  const pace = beersPerHour.toFixed(2);
-  const style = topStyle ?? "No style yet";
-  const brewery = topBrewery ?? "No brewery yet";
+// Draw the recap card directly on canvas — SVGs cannot be drawn onto canvas
+// on iOS Safari (drawImage is a no-op for SVG sources), so we use the 2D API.
+async function buildShareImageBlob(props: Last24hRecapProps): Promise<Blob> {
+  const { totalBeers, checkins, beersPerHour, topStyle, topBrewery } = props;
+
+  const W = 1080;
+  const H = 1920;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas is not supported");
+
+  // Background gradient
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, "#f59e0b");
+  bg.addColorStop(0.55, "#f97316");
+  bg.addColorStop(1, "#dc2626");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Card background
+  ctx.fillStyle = "rgba(17,24,39,0.2)";
+  roundRect(ctx, 70, 220, 940, 1210, 48);
+  ctx.fill();
+
+  // Title
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#fff7ed";
+  ctx.font = "700 56px system-ui, sans-serif";
+  ctx.fillText("Birava 24h Recap 🍺", W / 2, 360);
+
+  ctx.fillStyle = "#ffedd5";
+  ctx.font = "400 30px system-ui, sans-serif";
+  ctx.fillText("Last 24 hours", W / 2, 450);
+
+  // Stats — left column
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#ffedd5";
+  ctx.font = "400 36px system-ui, sans-serif";
+  ctx.fillText("Total beers", 130, 620);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "800 82px system-ui, sans-serif";
+  ctx.fillText(String(totalBeers), 130, 700);
+
+  // Stats — right column
+  ctx.fillStyle = "#ffedd5";
+  ctx.font = "400 36px system-ui, sans-serif";
+  ctx.fillText("Check-ins", 560, 620);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "800 82px system-ui, sans-serif";
+  ctx.fillText(String(checkins), 560, 700);
+
+  // Pace
+  ctx.fillStyle = "#ffedd5";
+  ctx.font = "400 36px system-ui, sans-serif";
+  ctx.fillText("Pace (beers/hour)", 130, 860);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "800 82px system-ui, sans-serif";
+  ctx.fillText(beersPerHour.toFixed(2), 130, 940);
+
+  // Top style
+  ctx.fillStyle = "#ffedd5";
+  ctx.font = "400 32px system-ui, sans-serif";
+  ctx.fillText("Top style", 130, 1080);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "600 44px system-ui, sans-serif";
+  ctx.fillText(topStyle ?? "No style yet", 130, 1140);
+
+  // Top brewery
+  ctx.fillStyle = "#ffedd5";
+  ctx.font = "400 32px system-ui, sans-serif";
+  ctx.fillText("Top brewery", 130, 1250);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "600 44px system-ui, sans-serif";
+  ctx.fillText(topBrewery ?? "No brewery yet", 130, 1310);
+
+  // Footer
   const timestamp = new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date());
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#ffedd5";
+  ctx.font = "400 30px system-ui, sans-serif";
+  ctx.fillText(timestamp, W / 2, 1590);
+  ctx.fillStyle = "#fff7ed";
+  ctx.font = "700 38px system-ui, sans-serif";
+  ctx.fillText("birava.nl", W / 2, 1680);
 
-  return `
-<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#f59e0b" />
-      <stop offset="55%" stop-color="#f97316" />
-      <stop offset="100%" stop-color="#dc2626" />
-    </linearGradient>
-  </defs>
-  <rect width="1080" height="1920" fill="url(#bg)" />
-  <rect x="70" y="220" width="940" height="1210" rx="48" fill="rgba(17,24,39,0.2)" />
-  <text x="540" y="360" text-anchor="middle" fill="#fff7ed" font-size="56" font-weight="700" font-family="Inter, system-ui, sans-serif">Birava 24h Recap 🍺</text>
-  <text x="540" y="450" text-anchor="middle" fill="#ffedd5" font-size="30" font-family="Inter, system-ui, sans-serif">Last 24 hours</text>
-
-  <text x="130" y="620" fill="#ffedd5" font-size="36" font-family="Inter, system-ui, sans-serif">Total beers</text>
-  <text x="130" y="700" fill="#fff" font-size="82" font-weight="800" font-family="Inter, system-ui, sans-serif">${escapeSvgText(String(totalBeers))}</text>
-
-  <text x="560" y="620" fill="#ffedd5" font-size="36" font-family="Inter, system-ui, sans-serif">Check-ins</text>
-  <text x="560" y="700" fill="#fff" font-size="82" font-weight="800" font-family="Inter, system-ui, sans-serif">${escapeSvgText(String(checkins))}</text>
-
-  <text x="130" y="860" fill="#ffedd5" font-size="36" font-family="Inter, system-ui, sans-serif">Pace (beers/hour)</text>
-  <text x="130" y="940" fill="#fff" font-size="82" font-weight="800" font-family="Inter, system-ui, sans-serif">${escapeSvgText(pace)}</text>
-
-  <text x="130" y="1080" fill="#ffedd5" font-size="32" font-family="Inter, system-ui, sans-serif">Top style</text>
-  <text x="130" y="1140" fill="#fff" font-size="44" font-weight="600" font-family="Inter, system-ui, sans-serif">${escapeSvgText(style)}</text>
-
-  <text x="130" y="1250" fill="#ffedd5" font-size="32" font-family="Inter, system-ui, sans-serif">Top brewery</text>
-  <text x="130" y="1310" fill="#fff" font-size="44" font-weight="600" font-family="Inter, system-ui, sans-serif">${escapeSvgText(brewery)}</text>
-
-  <text x="540" y="1590" text-anchor="middle" fill="#ffedd5" font-size="30" font-family="Inter, system-ui, sans-serif">${escapeSvgText(timestamp)}</text>
-  <text x="540" y="1680" text-anchor="middle" fill="#fff7ed" font-size="38" font-weight="700" font-family="Inter, system-ui, sans-serif">birava.nl</text>
-</svg>
-`.trim();
-}
-
-async function svgToShareImageBlob(svg: string) {
-  const svgBlob = new Blob([svg], {
-    type: "image/svg+xml;charset=utf-8",
-  });
-  const url = URL.createObjectURL(svgBlob);
-
-  try {
-    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error("Failed to load recap image"));
-      img.src = url;
-    });
-
-    const canvas = document.createElement("canvas");
-    canvas.width = 1080;
-    canvas.height = 1920;
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Canvas is not supported");
-    context.fillStyle = "#f97316";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(image, 0, 0);
-
-    const shareBlob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", 0.92)
-    );
-
-    if (!shareBlob) throw new Error("Failed to generate recap image");
-    return shareBlob;
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, "image/jpeg", 0.92)
+  );
+  if (!blob) throw new Error("Failed to generate recap image");
+  return blob;
 }
 
 export function Last24hRecap(props: Last24hRecapProps) {
   const [isSharing, setIsSharing] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
-  const storySvg = useMemo(() => buildStorySvg(props), [props]);
 
   const handleShare = async () => {
     setIsSharing(true);
     setStatus(null);
 
     try {
-      const blob = await svgToShareImageBlob(storySvg);
+      const blob = await buildShareImageBlob(props);
       const filename = `birava-24h-recap-${new Date().toISOString().slice(0, 10)}.jpg`;
       const file = new File([blob], filename, { type: "image/jpeg" });
 
