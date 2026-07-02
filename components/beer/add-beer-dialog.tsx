@@ -25,6 +25,7 @@ import { createClient } from "@/lib/supabase/client";
 import { BeerEntry } from "@/lib/types";
 import { triggerConfetti, checkAchievements } from "@/lib/achievements";
 
+
 const BEER_STYLES = [
   "Lager",
   "Pilsner",
@@ -55,7 +56,6 @@ function getInitialForm(entry?: BeerEntry) {
     style: entry?.style ?? "",
     amount: entry?.amount?.toString() ?? "1",
     notes: entry?.notes ?? "",
-    group_id: entry?.group_id ?? "none",
     created_at: toDatetimeLocalValue(
       entry?.created_at ? new Date(entry.created_at) : new Date()
     ),
@@ -72,7 +72,6 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const isEditing = !!entry;
-  const [groups, setGroups] = useState<Array<{ id: string; name: string }>>([]);
   const [form, setForm] = useState(() => getInitialForm(entry));
   const [error, setError] = useState<string | null>(null);
 
@@ -82,25 +81,6 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
       setForm(getInitialForm(entry));
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!open) return;
-    const fetchGroups = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: memberships } = await supabase
-        .from("group_members")
-        .select("groups(id, name)")
-        .eq("user_id", user.id);
-      const g =
-        memberships?.flatMap((m) =>
-          Array.isArray(m.groups) ? m.groups : m.groups ? [m.groups] : []
-        ) ?? [];
-      setGroups(g);
-    };
-    fetchGroups();
-  }, [open]);
 
   const set = (key: keyof typeof form) => (val: string) => {
     if (error) setError(null);
@@ -153,7 +133,6 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
         style: form.style || null,
         amount: parseFloat(form.amount) || 1,
         notes: form.notes || null,
-        group_id: form.group_id === "none" ? null : (form.group_id || null),
         created_at: new Date(form.created_at).toISOString(),
       };
 
@@ -266,25 +245,6 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
               onChange={(e) => set("created_at")(e.target.value)}
             />
           </div>
-
-          {groups.length > 0 && (
-            <div className="space-y-1.5">
-              <Label>Group</Label>
-              <Select value={form.group_id} onValueChange={set("group_id")}>
-                <SelectTrigger>
-                  <SelectValue placeholder="No group" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No group</SelectItem>
-                  {groups.map((g) => (
-                    <SelectItem key={g.id} value={g.id}>
-                      {g.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="notes">Notes</Label>
