@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { LeaderboardEntry } from "@/lib/types";
-import { LeaderboardClient, LeaderboardTab } from "@/components/beer/leaderboard-client";
+import { LeaderboardTab } from "@/components/beer/leaderboard-client";
+import { BoardGroupsClient } from "@/components/beer/board-groups-client";
 
 export const dynamic = "force-dynamic";
 
@@ -71,14 +72,19 @@ export default async function LeaderboardPage() {
       .eq("follower_id", user.id),
     supabase
       .from("group_members")
-      .select("group_id, groups(id, name)")
+      .select("group_id, groups(id, name, invite_code, owner_id)")
       .eq("user_id", user.id),
   ]);
 
   const followedIds = (followsResult.data ?? []).map((f) => f.following_id);
   const friendIds = [...new Set([user.id, ...followedIds])];
 
-  const groups: Array<{ id: string; name: string }> =
+  const groups: Array<{
+    id: string;
+    name: string;
+    invite_code: string;
+    owner_id: string | null;
+  }> =
     (membershipsResult.data ?? []).flatMap((m) =>
       Array.isArray(m.groups) ? m.groups : m.groups ? [m.groups] : []
     );
@@ -149,11 +155,11 @@ export default async function LeaderboardPage() {
       <div>
         <h1 className="text-2xl font-black">Leaderboard 🏆</h1>
         <p className="text-[var(--muted-foreground)] text-sm mt-0.5">
-          Holiday beer rankings
+          Holiday beer rankings and group management
         </p>
       </div>
 
-      <LeaderboardClient tabs={tabs} currentUserId={user.id} />
+      <BoardGroupsClient tabs={tabs} groups={groups} userId={user.id} />
     </div>
   );
 }
