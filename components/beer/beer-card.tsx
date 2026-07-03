@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Trash2, Beer } from "lucide-react";
+import { Download, Pencil, Trash2, Beer } from "lucide-react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,18 @@ export function BeerCard({ entry, showUser }: BeerCardProps) {
       }
       router.refresh();
     });
+  };
+
+  const handleDownload = async () => {
+    if (!entry.photo_url) return;
+    const response = await fetch(entry.photo_url);
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${entry.beer_name ?? "beer"}.jpg`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -81,9 +93,31 @@ export function BeerCard({ entry, showUser }: BeerCardProps) {
                   )}
                   {formatDate(entry.created_at)}
                 </p>
+
+                {entry.photo_url && (
+                  <div className="mt-2 relative w-full">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={entry.photo_url}
+                      alt={entry.beer_name ?? "Beer photo"}
+                      className="w-full max-h-64 object-cover rounded-lg border border-[var(--border)]"
+                    />
+                  </div>
+                )}
               </div>
 
-              <div className="flex gap-1 shrink-0">
+              <div className="flex flex-col gap-1 shrink-0">
+                {entry.photo_url && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={handleDownload}
+                    title="Download photo"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"

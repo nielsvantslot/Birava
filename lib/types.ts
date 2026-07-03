@@ -30,6 +30,7 @@ export type BeerEntry = {
   style: string | null;
   amount: number;
   notes: string | null;
+  photo_url: string | null;
   created_at: string;
   profiles?: Profile;
 };
@@ -102,6 +103,7 @@ export type FeedEntry = {
   style: string | null;
   amount: number;
   notes: string | null;
+  photo_url: string | null;
   created_at: string;
   username: string;
   avatar_url: string | null;

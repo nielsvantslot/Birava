@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Beer } from "lucide-react";
+import { Beer, Camera, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +24,7 @@ import {
 import { BeerEntry } from "@/lib/types";
 import { triggerConfetti } from "@/lib/achievements";
 import { addBeer, editBeer } from "@/lib/actions/beer";
+import { createClient } from "@/lib/supabase/client";
 
 
 const BEER_STYLES = [
@@ -61,6 +62,7 @@ function getInitialForm(entry?: BeerEntry, now?: Date) {
       : now
       ? toDatetimeLocalValue(now)
       : "",
+    photo_url: entry?.photo_url ?? null as string | null,
   };
 }
 
@@ -76,9 +78,14 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
   const isEditing = !!entry;
   const [form, setForm] = useState(() => getInitialForm(entry));
   const [error, setError] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(entry?.photo_url ?? null);
+  const [removePhoto, setRemovePhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Populate created_at with current time on the client only
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm((prev) => ({
       ...prev,
       created_at: prev.created_at || toDatetimeLocalValue(new Date()),
@@ -89,28 +96,98 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
     if (open) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setForm(getInitialForm(entry, new Date()));
+      setPhotoFile(null);
+      setPhotoPreview(entry?.photo_url ?? null);
+      setRemovePhoto(false);
+      setError(null);
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const set = (key: keyof typeof form) => (val: string) => {
+  const set = (key: keyof Omit<typeof form, "photo_url">) => (val: string) => {
     if (error) setError(null);
     setForm((f) => ({ ...f, [key]: val }));
+  };
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoFile(file);
+    setRemovePhoto(false);
+    const url = URL.createObjectURL(file);
+    setPhotoPreview(url);
+  };
+
+  const handleRemovePhoto = () => {
+    setPhotoFile(null);
+    setRemovePhoto(true);
+    setPhotoPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    const payload = {
-      beer_name: form.beer_name || null,
-      brewery: form.brewery || null,
-      style: form.style || null,
-      amount: parseFloat(form.amount) || 1,
-      notes: form.notes || null,
-      created_at: new Date(form.created_at).toISOString(),
-    };
-
     startTransition(async () => {
+      let photoUrl: string | null = form.photo_url;
+
+      // Upload new photo if selected
+      if (photoFile) {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setError("Not authenticated"); return; }
+
+        const ext = photoFile.name.split(".").pop() ?? "jpg";
+        const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("beer-photos")
+          .upload(path, photoFile, { upsert: false });
+
+        if (uploadError) { setError(uploadError.message); return; }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from("beer-photos")
+          .getPublicUrl(path);
+
+        // Delete old photo if editing and replacing
+        if (isEditing && entry?.photo_url) {
+          const oldUrl = new URL(entry.photo_url);
+          const prefix = "/storage/v1/object/public/beer-photos/";
+          const oldPath = oldUrl.pathname.startsWith(prefix)
+            ? oldUrl.pathname.slice(prefix.length)
+            : null;
+          if (oldPath) {
+            await supabase.storage.from("beer-photos").remove([oldPath]);
+          }
+        }
+
+        photoUrl = publicUrl;
+      } else if (removePhoto) {
+        // Delete old photo from storage
+        if (isEditing && entry?.photo_url) {
+          const supabase = createClient();
+          const oldUrl = new URL(entry.photo_url);
+          const prefix = "/storage/v1/object/public/beer-photos/";
+          const oldPath = oldUrl.pathname.startsWith(prefix)
+            ? oldUrl.pathname.slice(prefix.length)
+            : null;
+          if (oldPath) {
+            await supabase.storage.from("beer-photos").remove([oldPath]);
+          }
+        }
+        photoUrl = null;
+      }
+
+      const payload = {
+        beer_name: form.beer_name || null,
+        brewery: form.brewery || null,
+        style: form.style || null,
+        amount: parseFloat(form.amount) || 1,
+        notes: form.notes || null,
+        photo_url: photoUrl,
+        created_at: new Date(form.created_at).toISOString(),
+      };
+
       let result: { error?: string; achievementUnlocked?: boolean };
 
       if (isEditing) {
@@ -129,6 +206,9 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
       }
 
       setForm(getInitialForm(isEditing ? entry : undefined, isEditing ? undefined : new Date()));
+      setPhotoFile(null);
+      setPhotoPreview(null);
+      setRemovePhoto(false);
       onOpenChange(false);
       router.refresh();
     });
@@ -214,6 +294,49 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
               value={form.notes}
               onChange={(e) => set("notes")(e.target.value)}
               rows={2}
+            />
+          </div>
+
+          {/* Photo upload */}
+          <div className="space-y-1.5">
+            <Label>Photo</Label>
+            {photoPreview ? (
+              <div className="relative w-full">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={photoPreview}
+                  alt="Beer photo preview"
+                  className="w-full max-h-48 object-cover rounded-lg border border-[var(--border)]"
+                />
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-2 right-2 h-7 w-7"
+                  onClick={handleRemovePhoto}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <div
+                className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[var(--border)] p-6 cursor-pointer hover:border-[var(--primary)] transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Camera className="h-6 w-6 text-[var(--muted-foreground)]" />
+                <p className="text-sm text-[var(--muted-foreground)]">
+                  Tap to add a photo
+                </p>
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              id="photo"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handlePhotoChange}
             />
           </div>
 
