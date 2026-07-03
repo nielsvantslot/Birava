@@ -12,6 +12,7 @@ on conflict (id) do nothing;
 
 -- Allow authenticated users to upload their own photos
 -- Files are stored as {user_id}/{filename}
+drop policy if exists "Users can upload beer photos" on storage.objects;
 create policy "Users can upload beer photos"
   on storage.objects for insert
   to authenticated
@@ -21,12 +22,14 @@ create policy "Users can upload beer photos"
   );
 
 -- Allow public read of all beer photos
+drop policy if exists "Beer photos are publicly readable" on storage.objects;
 create policy "Beer photos are publicly readable"
   on storage.objects for select
   to public
   using (bucket_id = 'beer-photos');
 
 -- Allow users to update their own photos
+drop policy if exists "Users can update their own beer photos" on storage.objects;
 create policy "Users can update their own beer photos"
   on storage.objects for update
   to authenticated
@@ -36,6 +39,7 @@ create policy "Users can update their own beer photos"
   );
 
 -- Allow users to delete their own photos
+drop policy if exists "Users can delete their own beer photos" on storage.objects;
 create policy "Users can delete their own beer photos"
   on storage.objects for delete
   to authenticated
