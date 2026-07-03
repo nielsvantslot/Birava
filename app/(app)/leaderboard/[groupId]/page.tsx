@@ -90,16 +90,31 @@ export default async function GroupLeaderboardPage({
 
   const memberIds = (allMembers ?? []).map((m) => m.user_id);
 
-  const [entriesResult, feedResult] = await Promise.all([
+  const targetMemberIds = memberIds.length > 0 ? memberIds : [user.id];
+
+  const [entriesResult, photosResult] = await Promise.all([
     supabase
       .from("beer_entries")
       .select("user_id, amount, created_at, profiles(username, avatar_url)")
-      .in("user_id", memberIds.length > 0 ? memberIds : [user.id]),
-    supabase.rpc("get_group_feed", { target_group_id: groupId, lim: 20, off: 0 }),
+      .in("user_id", targetMemberIds),
+    supabase
+      .from("beer_entries")
+      .select("id, user_id, group_id, beer_name, brewery, style, amount, notes, photo_url, created_at, profiles(username, avatar_url)")
+      .in("user_id", targetMemberIds)
+      .not("photo_url", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(50),
   ]);
 
   const leaderboard = buildLeaderboard(entriesResult.data ?? []);
-  const activityFeed: FeedEntry[] = (feedResult.data ?? []) as FeedEntry[];
+  const galleryEntries: FeedEntry[] = (photosResult.data ?? []).map((entry) => {
+    const profile = Array.isArray(entry.profiles) ? entry.profiles[0] : entry.profiles;
+    return {
+      ...entry,
+      username: (profile as { username: string })?.username ?? "",
+      avatar_url: (profile as { avatar_url: string | null })?.avatar_url ?? null,
+    };
+  });
 
   return (
     <div className="space-y-6 py-4">
@@ -125,9 +140,7 @@ export default async function GroupLeaderboardPage({
         currentUserId={user.id}
       />
 
-      {activityFeed.length > 0 && (
-        <GroupMediaGallery entries={activityFeed} />
-      )}
+      <GroupMediaGallery entries={galleryEntries} />
     </div>
   );
 }
