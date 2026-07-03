@@ -8,6 +8,7 @@ const BEER_PATHS = ["/dashboard", "/stats", "/history", "/feed"];
 
 function revalidateBeerPaths() {
   for (const path of BEER_PATHS) revalidatePath(path);
+  revalidatePath("/leaderboard", "layout");
 }
 
 export async function addBeer(payload: {
