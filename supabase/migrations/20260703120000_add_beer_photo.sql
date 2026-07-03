@@ -51,6 +51,7 @@ create policy "Users can delete their own beer photos"
 -- ============================================================
 -- Update get_social_feed to include photo_url
 -- ============================================================
+drop function if exists public.get_social_feed(integer, integer);
 create or replace function public.get_social_feed(
   lim integer default 20,
   off integer default 0
@@ -97,6 +98,7 @@ $$ language plpgsql security definer stable;
 -- ============================================================
 -- RPC: Group activity feed (recent entries in a group)
 -- ============================================================
+drop function if exists public.get_group_feed(uuid, integer, integer);
 create or replace function public.get_group_feed(
   target_group_id uuid,
   lim integer default 20,
