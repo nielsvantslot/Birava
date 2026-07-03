@@ -136,10 +136,16 @@ export function LeaderboardClient({
       )
       .subscribe();
 
+    // iOS Safari PWA has unreliable WebSocket support so the Supabase Realtime
+    // subscription above may never fire. Poll every 30 s as a fallback so the
+    // leaderboard stays fresh on iPhone even when the WebSocket is silent.
+    const pollId = setInterval(() => router.refresh(), 30_000);
+
     return () => {
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("pageshow", handlePageShow);
+      clearInterval(pollId);
       void supabase.removeChannel(channel);
     };
   }, [router]);
