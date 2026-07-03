@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FeedEntry } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
-import { Download } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
@@ -16,7 +16,11 @@ interface GroupMediaGalleryProps {
 
 export function GroupMediaGallery({ entries }: GroupMediaGalleryProps) {
   const photos = entries.filter((e) => e.photo_url);
-  const [selected, setSelected] = useState<FeedEntry | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const selected = selectedIndex === null ? null : photos[selectedIndex];
+  const canGoPrevious = selectedIndex !== null && selectedIndex > 0;
+  const canGoNext = selectedIndex !== null && selectedIndex < photos.length - 1;
+  const currentPhotoNumber = selectedIndex === null ? null : selectedIndex + 1;
 
   const handleDownload = async (photoUrl: string, beerName: string | null) => {
     const response = await fetch(photoUrl);
@@ -41,11 +45,12 @@ export function GroupMediaGallery({ entries }: GroupMediaGalleryProps) {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {photos.map((entry) => (
+        {photos.map((entry, index) => (
           <button
             key={entry.id}
+            type="button"
             className="relative aspect-square overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--muted)] group focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
-            onClick={() => setSelected(entry)}
+            onClick={() => setSelectedIndex(index)}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -64,14 +69,40 @@ export function GroupMediaGallery({ entries }: GroupMediaGalleryProps) {
       </div>
 
       {selected && (
-        <Dialog open onOpenChange={(open) => !open && setSelected(null)}>
+        <Dialog open onOpenChange={(open) => !open && setSelectedIndex(null)}>
           <DialogContent className="max-w-sm p-0 overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={selected.photo_url!}
-              alt={selected.beer_name ?? "Beer photo"}
-              className="w-full object-contain max-h-[60vh]"
-            />
+            <div className="relative bg-black">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={selected.photo_url!}
+                alt={selected.beer_name ?? "Beer photo"}
+                className="w-full object-contain max-h-[60vh]"
+              />
+              {canGoPrevious && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  className="absolute left-3 top-1/2 h-9 w-9 -translate-y-1/2 rounded-full bg-black/55 text-white hover:bg-black/70"
+                  onClick={() => setSelectedIndex((index) => (index === null ? index : index - 1))}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span className="sr-only">Previous image</span>
+                </Button>
+              )}
+              {canGoNext && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  className="absolute right-3 top-1/2 h-9 w-9 -translate-y-1/2 rounded-full bg-black/55 text-white hover:bg-black/70"
+                  onClick={() => setSelectedIndex((index) => (index === null ? index : index + 1))}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                  <span className="sr-only">Next image</span>
+                </Button>
+              )}
+            </div>
             <div className="p-4 space-y-3">
               <div className="flex items-start gap-3">
                 <Link href={`/profile/${selected.username}`} className="shrink-0">
@@ -112,6 +143,9 @@ export function GroupMediaGallery({ entries }: GroupMediaGalleryProps) {
                   )}
                   <p className="text-xs text-[var(--muted-foreground)] mt-1">
                     {formatDate(selected.created_at)}
+                  </p>
+                  <p className="text-xs text-[var(--muted-foreground)] mt-1">
+                    {currentPhotoNumber} of {photos.length}
                   </p>
                 </div>
               </div>
