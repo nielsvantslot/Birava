@@ -6,7 +6,7 @@ import { buildLeaderboard } from "@/lib/leaderboard";
 import { LeaderboardClient } from "@/components/beer/leaderboard-client";
 import { GroupLeaderboardClient } from "@/components/beer/group-leaderboard-client";
 import { FeedEntry } from "@/lib/types";
-import { GroupActivityFeed } from "@/components/beer/group-activity-feed";
+import { GroupMediaGallery } from "@/components/beer/group-media-gallery";
 
 
 export default async function GroupLeaderboardPage({
@@ -126,7 +126,7 @@ export default async function GroupLeaderboardPage({
       />
 
       {activityFeed.length > 0 && (
-        <GroupActivityFeed entries={activityFeed} />
+        <GroupMediaGallery entries={activityFeed} />
       )}
     </div>
   );
