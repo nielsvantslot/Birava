@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { buildLeaderboard } from "@/lib/leaderboard";
 import { LeaderboardClient } from "@/components/beer/leaderboard-client";
 import { GroupLeaderboardClient } from "@/components/beer/group-leaderboard-client";
+import { FeedEntry } from "@/lib/types";
+import { GroupMediaGallery } from "@/components/beer/group-media-gallery";
 
 
 export default async function GroupLeaderboardPage({
@@ -88,12 +90,16 @@ export default async function GroupLeaderboardPage({
 
   const memberIds = (allMembers ?? []).map((m) => m.user_id);
 
-  const { data: entries } = await supabase
-    .from("beer_entries")
-    .select("user_id, amount, created_at, profiles(username, avatar_url)")
-    .in("user_id", memberIds.length > 0 ? memberIds : [user.id]);
+  const [entriesResult, feedResult] = await Promise.all([
+    supabase
+      .from("beer_entries")
+      .select("user_id, amount, created_at, profiles(username, avatar_url)")
+      .in("user_id", memberIds.length > 0 ? memberIds : [user.id]),
+    supabase.rpc("get_group_feed", { target_group_id: groupId, lim: 20, off: 0 }),
+  ]);
 
-  const leaderboard = buildLeaderboard(entries ?? []);
+  const leaderboard = buildLeaderboard(entriesResult.data ?? []);
+  const activityFeed: FeedEntry[] = (feedResult.data ?? []) as FeedEntry[];
 
   return (
     <div className="space-y-6 py-4">
@@ -118,6 +124,10 @@ export default async function GroupLeaderboardPage({
         tabs={[{ id: groupId, label: group.name, entries: leaderboard }]}
         currentUserId={user.id}
       />
+
+      {activityFeed.length > 0 && (
+        <GroupMediaGallery entries={activityFeed} />
+      )}
     </div>
   );
 }

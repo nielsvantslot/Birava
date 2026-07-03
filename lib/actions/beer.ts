@@ -17,6 +17,7 @@ export async function addBeer(payload: {
   style: string | null;
   amount: number;
   notes: string | null;
+  photo_url: string | null;
   created_at: string;
 }): Promise<{ error?: string; achievementUnlocked?: boolean }> {
   const supabase = await createClient();
@@ -71,6 +72,7 @@ export async function editBeer(
     style: string | null;
     amount: number;
     notes: string | null;
+    photo_url: string | null;
     created_at: string;
   }
 ): Promise<{ error?: string }> {
@@ -95,6 +97,14 @@ export async function deleteBeer(id: string): Promise<{ error?: string }> {
   const user = await getUser();
   if (!user) return { error: "Not authenticated" };
 
+  // Fetch photo_url before deleting so we can clean up storage
+  const { data: entry } = await supabase
+    .from("beer_entries")
+    .select("photo_url")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("beer_entries")
     .delete()
@@ -102,6 +112,19 @@ export async function deleteBeer(id: string): Promise<{ error?: string }> {
     .eq("user_id", user.id);
 
   if (error) return { error: error.message };
+
+  // Clean up photo from storage if present
+  if (entry?.photo_url) {
+    const url = new URL(entry.photo_url);
+    // Path is like /storage/v1/object/public/beer-photos/{userId}/{filename}
+    const prefix = "/storage/v1/object/public/beer-photos/";
+    const storagePath = url.pathname.startsWith(prefix)
+      ? url.pathname.slice(prefix.length)
+      : null;
+    if (storagePath) {
+      await supabase.storage.from("beer-photos").remove([storagePath]);
+    }
+  }
 
   revalidateBeerPaths();
   return {};

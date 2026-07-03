@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { FeedEntry } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import { Beer } from "lucide-react";
+import { FeedPhotoDownload } from "@/components/beer/feed-photo-download";
 
 
 export default async function FeedPage() {
@@ -99,10 +100,29 @@ export default async function FeedPage() {
                     <p className="text-xs text-[var(--muted-foreground)] mt-1">
                       {formatDate(entry.created_at)}
                     </p>
+
+                    {entry.photo_url && (
+                      <div className="mt-2 relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={entry.photo_url}
+                          alt={entry.beer_name ?? "Beer photo"}
+                          className="w-full max-h-64 object-cover rounded-lg border border-[var(--border)]"
+                        />
+                      </div>
+                    )}
                   </div>
 
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--primary)]/10 text-[var(--primary)]">
-                    <Beer className="h-4 w-4" />
+                  <div className="flex flex-col items-center gap-1 shrink-0">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--primary)]/10 text-[var(--primary)]">
+                      <Beer className="h-4 w-4" />
+                    </div>
+                    {entry.photo_url && (
+                      <FeedPhotoDownload
+                        photoUrl={entry.photo_url}
+                        beerName={entry.beer_name}
+                      />
+                    )}
                   </div>
                 </div>
               </CardContent>
