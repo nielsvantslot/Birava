@@ -113,6 +113,19 @@ export function LeaderboardClient({
     if (hasMountedRef.current) router.refresh();
     hasMountedRef.current = true;
 
+    const refresh = () => router.refresh();
+    const handleFocus = () => refresh();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) refresh();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pageshow", handlePageShow);
+
     const supabase = createClient();
     const channel = supabase
       .channel("leaderboard-live")
@@ -124,6 +137,9 @@ export function LeaderboardClient({
       .subscribe();
 
     return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pageshow", handlePageShow);
       void supabase.removeChannel(channel);
     };
   }, [router]);
