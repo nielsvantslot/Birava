@@ -18,6 +18,9 @@ export function GroupMediaGallery({ entries }: GroupMediaGalleryProps) {
   const photos = entries.filter((e) => e.photo_url);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const selected = selectedIndex === null ? null : photos[selectedIndex];
+  const canGoPrevious = selectedIndex !== null && selectedIndex > 0;
+  const canGoNext = selectedIndex !== null && selectedIndex < photos.length - 1;
+  const currentPhotoNumber = selectedIndex === null ? null : selectedIndex + 1;
 
   const handleDownload = async (photoUrl: string, beerName: string | null) => {
     const response = await fetch(photoUrl);
@@ -75,25 +78,25 @@ export function GroupMediaGallery({ entries }: GroupMediaGalleryProps) {
                 alt={selected.beer_name ?? "Beer photo"}
                 className="w-full object-contain max-h-[60vh]"
               />
-              {selectedIndex > 0 && (
+              {canGoPrevious && (
                 <Button
                   type="button"
                   variant="secondary"
                   size="icon"
                   className="absolute left-3 top-1/2 h-9 w-9 -translate-y-1/2 rounded-full bg-black/55 text-white hover:bg-black/70"
-                  onClick={() => setSelectedIndex(selectedIndex - 1)}
+                  onClick={() => setSelectedIndex((index) => (index === null ? index : index - 1))}
                 >
                   <ChevronLeft className="h-4 w-4" />
                   <span className="sr-only">Previous image</span>
                 </Button>
               )}
-              {selectedIndex < photos.length - 1 && (
+              {canGoNext && (
                 <Button
                   type="button"
                   variant="secondary"
                   size="icon"
                   className="absolute right-3 top-1/2 h-9 w-9 -translate-y-1/2 rounded-full bg-black/55 text-white hover:bg-black/70"
-                  onClick={() => setSelectedIndex(selectedIndex + 1)}
+                  onClick={() => setSelectedIndex((index) => (index === null ? index : index + 1))}
                 >
                   <ChevronRight className="h-4 w-4" />
                   <span className="sr-only">Next image</span>
@@ -142,7 +145,7 @@ export function GroupMediaGallery({ entries }: GroupMediaGalleryProps) {
                     {formatDate(selected.created_at)}
                   </p>
                   <p className="text-xs text-[var(--muted-foreground)] mt-1">
-                    {selectedIndex + 1} of {photos.length}
+                    {currentPhotoNumber} of {photos.length}
                   </p>
                 </div>
               </div>
