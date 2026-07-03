@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { AddBeerDialog } from "@/components/beer/add-beer-dialog";
 import { BeerEntry } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
@@ -20,6 +21,7 @@ interface BeerCardProps {
 export function BeerCard({ entry, showUser }: BeerCardProps) {
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const handleDelete = () => {
@@ -96,12 +98,18 @@ export function BeerCard({ entry, showUser }: BeerCardProps) {
 
                 {entry.photo_url && (
                   <div className="mt-2 relative w-full">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={entry.photo_url}
-                      alt={entry.beer_name ?? "Beer photo"}
-                      className="w-full max-h-64 object-cover rounded-lg border border-[var(--border)]"
-                    />
+                    <button
+                      type="button"
+                      className="block w-full cursor-zoom-in"
+                      onClick={() => setPhotoOpen(true)}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={entry.photo_url}
+                        alt={entry.beer_name ?? "Beer photo"}
+                        className="w-full max-h-64 object-cover rounded-lg border border-[var(--border)]"
+                      />
+                    </button>
                   </div>
                 )}
               </div>
@@ -146,6 +154,19 @@ export function BeerCard({ entry, showUser }: BeerCardProps) {
         onOpenChange={setEditOpen}
         entry={entry}
       />
+
+      {entry.photo_url && (
+        <Dialog open={photoOpen} onOpenChange={setPhotoOpen}>
+          <DialogContent className="max-w-2xl overflow-hidden border-0 bg-transparent p-0 shadow-none">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={entry.photo_url}
+              alt={entry.beer_name ?? "Beer photo"}
+              className="max-h-[85vh] w-full rounded-xl object-contain"
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }
