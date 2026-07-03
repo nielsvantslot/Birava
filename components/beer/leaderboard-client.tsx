@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { LeaderboardEntry } from "@/lib/types";
+import { createClient } from "@/lib/supabase/client";
 
 export type LeaderboardTab = {
   id: string;
@@ -101,9 +103,30 @@ export function LeaderboardClient({
   selectedTabId: controlledSelectedTabId,
   onSelectedTabIdChange,
 }: LeaderboardClientProps) {
+  const router = useRouter();
+  const hasMountedRef = useRef(false);
   const [internalSelectedTabId, setInternalSelectedTabId] = useState(tabs[0]?.id ?? "");
   const selectedTabId = controlledSelectedTabId ?? internalSelectedTabId;
   const setSelectedTabId = onSelectedTabIdChange ?? setInternalSelectedTabId;
+
+  useEffect(() => {
+    if (hasMountedRef.current) router.refresh();
+    hasMountedRef.current = true;
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel("leaderboard-live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "beer_entries" },
+        () => router.refresh()
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [router]);
 
   if (tabs.length === 0) {
     return (
