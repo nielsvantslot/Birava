@@ -1,20 +1,20 @@
-import { createClient, getUser } from "@/lib/supabase/server";
+import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth/session";
+import { toBeerEntry } from "@/lib/mappers";
 import { BeerCard } from "@/components/beer/beer-card";
 import { BeerEntry } from "@/lib/types";
 
 
 export default async function HistoryPage() {
-  const supabase = await createClient();
-  const user = await getUser();
+  const user = await getCurrentUser();
   if (!user) return null;
 
-  const { data: entries = [] } = await supabase
-    .from("beer_entries")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+  const entries = await db.beerEntry.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "desc" },
+  });
 
-  const all: BeerEntry[] = entries ?? [];
+  const all: BeerEntry[] = entries.map(toBeerEntry);
 
   // Group by date
   const groups: Record<string, BeerEntry[]> = {};

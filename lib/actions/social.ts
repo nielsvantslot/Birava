@@ -1,39 +1,35 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth/session";
+import { toFeedEntry } from "@/lib/mappers";
 import { FeedEntry, FollowCounts, PublicProfile } from "@/lib/types";
 
 export async function followUser(targetUserId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("Not authenticated");
 
-  const { error } = await supabase
-    .from("follows")
-    .insert({ follower_id: user.id, following_id: targetUserId });
+  try {
+    await db.follow.create({
+      data: { followerId: user.id, followingId: targetUserId },
+    });
+  } catch {
+    throw new Error("Failed to follow user");
+  }
 
-  if (error) throw new Error(error.message);
   revalidatePath("/feed");
   revalidatePath("/people");
 }
 
 export async function unfollowUser(targetUserId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("Not authenticated");
 
-  const { error } = await supabase
-    .from("follows")
-    .delete()
-    .eq("follower_id", user.id)
-    .eq("following_id", targetUserId);
+  await db.follow.deleteMany({
+    where: { followerId: user.id, followingId: targetUserId },
+  });
 
-  if (error) throw new Error(error.message);
   revalidatePath("/feed");
   revalidatePath("/people");
 }
@@ -41,95 +37,111 @@ export async function unfollowUser(targetUserId: string) {
 export async function getFollowCounts(
   profileId: string
 ): Promise<FollowCounts> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("get_follow_counts", {
-    profile_id: profileId,
-  });
-  if (error || !data || data.length === 0)
-    return { followers: 0, following: 0 };
-  const row = data[0];
-  return {
-    followers: Number(row.followers ?? 0),
-    following: Number(row.following ?? 0),
-  };
+  const [followers, following] = await Promise.all([
+    db.follow.count({ where: { followingId: profileId } }),
+    db.follow.count({ where: { followerId: profileId } }),
+  ]);
+  return { followers, following };
 }
 
 export async function getSocialFeed(
   limit = 20,
   offset = 0
 ): Promise<FeedEntry[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("get_social_feed", {
-    lim: limit,
-    off: offset,
+  const user = await getCurrentUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const following = await db.follow.findMany({
+    where: { followerId: user.id },
+    select: { followingId: true },
   });
-  if (error) throw new Error(error.message);
-  return (data ?? []) as FeedEntry[];
+  const ids = following.map((f) => f.followingId);
+  if (ids.length === 0) return [];
+
+  const entries = await db.beerEntry.findMany({
+    where: { userId: { in: ids } },
+    include: { user: { select: { username: true, avatarUrl: true } } },
+    orderBy: { createdAt: "desc" },
+    skip: offset,
+    take: limit,
+  });
+
+  return entries.map(toFeedEntry);
 }
 
 export async function searchUsers(query: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return [];
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, username, avatar_url")
-    .ilike("username", `%${query}%`)
-    .neq("id", user.id)
-    .limit(20);
+  const users = await db.user.findMany({
+    where: {
+      username: { contains: query.trim(), mode: "insensitive" },
+      id: { not: user.id },
+    },
+    select: { id: true, username: true, avatarUrl: true },
+    take: 20,
+  });
 
-  if (error) return [];
-  return data ?? [];
+  return users.map((u) => ({
+    id: u.id,
+    username: u.username,
+    avatar_url: u.avatarUrl,
+  }));
 }
 
 export async function getPublicProfile(
   username: string
 ): Promise<PublicProfile | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("get_public_profile", {
-    target_username: username,
+  const user = await db.user.findUnique({ where: { username } });
+  if (!user) return null;
+
+  const total = await db.beerEntry.aggregate({
+    where: { userId: user.id },
+    _sum: { amount: true },
   });
-  if (error || !data || data.length === 0) return null;
-  const row = data[0];
+
   return {
-    id: row.id,
-    username: row.username,
-    avatar_url: row.avatar_url,
-    member_since: row.member_since,
-    total_beers: Number(row.total_beers ?? 0),
-    streak_days: Number(row.streak_days ?? 0),
+    id: user.id,
+    username: user.username,
+    avatar_url: user.avatarUrl,
+    member_since: user.createdAt.toISOString(),
+    total_beers: Number(total._sum.amount ?? 0),
+    streak_days: 0,
   };
 }
 
 export async function getIsFollowing(
   targetUserId: string
 ): Promise<boolean> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return false;
 
-  const { data } = await supabase
-    .from("follows")
-    .select("follower_id")
-    .eq("follower_id", user.id)
-    .eq("following_id", targetUserId)
-    .maybeSingle();
+  const follow = await db.follow.findUnique({
+    where: {
+      followerId_followingId: {
+        followerId: user.id,
+        followingId: targetUserId,
+      },
+    },
+  });
 
-  return data !== null;
+  return follow !== null;
 }
 
 export async function getPublicRecentEntries(targetUserId: string) {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("beer_entries")
-    .select("id, beer_name, brewery, style, amount, notes, created_at")
-    .eq("user_id", targetUserId)
-    .order("created_at", { ascending: false })
-    .limit(10);
-  return data ?? [];
+  const entries = await db.beerEntry.findMany({
+    where: { userId: targetUserId },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+  });
+
+  return entries.map((e) => ({
+    id: e.id,
+    beer_name: e.beerName,
+    brewery: e.brewery,
+    style: e.style,
+    amount: Number(e.amount),
+    notes: e.notes,
+    created_at: e.createdAt.toISOString(),
+  }));
 }

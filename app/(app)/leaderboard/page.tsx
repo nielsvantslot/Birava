@@ -1,30 +1,36 @@
-import { createClient, getUser } from "@/lib/supabase/server";
+import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth/session";
 import { BoardGroupsClient } from "@/components/beer/board-groups-client";
 
 
 export default async function LeaderboardPage() {
-  const supabase = await createClient();
-  const user = await getUser();
+  const user = await getCurrentUser();
   if (!user) return null;
 
-  const [followsResult, membershipsResult] = await Promise.all([
-    supabase.from("follows").select("following_id").eq("follower_id", user.id),
-    supabase
-      .from("group_members")
-      .select("group_id, groups(id, name, invite_code, owner_id)")
-      .eq("user_id", user.id),
+  const [follows, memberships] = await Promise.all([
+    db.follow.findMany({
+      where: { followerId: user.id },
+      select: { followingId: true },
+    }),
+    db.groupMember.findMany({
+      where: { userId: user.id },
+      include: { group: true },
+    }),
   ]);
 
-  const followedIds = (followsResult.data ?? []).map((f) => f.following_id);
+  const followedIds = follows.map((f) => f.followingId);
 
   const groups: Array<{
     id: string;
     name: string;
     invite_code: string;
     owner_id: string | null;
-  }> = (membershipsResult.data ?? []).flatMap((m) =>
-    Array.isArray(m.groups) ? m.groups : m.groups ? [m.groups] : []
-  );
+  }> = memberships.map((m) => ({
+    id: m.group.id,
+    name: m.group.name,
+    invite_code: m.group.inviteCode,
+    owner_id: m.group.ownerId,
+  }));
 
   return (
     <div className="space-y-6 py-4">

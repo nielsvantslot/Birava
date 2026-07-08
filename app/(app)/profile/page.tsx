@@ -1,4 +1,6 @@
-import { createClient, getUser } from "@/lib/supabase/server";
+import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth/session";
+import { toBeerEntry } from "@/lib/mappers";
 import { ProfileClient } from "@/components/beer/profile-client";
 import { BeerEntry } from "@/lib/types";
 import { getFollowCounts } from "@/lib/actions/social";
@@ -41,38 +43,30 @@ function getAvgPerDay(entries: BeerEntry[]): string {
 }
 
 export default async function ProfilePage() {
-  const supabase = await createClient();
-  const user = await getUser();
+  const user = await getCurrentUser();
   if (!user) return null;
 
-  const [{ data: profile }, { data: entries = [] }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("username, avatar_url, created_at")
-      .eq("id", user.id)
-      .single(),
-    supabase
-      .from("beer_entries")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false }),
-  ]);
+  const entries = await db.beerEntry.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "desc" },
+  });
 
-  const all: BeerEntry[] = entries ?? [];
+  const all: BeerEntry[] = entries.map(toBeerEntry);
   const totalBeers = all.reduce((sum, e) => sum + e.amount, 0);
   const streak = getStreak(all);
   const avgPerDay = getAvgPerDay(all);
   const followCounts = await getFollowCounts(user.id);
 
-  const memberSince = new Date(
-    profile?.created_at ?? user.created_at
-  ).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const memberSince = new Date(user.created_at).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
 
   return (
     <ProfileClient
-      username={profile?.username ?? user.email?.split("@")[0] ?? "User"}
-      email={user.email ?? ""}
-      avatarUrl={profile?.avatar_url ?? null}
+      username={user.username}
+      email={user.email}
+      avatarUrl={user.avatar_url}
       totalBeers={totalBeers}
       streak={streak}
       avgPerDay={avgPerDay}

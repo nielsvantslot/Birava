@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { createClient, getUser } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/session";
+import { getSocialFeed } from "@/lib/actions/social";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,16 +12,10 @@ import { FeedPhotoDownload } from "@/components/beer/feed-photo-download";
 
 
 export default async function FeedPage() {
-  const supabase = await createClient();
-  const user = await getUser();
+  const user = await getCurrentUser();
   if (!user) return null;
 
-  const { data: feedData } = await supabase.rpc("get_social_feed", {
-    lim: 30,
-    off: 0,
-  });
-
-  const entries: FeedEntry[] = (feedData ?? []) as FeedEntry[];
+  const entries: FeedEntry[] = await getSocialFeed(30, 0);
 
   return (
     <div className="space-y-6 py-4">

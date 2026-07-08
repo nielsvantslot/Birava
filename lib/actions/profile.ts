@@ -3,10 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { getUser } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/session";
 
 export async function updateProfileUsername(username: string): Promise<{ error?: { message: string } }> {
-  const user = await getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: { message: "Not authenticated" } };
 
   try {
