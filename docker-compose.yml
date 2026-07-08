@@ -8,7 +8,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://birava:birava@db:5433/birava?schema=public
+      DATABASE_URL: postgresql://birava:birava@db:5432/birava?schema=public
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       CHOKIDAR_USEPOLLING: "true"
       WATCHPACK_POLLING: "true"
