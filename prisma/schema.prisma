@@ -11,88 +11,81 @@ model User {
   id                   String                 @id @default(uuid()) @db.Uuid
   email                String                 @unique
   username             String                 @unique
-  passwordHash         String    @map("password_hash")
-  avatarUrl            String?   @map("avatar_url")
-  passwordResetToken   String?   @map("password_reset_token")
-  passwordResetExpires DateTime? @map("password_reset_expires")
-  createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  passwordHash         String
+  avatarUrl            String?
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+  createdAt            DateTime               @default(now()) @db.Timestamptz(6)
   beerEntries          BeerEntry[]
   ownedGroups          Group[]                @relation("GroupOwner")
   groupMemberships     GroupMember[]
   follows              Follow[]               @relation("FollowFollower")
   followedBy           Follow[]               @relation("FollowFollowing")
   sessions             Session[]
-
-  @@map("users")
 }
 
 model Session {
   id           String   @id @default(uuid()) @db.Uuid
-  userId       String   @map("user_id") @db.Uuid
-  sessionToken String   @unique @map("session_token")
-  expiresAt    DateTime @map("expires_at") @db.Timestamptz(6)
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  userId       String @db.Uuid
+  sessionToken String   @unique
+  expiresAt    DateTime @db.Timestamptz(6)
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@map("sessions")
 }
 
 model Group {
   id         String        @id @default(uuid()) @db.Uuid
   name       String
-  inviteCode String        @unique @map("invite_code")
-  ownerId    String        @map("owner_id") @db.Uuid
-  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  inviteCode String        @unique
+  ownerId    String        @db.Uuid
+  createdAt  DateTime      @default(now()) @db.Timestamptz(6)
   owner      User          @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members    GroupMember[]
   beerEntries BeerEntry[]
 
   @@index([ownerId])
-  @@map("groups")
 }
 
 model GroupMember {
-  groupId   String   @map("group_id") @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  joinedAt  DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
+  groupId   String   @db.Uuid
+  userId    String   @db.Uuid
+  joinedAt  DateTime @default(now()) @db.Timestamptz(6)
   group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([groupId, userId])
   @@index([userId])
-  @@map("group_members")
 }
 
 model BeerEntry {
   id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  groupId   String?  @map("group_id") @db.Uuid
-  beerName  String?  @map("beer_name")
+  userId    String   @db.Uuid
+  groupId   String?  @db.Uuid
+  beerName  String?
   brewery   String?
   style     String?
   amount    Decimal  @default(1) @db.Decimal(10, 2)
   notes     String?
-  photoUrl  String?  @map("photo_url")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  photoUrl  String?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   group     Group?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([groupId])
   @@index([createdAt(sort: Desc)])
-  @@map("beer_entries")
 }
 
 model Follow {
-  followerId  String   @map("follower_id") @db.Uuid
-  followingId String   @map("following_id") @db.Uuid
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  followerId  String   @db.Uuid
+  followingId String   @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
   follower    User     @relation("FollowFollower", fields: [followerId], references: [id], onDelete: Cascade)
   following   User     @relation("FollowFollowing", fields: [followingId], references: [id], onDelete: Cascade)
 
   @@id([followerId, followingId])
   @@index([followerId])
   @@index([followingId])
-  @@map("follows")
 }
