@@ -1,33 +1,20 @@
-import { createServerClient } from "@supabase/ssr";
+import { db } from "@/lib/db";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+  const token = request.cookies.get("birava_session")?.value;
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
+  const session = token
+    ? await db.session.findUnique({
+        where: { sessionToken: token },
+        select: { expiresAt: true },
+      })
+    : null;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user =
+    session && session.expiresAt.getTime() > Date.now()
+      ? { id: "authenticated" }
+      : null;
 
   const url = request.nextUrl.clone();
   const isAuthPage =
@@ -46,5 +33,5 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  return supabaseResponse;
+  return NextResponse.next({ request });
 }

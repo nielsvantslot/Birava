@@ -1,0 +1,49 @@
+services:
+  app:
+    image: node:20-alpine
+    container_name: birava-app
+    working_dir: /app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://birava:birava@db:5433/birava?schema=public
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      WATCHPACK_POLLING_INTERVAL: "1000"
+    command: >
+      sh -c "if [ ! -d node_modules ] || [ ! -f node_modules/.install-stamp ] || [ package-lock.json -nt node_modules/.install-stamp ]; then npm install && touch node_modules/.install-stamp; fi &&
+      npm run prisma:generate &&
+      npm run db:migrate &&
+      npm run dev -- --hostname 0.0.0.0 --port 3000"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+      - birava-node-modules:/app/node_modules
+      - birava-next-cache:/app/.next
+
+  db:
+    image: postgres:16-alpine
+    container_name: birava-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: birava
+      POSTGRES_USER: birava
+      POSTGRES_PASSWORD: birava
+    ports:
+      - "5433:5432"
+    volumes:
+      - birava-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U birava -d birava"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  birava-postgres-data:
+  birava-node-modules:
+  birava-next-cache:

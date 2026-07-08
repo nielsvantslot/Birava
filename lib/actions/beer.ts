@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { checkAchievements } from "@/lib/achievements";
+import { removeBeerPhotoByUrl } from "@/lib/storage/local";
 
 const BEER_PATHS = ["/dashboard", "/stats", "/history", "/feed"];
 
@@ -115,15 +116,7 @@ export async function deleteBeer(id: string): Promise<{ error?: string }> {
 
   // Clean up photo from storage if present
   if (entry?.photo_url) {
-    const url = new URL(entry.photo_url);
-    // Path is like /storage/v1/object/public/beer-photos/{userId}/{filename}
-    const prefix = "/storage/v1/object/public/beer-photos/";
-    const storagePath = url.pathname.startsWith(prefix)
-      ? url.pathname.slice(prefix.length)
-      : null;
-    if (storagePath) {
-      await supabase.storage.from("beer-photos").remove([storagePath]);
-    }
+    await removeBeerPhotoByUrl(entry.photo_url);
   }
 
   revalidateBeerPaths();

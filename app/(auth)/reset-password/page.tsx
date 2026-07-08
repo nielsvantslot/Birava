@@ -1,40 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Beer } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 export default function ResetPasswordPage() {
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
+  const isRecoverySession = Boolean(token);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [checking, setChecking] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [isRecoverySession, setIsRecoverySession] = useState(false);
-
-  useEffect(() => {
-    const supabase = createClient();
-
-    const run = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      const recoveryType = session?.user?.recovery_sent_at ? true : false;
-      const hashType = new URLSearchParams(window.location.hash.replace("#", "?")).get("type");
-
-      setIsRecoverySession(recoveryType || hashType === "recovery");
-      setChecking(false);
-    };
-
-    void run();
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,11 +35,18 @@ export default function ResetPasswordPage() {
     }
 
     setLoading(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.updateUser({ password });
+    const response = await fetch("/api/auth/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, password }),
+    });
 
-    if (error) {
-      setError(error.message);
+    const result = (await response.json().catch(() => null)) as
+      | { error?: string }
+      | null;
+
+    if (!response.ok) {
+      setError(result?.error ?? "Unable to update password.");
       setLoading(false);
       return;
     }
@@ -85,9 +75,7 @@ export default function ResetPasswordPage() {
           <CardDescription>Create a new password for your account</CardDescription>
         </CardHeader>
         <CardContent>
-          {checking ? (
-            <p className="text-sm text-[var(--muted-foreground)]">Checking reset link...</p>
-          ) : !isRecoverySession ? (
+          {!isRecoverySession ? (
             <p className="text-sm text-[var(--destructive)] bg-[var(--destructive)]/10 rounded-lg px-3 py-2">
               This reset link is invalid or expired. Request a new one.
             </p>

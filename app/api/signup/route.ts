@@ -1,4 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
+import { Prisma } from "@prisma/client";
+import { db } from "@/lib/db";
+import { hashPassword } from "@/lib/auth/password";
 
 type SignupPayload = {
   username?: unknown;
@@ -7,16 +9,6 @@ type SignupPayload = {
 };
 
 export async function POST(request: Request) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return Response.json(
-      { error: "Signup is not configured yet. Missing Supabase server credentials." },
-      { status: 500 }
-    );
-  }
-
   let body: SignupPayload;
 
   try {
@@ -47,38 +39,37 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-
-  let createError: unknown = null;
   try {
-    const { error } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: {
+    const passwordHash = await hashPassword(password);
+    await db.user.create({
+      data: {
+        email,
         username,
+        passwordHash,
       },
     });
-    createError = error;
-  } catch (err) {
-    createError = err;
-  }
+  } catch (createError) {
+    const code =
+      createError instanceof Prisma.PrismaClientKnownRequestError
+        ? createError.code
+        : null;
 
-  if (createError) {
-    const raw =
-      createError instanceof Error ? createError.message : String(createError);
-    // auth-js returns "{}" as the message when Supabase responds with a 5xx and
-    // the response body cannot be extracted from the raw Response object.
-    const message =
-      raw && raw !== "{}"
-        ? raw
-        : "Failed to create account. Please try again.";
-    return Response.json({ error: message }, { status: 400 });
+    if (code === "P2002") {
+      const target =
+        createError instanceof Prisma.PrismaClientKnownRequestError
+          ? (createError.meta?.target as string[] | undefined)?.join(",") ?? ""
+          : "";
+
+      if (target.includes("username")) {
+        return Response.json({ error: "That username is already taken." }, { status: 400 });
+      }
+
+      if (target.includes("email")) {
+        return Response.json({ error: "An account with this email already exists." }, { status: 400 });
+      }
+    }
+
+    return Response.json({ error: "Failed to create account. Please try again." }, { status: 400 });
   }
 
   return Response.json({ success: true });

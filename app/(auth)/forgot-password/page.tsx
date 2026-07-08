@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Beer } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,25 +13,35 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [debugResetUrl, setDebugResetUrl] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setSuccess(null);
+    setDebugResetUrl(null);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+    const response = await fetch("/api/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
     });
 
-    if (error) {
-      setError(error.message);
+    const result = (await response.json().catch(() => null)) as
+      | { error?: string; resetUrl?: string }
+      | null;
+
+    if (!response.ok) {
+      setError(result?.error ?? "Unable to process request.");
       setLoading(false);
       return;
     }
 
     setSuccess("If this email exists, a password reset link has been sent.");
+    if (result?.resetUrl) {
+      setDebugResetUrl(result.resetUrl);
+    }
     setLoading(false);
   };
 
@@ -79,6 +88,12 @@ export default function ForgotPasswordPage() {
             {success && (
               <p className="text-sm text-emerald-600 bg-emerald-500/10 rounded-lg px-3 py-2">
                 {success}
+              </p>
+            )}
+
+            {debugResetUrl && (
+              <p className="text-xs text-[var(--muted-foreground)] rounded-lg bg-[var(--muted)] px-3 py-2 break-all">
+                Dev reset link: {debugResetUrl}
               </p>
             )}
 

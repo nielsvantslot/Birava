@@ -4,12 +4,12 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, Pencil, Check, X, Users } from "lucide-react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { getEarnedAchievements } from "@/lib/achievements";
+import { updateProfileUsername } from "@/lib/actions/profile";
 
 interface ProfileClientProps {
   username: string;
@@ -55,11 +55,7 @@ export function ProfileClient({
     }
     setError(null);
     startTransition(async () => {
-      const supabase = createClient();
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ username: trimmed })
-        .eq("id", (await supabase.auth.getUser()).data.user!.id);
+      const { error: updateError } = await updateProfileUsername(trimmed);
       if (updateError) {
         setError(
           updateError.message.includes("unique")
@@ -81,8 +77,7 @@ export function ProfileClient({
 
   const handleSignOut = () => {
     startTransition(async () => {
-      const supabase = createClient();
-      await supabase.auth.signOut();
+      await fetch("/api/auth/logout", { method: "POST" });
       router.push("/login");
     });
   };

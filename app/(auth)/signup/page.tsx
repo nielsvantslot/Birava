@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Beer } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,7 +21,6 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const supabase = createClient();
 
     const response = await fetch("/api/signup", {
       method: "POST",
@@ -44,13 +42,21 @@ export default function SignupPage() {
       return;
     }
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
-      password,
+    const loginResponse = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+        password,
+      }),
     });
 
-    if (signInError) {
-      setError(signInError.message);
+    const loginResult = (await loginResponse.json().catch(() => null)) as
+      | { error?: string }
+      | null;
+
+    if (!loginResponse.ok) {
+      setError(loginResult?.error ?? "Unable to sign in.");
       setLoading(false);
       return;
     }
