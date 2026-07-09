@@ -24,6 +24,7 @@ import {
 import { BeerEntry } from "@/lib/types";
 import { triggerConfetti } from "@/lib/achievements";
 import { addBeer, editBeer } from "@/lib/actions/beer";
+import { beerPhotoSrc } from "@/lib/utils";
 
 
 const BEER_STYLES = [
@@ -78,7 +79,9 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
   const [form, setForm] = useState(() => getInitialForm(entry));
   const [error, setError] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(entry?.photo_url ?? null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(
+    entry?.photo_url ? beerPhotoSrc(entry.id) : null
+  );
   const [removePhoto, setRemovePhoto] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -96,7 +99,7 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setForm(getInitialForm(entry, new Date()));
       setPhotoFile(null);
-      setPhotoPreview(entry?.photo_url ?? null);
+      setPhotoPreview(entry?.photo_url ? beerPhotoSrc(entry.id) : null);
       setRemovePhoto(false);
       setError(null);
     }

@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FeedEntry } from "@/lib/types";
-import { formatDate } from "@/lib/utils";
+import { beerPhotoSrc, formatDate } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -22,8 +22,8 @@ export function GroupMediaGallery({ entries }: GroupMediaGalleryProps) {
   const canGoNext = selectedIndex !== null && selectedIndex < photos.length - 1;
   const currentPhotoNumber = selectedIndex === null ? null : selectedIndex + 1;
 
-  const handleDownload = async (photoUrl: string, beerName: string | null) => {
-    const response = await fetch(photoUrl);
+  const handleDownload = async (entryId: string, beerName: string | null) => {
+    const response = await fetch(beerPhotoSrc(entryId));
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -54,7 +54,7 @@ export function GroupMediaGallery({ entries }: GroupMediaGalleryProps) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={entry.photo_url!}
+              src={beerPhotoSrc(entry.id)}
               alt={entry.beer_name ?? "Beer photo"}
               className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
             />
@@ -74,7 +74,7 @@ export function GroupMediaGallery({ entries }: GroupMediaGalleryProps) {
             <div className="relative bg-black">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={selected.photo_url!}
+                src={beerPhotoSrc(selected.id)}
                 alt={selected.beer_name ?? "Beer photo"}
                 className="w-full object-contain max-h-[60vh]"
               />
@@ -153,7 +153,7 @@ export function GroupMediaGallery({ entries }: GroupMediaGalleryProps) {
                 variant="outline"
                 size="sm"
                 className="w-full gap-1.5"
-                onClick={() => handleDownload(selected.photo_url!, selected.beer_name)}
+                onClick={() => handleDownload(selected.id, selected.beer_name)}
               >
                 <Download className="h-3.5 w-3.5" />
                 Download Photo

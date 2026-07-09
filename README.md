@@ -4,7 +4,6 @@
 
 Birava is a mobile-first PWA built with Next.js, Prisma, PostgreSQL, and Tailwind CSS. Log beers, see stats, run a holiday leaderboard, and install it on your phone's home screen.
 
-
 ---
 
 ## Features
