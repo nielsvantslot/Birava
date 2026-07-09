@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { toggleProost } from "@/lib/actions/social";
+import { toggleProost } from "@/lib/controllers/socialController";
 import { showToast } from "@/components/ui/toast-pill";
 import { cn } from "@/lib/utils";
 
@@ -28,13 +28,13 @@ export function SocialActs({
     // Optimistic — settle with the server's answer
     setState((s) => ({ on: !s.on, count: s.count + (s.on ? -1 : 1) }));
     startTransition(async () => {
-      const result = await toggleProost(entryId);
-      if ("error" in result) {
+      const result = await toggleProost({ entryId });
+      if (result.error) {
         setState({ count, on });
         showToast(result.error);
         return;
       }
-      setState({ count: result.count, on: result.on });
+      setState({ count: result.count!, on: result.on! });
     });
   };
 

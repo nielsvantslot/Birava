@@ -16,12 +16,13 @@ import {
   UpdateDrinkEntryDTO,
 } from "@/lib/dtos";
 
-const DRINK_PATHS = ["/dashboard", "/stats", "/history", "/feed"];
+const DRINK_PATHS = ["/dashboard", "/stats", "/log", "/profile", "/achievements"];
 const MAX_PUBLIC_LIMIT = 50;
 
 function revalidateDrinkPaths() {
   for (const path of DRINK_PATHS) revalidatePath(path);
-  revalidatePath("/leaderboard", "layout");
+  revalidatePath("/sessions", "layout");
+  revalidatePath("/crews", "layout");
 }
 
 export async function addDrink(input: CreateDrinkEntryDTO): Promise<AddDrinkResultDTO> {

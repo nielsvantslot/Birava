@@ -10,7 +10,7 @@ import {
 } from "@/lib/sessions";
 import { computeAchievements } from "@/lib/achievements";
 import { relativeDay } from "@/lib/dates";
-import { getFollowCounts } from "@/lib/actions/social";
+import { getFollowCounts } from "@/lib/controllers/socialController";
 import { ProfileHead, ProfileActions } from "@/components/beer/profile-client";
 import { AchievementGlyph } from "@/components/beer/achievement-icon";
 
@@ -19,7 +19,7 @@ export default async function ProfilePage() {
   if (!user) return null;
 
   const tz = await getUserTimeZone();
-  const rows = await db.beerEntry.findMany({
+  const rows = await db.drinkEntry.findMany({
     where: { userId: user.id },
     include: { user: { select: { username: true, avatarUrl: true } } },
     orderBy: { createdAt: "asc" },
@@ -43,9 +43,9 @@ export default async function ProfilePage() {
     .slice(0, 3);
 
   const recentSessions = sessions.slice(0, 3);
-  const followCounts = await getFollowCounts(user.id);
+  const followCounts = await getFollowCounts({ profileId: user.id });
 
-  const memberSince = new Date(user.created_at).toLocaleDateString("en-GB", {
+  const memberSince = new Date(user.createdAt).toLocaleDateString("en-GB", {
     month: "long",
     year: "numeric",
   });
@@ -54,7 +54,7 @@ export default async function ProfilePage() {
     <>
       <ProfileHead
         username={user.username}
-        avatarUrl={user.avatar_url}
+        avatarUrl={user.avatarUrl}
         memberSince={memberSince}
         followers={followCounts.followers}
         following={followCounts.following}

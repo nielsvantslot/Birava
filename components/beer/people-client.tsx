@@ -3,12 +3,12 @@
 import { useState, useTransition, useCallback } from "react";
 import Link from "next/link";
 import { FollowButton } from "@/components/beer/follow-button";
-import { searchUsers } from "@/lib/actions/social";
+import { searchUsers } from "@/lib/controllers/socialController";
 
 interface UserResult {
   id: string;
   username: string;
-  avatar_url: string | null;
+  avatarUrl: string | null;
 }
 
 interface PeopleClientProps {
@@ -33,7 +33,7 @@ export function PeopleClient({
       return;
     }
     startTransition(async () => {
-      const data = await searchUsers(value.trim());
+      const data = await searchUsers({ query: value.trim() });
       setResults(data as UserResult[]);
       setSearched(true);
     });
@@ -76,9 +76,9 @@ export function PeopleClient({
             }}
           >
             <div className="avatar">
-              {u.avatar_url ? (
+              {u.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={u.avatar_url} alt={u.username} />
+                <img src={u.avatarUrl} alt={u.username} />
               ) : (
                 u.username.slice(0, 2).toUpperCase()
               )}

@@ -7,6 +7,7 @@ import {
   followUser as followUserCommand,
   unfollowUser as unfollowUserCommand,
 } from "@/lib/commands/followCommands";
+import { toggleProost as toggleProostCommand } from "@/lib/commands/proostCommands";
 import { getFollowCounts as getFollowCountsQuery, getFollowingIds, isFollowing } from "@/lib/queries/followQueries";
 import { getSocialFeed as getSocialFeedQuery } from "@/lib/queries/drinkEntryQueries";
 import { searchUsers as searchUsersQuery } from "@/lib/queries/userQueries";
@@ -18,6 +19,8 @@ import {
   GetSocialFeedDTO,
   IsFollowingQueryDTO,
   SearchUsersDTO,
+  ToggleProostDTO,
+  ToggleProostResultDTO,
   UnfollowUserDTO,
   UserSummaryDTO,
 } from "@/lib/dtos";
@@ -77,4 +80,16 @@ export async function isFollowingUser(input: IsFollowingQueryDTO): Promise<boole
   if (!user) return false;
 
   return isFollowing(user.id, input.targetUserId);
+}
+
+export async function toggleProost(input: ToggleProostDTO): Promise<ToggleProostResultDTO> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const result = await toggleProostCommand(user.id, input.entryId);
+  if (!result.error) {
+    revalidatePath("/dashboard");
+    revalidatePath("/sessions", "layout");
+  }
+  return result;
 }

@@ -30,13 +30,13 @@ export default async function LogPage({
 
   let editEntry: BeerEntry | undefined;
   if (edit) {
-    const entry = await db.beerEntry.findFirst({
+    const entry = await db.drinkEntry.findFirst({
       where: { id: edit, userId: user.id },
     });
     if (entry) editEntry = toBeerEntry(entry);
   }
 
-  const entries = await db.beerEntry.findMany({
+  const entries = await db.drinkEntry.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },
     take: 4,

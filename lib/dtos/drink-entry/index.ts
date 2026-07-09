@@ -8,3 +8,5 @@ export * from "./deleteDrinkEntryDTO";
 export * from "./addDrinkResultDTO";
 export * from "./getMyDrinkEntriesDTO";
 export * from "./getPublicDrinkEntriesForUserDTO";
+export * from "./toggleProostDTO";
+export * from "./toggleProostResultDTO";

@@ -29,7 +29,7 @@ export default async function DashboardPage({
     ? [user.id]
     : [user.id, ...following.map((f) => f.followingId)];
 
-  const entries = await db.beerEntry.findMany({
+  const entries = await db.drinkEntry.findMany({
     where: { userId: { in: userIds } },
     include: { user: { select: { username: true, avatarUrl: true } } },
     orderBy: { createdAt: "desc" },

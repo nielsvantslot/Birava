@@ -3,14 +3,20 @@ import { generateInviteCode } from "@/lib/utils";
 import {
   ActionResultDTO,
   CreateGroupDTO,
+  CreateGroupResultDTO,
   DeleteGroupDTO,
   JoinGroupDTO,
+  JoinGroupResultDTO,
   LeaveGroupDTO,
 } from "@/lib/dtos";
 
-export async function createGroup(ownerId: string, input: CreateGroupDTO): Promise<ActionResultDTO> {
+export async function createGroup(
+  ownerId: string,
+  input: CreateGroupDTO
+): Promise<CreateGroupResultDTO> {
+  let group;
   try {
-    await db.group.create({
+    group = await db.group.create({
       data: {
         name: input.name.trim(),
         inviteCode: generateInviteCode(),
@@ -19,17 +25,20 @@ export async function createGroup(ownerId: string, input: CreateGroupDTO): Promi
       },
     });
   } catch {
-    return { error: "Failed to create group." };
+    return { error: "Failed to create crew." };
   }
 
-  return {};
+  return { inviteCode: group.inviteCode };
 }
 
-export async function joinGroup(userId: string, input: JoinGroupDTO): Promise<ActionResultDTO> {
+export async function joinGroup(
+  userId: string,
+  input: JoinGroupDTO
+): Promise<JoinGroupResultDTO> {
   const group = await db.group.findUnique({
     where: { inviteCode: input.inviteCode.trim().toUpperCase() },
   });
-  if (!group) return { error: "Group not found" };
+  if (!group) return { error: "That code doesn't match any crew." };
 
   await db.groupMember.upsert({
     where: { groupId_userId: { groupId: group.id, userId } },
@@ -37,14 +46,14 @@ export async function joinGroup(userId: string, input: JoinGroupDTO): Promise<Ac
     create: { groupId: group.id, userId },
   });
 
-  return {};
+  return { groupName: group.name };
 }
 
 export async function leaveGroup(userId: string, input: LeaveGroupDTO): Promise<ActionResultDTO> {
   const group = await db.group.findUnique({ where: { id: input.groupId } });
-  if (!group) return { error: "Group not found" };
+  if (!group) return { error: "Crew not found" };
   if (group.ownerId === userId) {
-    return { error: "Group owners cannot leave their own group" };
+    return { error: "Crew owners can't leave their own crew" };
   }
 
   await db.groupMember.deleteMany({
@@ -59,7 +68,7 @@ export async function deleteGroup(ownerId: string, input: DeleteGroupDTO): Promi
     where: { id: input.groupId, ownerId },
   });
   if (deleted.count === 0) {
-    return { error: "Only the group owner can delete this group" };
+    return { error: "Only the crew owner can delete this crew" };
   }
 
   return {};

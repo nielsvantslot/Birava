@@ -12,17 +12,19 @@ import {
 import {
   ActionResultDTO,
   CreateGroupDTO,
+  CreateGroupResultDTO,
   DeleteGroupDTO,
   JoinGroupDTO,
+  JoinGroupResultDTO,
   LeaveGroupDTO,
 } from "@/lib/dtos";
 
 function revalidateGroupPaths() {
-  revalidatePath("/leaderboard");
-  revalidatePath("/leaderboard", "layout");
+  revalidatePath("/crews");
+  revalidatePath("/crews", "layout");
 }
 
-export async function createGroup(input: CreateGroupDTO): Promise<ActionResultDTO> {
+export async function createGroup(input: CreateGroupDTO): Promise<CreateGroupResultDTO> {
   const user = await getCurrentUser();
   if (!user) return NOT_AUTHENTICATED;
 
@@ -31,7 +33,7 @@ export async function createGroup(input: CreateGroupDTO): Promise<ActionResultDT
   return result;
 }
 
-export async function joinGroupByInvite(input: JoinGroupDTO): Promise<ActionResultDTO> {
+export async function joinGroupByInvite(input: JoinGroupDTO): Promise<JoinGroupResultDTO> {
   const user = await getCurrentUser();
   if (!user) return NOT_AUTHENTICATED;
 

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateProfileUsername } from "@/lib/actions/profile";
+import { updateProfileUsername } from "@/lib/controllers/profileController";
 import { showToast } from "@/components/ui/toast-pill";
 
 interface ProfileHeadProps {
@@ -46,12 +46,12 @@ export function ProfileHead({
     }
     setError(null);
     startTransition(async () => {
-      const { error: updateError } = await updateProfileUsername(trimmed);
+      const { error: updateError } = await updateProfileUsername({ username: trimmed });
       if (updateError) {
         setError(
-          updateError.message === "unique constraint"
+          updateError === "unique constraint"
             ? "That username is taken."
-            : updateError.message
+            : updateError
         );
         return;
       }

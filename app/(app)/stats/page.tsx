@@ -83,7 +83,7 @@ export default async function StatsPage() {
   if (!user) return null;
 
   const tz = await getUserTimeZone();
-  const rows = await db.beerEntry.findMany({
+  const rows = await db.drinkEntry.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "asc" },
   });
