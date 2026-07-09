@@ -10,7 +10,7 @@ import {
 import { triggerConfetti } from "@/lib/achievements";
 import { showToast } from "@/components/ui/toast-pill";
 import { BeerEntry, DRINK_TYPES } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { beerPhotoSrc, cn } from "@/lib/utils";
 
 type Coords = { lat: number; lng: number };
 
@@ -64,8 +64,10 @@ export function CheckinForm({ editEntry }: { editEntry?: BeerEntry }) {
   );
   const [venue, setVenue] = useState(editEntry?.venue ?? "");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  // Photos are displayed through /api/photos/[entryId]; the raw
+  // photo_url is a storage handle, never an <img> src.
   const [photoPreview, setPhotoPreview] = useState<string | null>(
-    editEntry?.photo_url ?? null
+    editEntry?.photo_url ? beerPhotoSrc(editEntry.id) : null
   );
   const [error, setError] = useState<string | null>(null);
   const [coords, setCoords] = useState<Coords | null>(
@@ -136,9 +138,10 @@ export function CheckinForm({ editEntry }: { editEntry?: BeerEntry }) {
     setError(null);
 
     startTransition(async () => {
-      let photoUrl: string | null = photoFile
-        ? null
-        : (photoPreview ?? null);
+      // Keep the existing storage handle when the photo is untouched;
+      // clear it when the preview was removed.
+      let photoUrl: string | null =
+        !photoFile && photoPreview ? (editEntry?.photo_url ?? null) : null;
 
       if (photoFile) {
         const formData = new FormData();

@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
 import { toBeerEntry } from "@/lib/mappers";
 import { earnedIds } from "@/lib/achievements";
-import { removeBeerPhotoByUrl } from "@/lib/storage/local";
+import { removeBeerPhotoByUrl } from "@/lib/storage";
 
 const CHECKIN_PATHS = ["/dashboard", "/stats", "/log", "/profile", "/achievements"];
 

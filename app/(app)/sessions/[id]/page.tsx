@@ -15,6 +15,7 @@ import { getProostStates } from "@/lib/proost";
 import { formatTime, relativeDayTime } from "@/lib/dates";
 import { SessionMap, MapPin } from "@/components/beer/session-map";
 import { SocialActs } from "@/components/beer/social-row";
+import { beerPhotoSrc } from "@/lib/utils";
 
 type VenueGroup = { venue: string | null; checkins: BeerEntry[] };
 
@@ -304,16 +305,16 @@ export default async function SessionDetailPage({
       </div>
 
       {/* Photos */}
-      {session.photos.length > 0 && (
+      {session.photoIds.length > 0 && (
         <div className="section flush" style={{ padding: "14px 0" }}>
           <div className="h-row" style={{ padding: "0 16px" }}>
             <h3>Photos</h3>
           </div>
           <div className="gallery">
-            {session.photos.map((url, i) => (
-              <div key={url}>
+            {session.photoIds.map((id, i) => (
+              <div key={id}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt={`Session photo ${i + 1}`} />
+                <img src={beerPhotoSrc(id)} alt={`Session photo ${i + 1}`} />
               </div>
             ))}
           </div>

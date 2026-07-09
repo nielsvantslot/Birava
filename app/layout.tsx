@@ -49,6 +49,7 @@ export default function RootLayout({
     <html
       lang="en"
       className={`h-full antialiased ${archivo.variable} ${sourceSerif.variable}`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col font-sans">
         <ServiceWorkerRegistration />

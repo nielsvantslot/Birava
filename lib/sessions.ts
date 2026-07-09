@@ -22,8 +22,12 @@ export type DrinkSession = {
   venues: string[];
   /** Distinct drink types in first-pour order. */
   types: string[];
-  /** Check-in photos, chronological. */
-  photos: string[];
+  /**
+   * Ids of check-ins that have a photo, chronological. Render via
+   * beerPhotoSrc(id) — photos are served through /api/photos/[entryId]
+   * so blob storage (prod) and local disk (dev) both work.
+   */
+  photoIds: string[];
 };
 
 function ts(entry: BeerEntry): number {
@@ -52,9 +56,7 @@ function buildSession(checkins: BeerEntry[]): DrinkSession {
     checkins,
     venues,
     types,
-    photos: checkins
-      .map((c) => c.photo_url)
-      .filter((url): url is string => !!url),
+    photoIds: checkins.filter((c) => !!c.photo_url).map((c) => c.id),
   };
 }
 

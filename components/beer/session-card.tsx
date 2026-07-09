@@ -6,6 +6,7 @@ import {
   sessionTitle,
 } from "@/lib/sessions";
 import { formatTime, relativeDayTime } from "@/lib/dates";
+import { beerPhotoSrc } from "@/lib/utils";
 import { Minimap } from "@/components/beer/minimap";
 import { SocialActs } from "@/components/beer/social-row";
 import { CheckinExpander } from "@/components/beer/checkin-expander";
@@ -90,7 +91,7 @@ export function SessionCard({
   const multiVenue = session.venues.length >= 2;
   const minutes = sessionMinutes(session);
   const title = sessionTitle(session, tz);
-  const heroPhoto = session.photos[0] ?? null;
+  const heroPhotoId = session.photoIds[0] ?? null;
   const routePoints = checkins
     .filter((c) => c.lat != null && c.lng != null)
     .map((c) => ({ lat: c.lat as number, lng: c.lng as number }));
@@ -170,10 +171,10 @@ export function SessionCard({
         </div>
       )}
 
-      {heroPhoto && (
+      {heroPhotoId && (
         <div className={multiVenue || lone ? "card-photo" : "card-photo short"}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={heroPhoto} alt={`${title} photo`} />
+          <img src={beerPhotoSrc(heroPhotoId)} alt={`${title} photo`} />
         </div>
       )}
 
