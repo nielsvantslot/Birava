@@ -37,3 +37,7 @@ export function isToday(date: string | Date) {
 export function generateInviteCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
+
+export function beerPhotoSrc(entryId: string) {
+  return `/api/photos/${entryId}`;
+}

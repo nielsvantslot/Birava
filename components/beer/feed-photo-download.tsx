@@ -4,13 +4,13 @@ import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface FeedPhotoDownloadProps {
-  photoUrl: string;
+  entryId: string;
   beerName: string | null;
 }
 
-export function FeedPhotoDownload({ photoUrl, beerName }: FeedPhotoDownloadProps) {
+export function FeedPhotoDownload({ entryId, beerName }: FeedPhotoDownloadProps) {
   const handleDownload = async () => {
-    const response = await fetch(photoUrl);
+    const response = await fetch(`/api/photos/${entryId}`);
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

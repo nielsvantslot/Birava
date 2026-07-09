@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { FeedEntry } from "@/lib/types";
-import { formatDate } from "@/lib/utils";
+import { beerPhotoSrc, formatDate } from "@/lib/utils";
 import { Beer, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -14,8 +14,8 @@ interface GroupActivityFeedProps {
 }
 
 export function GroupActivityFeed({ entries }: GroupActivityFeedProps) {
-  const handleDownload = async (photoUrl: string, beerName: string | null) => {
-    const response = await fetch(photoUrl);
+  const handleDownload = async (entryId: string, beerName: string | null) => {
+    const response = await fetch(beerPhotoSrc(entryId));
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -86,7 +86,7 @@ export function GroupActivityFeed({ entries }: GroupActivityFeedProps) {
                   <div className="mt-2">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={entry.photo_url}
+                      src={beerPhotoSrc(entry.id)}
                       alt={entry.beer_name ?? "Beer photo"}
                       className="w-full max-h-64 object-cover rounded-lg border border-[var(--border)]"
                     />
@@ -103,7 +103,7 @@ export function GroupActivityFeed({ entries }: GroupActivityFeedProps) {
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7"
-                    onClick={() => handleDownload(entry.photo_url!, entry.beer_name)}
+                    onClick={() => handleDownload(entry.id, entry.beer_name)}
                     title="Download photo"
                   >
                     <Download className="h-3.5 w-3.5" />

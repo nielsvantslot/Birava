@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { AddBeerDialog } from "@/components/beer/add-beer-dialog";
 import { BeerEntry } from "@/lib/types";
-import { formatDate } from "@/lib/utils";
+import { beerPhotoSrc, formatDate } from "@/lib/utils";
 import { deleteBeer } from "@/lib/actions/beer";
 
 interface BeerCardProps {
@@ -38,7 +38,7 @@ export function BeerCard({ entry, showUser }: BeerCardProps) {
 
   const handleDownload = async () => {
     if (!entry.photo_url) return;
-    const response = await fetch(entry.photo_url);
+    const response = await fetch(beerPhotoSrc(entry.id));
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -105,7 +105,7 @@ export function BeerCard({ entry, showUser }: BeerCardProps) {
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={entry.photo_url}
+                        src={beerPhotoSrc(entry.id)}
                         alt={entry.beer_name ?? "Beer photo"}
                         className="w-full max-h-64 object-cover rounded-lg border border-[var(--border)]"
                       />
@@ -160,7 +160,7 @@ export function BeerCard({ entry, showUser }: BeerCardProps) {
           <DialogContent className="max-w-2xl overflow-hidden border-0 bg-transparent p-0 shadow-none">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={entry.photo_url}
+              src={beerPhotoSrc(entry.id)}
               alt={entry.beer_name ?? "Beer photo"}
               className="max-h-[85vh] w-full rounded-xl object-contain"
             />

@@ -23,13 +23,39 @@ export async function saveBeerPhoto(userId: string, file: File) {
 
 export async function removeBeerPhotoByUrl(photoUrl: string) {
   try {
-    const url = new URL(photoUrl, "http://localhost");
-    const pathname = decodeURIComponent(url.pathname);
-    if (!pathname.startsWith("/uploads/entries-photos/")) return;
-
-    const filePath = path.join(process.cwd(), "public", pathname.replace(/^\//, ""));
+    const filePath = resolveLocalPath(photoUrl);
+    if (!filePath) return;
     await fs.unlink(filePath);
   } catch {
     // Keep delete idempotent if the file has already been removed.
+  }
+}
+
+const CONTENT_TYPES: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+};
+
+function resolveLocalPath(photoUrl: string) {
+  const url = new URL(photoUrl, "http://localhost");
+  const pathname = decodeURIComponent(url.pathname);
+  if (!pathname.startsWith("/uploads/entries-photos/")) return null;
+
+  return path.join(process.cwd(), "public", pathname.replace(/^\//, ""));
+}
+
+export async function readBeerPhoto(photoUrl: string) {
+  const filePath = resolveLocalPath(photoUrl);
+  if (!filePath) return null;
+
+  try {
+    const buffer = await fs.readFile(filePath);
+    const contentType = CONTENT_TYPES[path.extname(filePath).toLowerCase()] ?? "application/octet-stream";
+    return { stream: buffer, contentType };
+  } catch {
+    return null;
   }
 }

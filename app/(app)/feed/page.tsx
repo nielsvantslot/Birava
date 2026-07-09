@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FeedEntry } from "@/lib/types";
-import { formatDate } from "@/lib/utils";
+import { beerPhotoSrc, formatDate } from "@/lib/utils";
 import { Beer } from "lucide-react";
 import { FeedPhotoDownload } from "@/components/beer/feed-photo-download";
 
@@ -100,7 +100,7 @@ export default async function FeedPage() {
                       <div className="mt-2 relative">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={entry.photo_url}
+                          src={beerPhotoSrc(entry.id)}
                           alt={entry.beer_name ?? "Beer photo"}
                           className="w-full max-h-64 object-cover rounded-lg border border-[var(--border)]"
                         />
@@ -114,7 +114,7 @@ export default async function FeedPage() {
                     </div>
                     {entry.photo_url && (
                       <FeedPhotoDownload
-                        photoUrl={entry.photo_url}
+                        entryId={entry.id}
                         beerName={entry.beer_name}
                       />
                     )}

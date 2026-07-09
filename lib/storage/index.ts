@@ -9,3 +9,4 @@ const backend = process.env.NODE_ENV === "production" ? blob : local;
 
 export const saveBeerPhoto = backend.saveBeerPhoto;
 export const removeBeerPhotoByUrl = backend.removeBeerPhotoByUrl;
+export const readBeerPhoto = backend.readBeerPhoto;
