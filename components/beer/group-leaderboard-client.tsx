@@ -4,10 +4,13 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Copy, LogOut, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  deleteOwnedGroup,
+  leaveGroup as leaveGroupAction,
+} from "@/lib/actions/groups";
 
 interface GroupLeaderboardClientProps {
   group: { id: string; name: string; invite_code: string; owner_id: string | null };
@@ -26,14 +29,11 @@ export function GroupLeaderboardClient({ group, currentUserId }: GroupLeaderboar
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const leaveGroup = () => {
+  const handleLeaveGroup = () => {
     if (!window.confirm(`Leave ${group.name}?`)) return;
     startTransition(async () => {
-      const supabase = createClient();
-      const { error } = await supabase.rpc("leave_group", {
-        target_group_id: group.id,
-      });
-      if (error) {
+      const result = await leaveGroupAction(group.id);
+      if (result.error) {
         alert("Could not leave the group.");
         return;
       }
@@ -44,11 +44,8 @@ export function GroupLeaderboardClient({ group, currentUserId }: GroupLeaderboar
   const deleteGroup = () => {
     if (!window.confirm(`Delete ${group.name}? This cannot be undone.`)) return;
     startTransition(async () => {
-      const supabase = createClient();
-      const { error } = await supabase.rpc("delete_owned_group", {
-        target_group_id: group.id,
-      });
-      if (error) {
+      const result = await deleteOwnedGroup(group.id);
+      if (result.error) {
         alert("Could not delete the group.");
         return;
       }
@@ -90,7 +87,7 @@ export function GroupLeaderboardClient({ group, currentUserId }: GroupLeaderboar
                 variant="outline"
                 size="sm"
                 disabled={isPending}
-                onClick={leaveGroup}
+                  onClick={handleLeaveGroup}
                 className="gap-1.5"
               >
                 <LogOut className="h-3.5 w-3.5" />

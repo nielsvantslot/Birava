@@ -13,7 +13,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { LeaderboardEntry } from "@/lib/types";
-import { createClient } from "@/lib/supabase/client";
 
 export type LeaderboardTab = {
   id: string;
@@ -126,19 +125,7 @@ export function LeaderboardClient({
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("pageshow", handlePageShow);
 
-    const supabase = createClient();
-    const channel = supabase
-      .channel("leaderboard-live")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "beer_entries" },
-        () => router.refresh()
-      )
-      .subscribe();
-
-    // iOS Safari PWA has unreliable WebSocket support so the Supabase Realtime
-    // subscription above may never fire. Poll every 30 s as a fallback so the
-    // leaderboard stays fresh on iPhone even when the WebSocket is silent.
+    // Poll every 30 s to keep group/friends boards fresh across devices.
     const pollId = setInterval(() => router.refresh(), 30_000);
 
     return () => {
@@ -146,7 +133,6 @@ export function LeaderboardClient({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("pageshow", handlePageShow);
       clearInterval(pollId);
-      void supabase.removeChannel(channel);
     };
   }, [router]);
 

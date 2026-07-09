@@ -24,7 +24,6 @@ import {
 import { BeerEntry } from "@/lib/types";
 import { triggerConfetti } from "@/lib/achievements";
 import { addBeer, editBeer } from "@/lib/actions/beer";
-import { createClient } from "@/lib/supabase/client";
 
 
 const BEER_STYLES = [
@@ -133,47 +132,41 @@ export function AddBeerDialog({ open, onOpenChange, entry }: AddBeerDialogProps)
 
       // Upload new photo if selected
       if (photoFile) {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) { setError("Not authenticated"); return; }
+        const formData = new FormData();
+        formData.append("file", photoFile);
 
-        const ext = photoFile.name.split(".").pop() ?? "jpg";
-        const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from("beer-photos")
-          .upload(path, photoFile, { upsert: false });
+        const uploadResponse = await fetch("/api/uploads/beer-photo", {
+          method: "POST",
+          body: formData,
+        });
 
-        if (uploadError) { setError(uploadError.message); return; }
+        const uploadResult = (await uploadResponse.json().catch(() => null)) as
+          | { error?: string; publicUrl?: string }
+          | null;
 
-        const { data: { publicUrl } } = supabase.storage
-          .from("beer-photos")
-          .getPublicUrl(path);
+        if (!uploadResponse.ok || !uploadResult?.publicUrl) {
+          setError(uploadResult?.error ?? "Failed to upload photo.");
+          return;
+        }
 
         // Delete old photo if editing and replacing
         if (isEditing && entry?.photo_url) {
-          const oldUrl = new URL(entry.photo_url);
-          const prefix = "/storage/v1/object/public/beer-photos/";
-          const oldPath = oldUrl.pathname.startsWith(prefix)
-            ? oldUrl.pathname.slice(prefix.length)
-            : null;
-          if (oldPath) {
-            await supabase.storage.from("beer-photos").remove([oldPath]);
-          }
+          await fetch("/api/uploads/beer-photo", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ photoUrl: entry.photo_url }),
+          });
         }
 
-        photoUrl = publicUrl;
+        photoUrl = uploadResult.publicUrl;
       } else if (removePhoto) {
         // Delete old photo from storage
         if (isEditing && entry?.photo_url) {
-          const supabase = createClient();
-          const oldUrl = new URL(entry.photo_url);
-          const prefix = "/storage/v1/object/public/beer-photos/";
-          const oldPath = oldUrl.pathname.startsWith(prefix)
-            ? oldUrl.pathname.slice(prefix.length)
-            : null;
-          if (oldPath) {
-            await supabase.storage.from("beer-photos").remove([oldPath]);
-          }
+          await fetch("/api/uploads/beer-photo", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ photoUrl: entry.photo_url }),
+          });
         }
         photoUrl = null;
       }

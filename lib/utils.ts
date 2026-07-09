@@ -12,6 +12,7 @@ export function formatDate(date: string | Date) {
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    timeZone: "UTC",
   }).format(new Date(date));
 }
 
@@ -19,6 +20,7 @@ export function formatDateShort(date: string | Date) {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
+    timeZone: "UTC",
   }).format(new Date(date));
 }
 

@@ -4,12 +4,14 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Plus, UserPlus } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { generateInviteCode } from "@/lib/utils";
+import {
+  createGroup as createGroupAction,
+  joinGroupByInvite,
+} from "@/lib/actions/groups";
 
 interface BoardGroupsClientProps {
   groups: Array<{ id: string; name: string; invite_code: string; owner_id: string | null }>;
@@ -27,25 +29,8 @@ export function BoardGroupsClient({ groups, userId, hasFriends }: BoardGroupsCli
     e.preventDefault();
     if (!newGroupName.trim()) return;
     startTransition(async () => {
-      const supabase = createClient();
-      const code = generateInviteCode();
-      const groupId = crypto.randomUUID();
-      const { error: createGroupError } = await supabase
-        .from("groups")
-        .insert({ id: groupId, name: newGroupName.trim(), invite_code: code, owner_id: userId });
-
-      if (createGroupError) {
-        alert("Could not create the group.");
-        return;
-      }
-
-      const { error: addOwnerError } = await supabase.from("group_members").insert({
-        group_id: groupId,
-        user_id: userId,
-      });
-
-      if (addOwnerError) {
-        await supabase.rpc("delete_owned_group", { target_group_id: groupId });
+      const result = await createGroupAction(newGroupName);
+      if (result.error) {
         alert("Could not create the group.");
         return;
       }
@@ -59,11 +44,8 @@ export function BoardGroupsClient({ groups, userId, hasFriends }: BoardGroupsCli
     e.preventDefault();
     if (!inviteCode.trim()) return;
     startTransition(async () => {
-      const supabase = createClient();
-      const { error } = await supabase.rpc("join_group_by_invite_code", {
-        invite: inviteCode.trim().toUpperCase(),
-      });
-      if (error) {
+      const result = await joinGroupByInvite(inviteCode);
+      if (result.error) {
         alert("Group not found. Check the invite code.");
         return;
       }
