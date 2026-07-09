@@ -1,5 +1,8 @@
-import { getCurrentUser } from "@/lib/auth/session";
-import { saveBeerPhoto, removeBeerPhotoByUrl } from "@/lib/storage/local";
+import { getCurrentUser } from '@/lib/auth/session';
+import {
+  removeBeerPhotoByUrl,
+  saveBeerPhoto,
+} from '@/lib/storage';
 
 type DeleteBody = {
   photoUrl?: unknown;
@@ -33,7 +36,7 @@ export async function DELETE(request: Request) {
   const photoUrl = typeof body.photoUrl === "string" ? body.photoUrl : "";
   if (photoUrl) {
     const url = new URL(photoUrl, "http://localhost");
-    if (url.pathname.startsWith(`/uploads/beer-photos/${user.id}/`)) {
+    if (url.pathname.includes(`/entries-photos/${user.id}/`)) {
       await removeBeerPhotoByUrl(photoUrl);
     }
   }

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { checkAchievements } from "@/lib/achievements";
-import { removeBeerPhotoByUrl } from "@/lib/storage/local";
+import { removeBeerPhotoByUrl } from "@/lib/storage";
 
 const BEER_PATHS = ["/dashboard", "/stats", "/history", "/feed"];
 
