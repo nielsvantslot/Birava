@@ -1,31 +1,22 @@
-import { getCurrentUser } from '@/lib/auth/session';
-import {
-  removeBeerPhotoByUrl,
-  saveBeerPhoto,
-} from '@/lib/storage';
+import { requireUser } from "@/lib/auth/requireUser";
+import { removeDrinkPhotoByUrl, saveDrinkPhoto } from "@/lib/storage";
 
 type DeleteBody = {
   photoUrl?: unknown;
 };
 
-export async function POST(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return Response.json({ error: "Not authenticated" }, { status: 401 });
-
+export const POST = requireUser<RouteContext<"/api/uploads/drink-photo">>(async (request, user) => {
   const formData = await request.formData();
   const file = formData.get("file");
   if (!(file instanceof File)) {
     return Response.json({ error: "No file provided." }, { status: 400 });
   }
 
-  const publicUrl = await saveBeerPhoto(user.id, file);
+  const publicUrl = await saveDrinkPhoto(user.id, file);
   return Response.json({ publicUrl });
-}
+});
 
-export async function DELETE(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return Response.json({ error: "Not authenticated" }, { status: 401 });
-
+export const DELETE = requireUser<RouteContext<"/api/uploads/drink-photo">>(async (request, user) => {
   let body: DeleteBody;
   try {
     body = await request.json();
@@ -37,9 +28,9 @@ export async function DELETE(request: Request) {
   if (photoUrl) {
     const url = new URL(photoUrl, "http://localhost");
     if (url.pathname.includes(`/entries-photos/${user.id}/`)) {
-      await removeBeerPhotoByUrl(photoUrl);
+      await removeDrinkPhotoByUrl(photoUrl);
     }
   }
 
   return Response.json({ success: true });
-}
+});

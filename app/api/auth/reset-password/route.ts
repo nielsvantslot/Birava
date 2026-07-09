@@ -1,21 +1,15 @@
-import { db } from "@/lib/db";
-import { hashPassword } from "@/lib/auth/password";
-
-type Body = {
-  token?: unknown;
-  password?: unknown;
-};
+import { resetPassword } from "@/lib/commands/userCommands";
+import { JsonSerializer } from "@/lib/http/jsonSerializer";
+import { ResetPasswordDTO } from "@/lib/dtos";
 
 export async function POST(request: Request) {
-  let body: Body;
-  try {
-    body = await request.json();
-  } catch {
+  const input = await JsonSerializer.deserialize(request, ResetPasswordDTO);
+  if (!input) {
     return Response.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const token = typeof body.token === "string" ? body.token.trim() : "";
-  const password = typeof body.password === "string" ? body.password : "";
+  const token = input.token.trim();
+  const password = input.password;
 
   if (!token) {
     return Response.json({ error: "Missing reset token." }, { status: 400 });
@@ -25,21 +19,10 @@ export async function POST(request: Request) {
     return Response.json({ error: "Password must be at least 8 characters." }, { status: 400 });
   }
 
-  const user = await db.user.findFirst({ where: { passwordResetToken: token } });
-  if (!user || !user.passwordResetExpires || user.passwordResetExpires.getTime() < Date.now()) {
-    return Response.json({ error: "This reset link is invalid or expired." }, { status: 400 });
+  const result = await resetPassword(token, password);
+  if (result.error) {
+    return Response.json({ error: result.error }, { status: 400 });
   }
-
-  const passwordHash = await hashPassword(password);
-
-  await db.user.update({
-    where: { id: user.id },
-    data: {
-      passwordHash,
-      passwordResetToken: null,
-      passwordResetExpires: null,
-    },
-  });
 
   return Response.json({ success: true });
 }
