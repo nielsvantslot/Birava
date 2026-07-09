@@ -65,6 +65,14 @@ All date/day/week logic goes through `lib/dates.ts`, parameterized by the user's
 - `Proost` = kudos on a session, keyed `[entryId, userId]` where `entryId` is the session's anchor (first) check-in.
 - `BeerEntry.groupId` exists but crew-scoped logging is **not wired** — it is effectively always null; crew scoring instead filters by `GroupMember.joinedAt`.
 
+## Demo seed (`prisma/seed.ts`)
+
+A committed, idempotent seed builds the **Demobeer** showcase account (email `jairo12.jn@gmail.com`, password `Test123!`) with a full demo dataset (multi-venue photo session, lone check-in, all 4 drink types, a Local Legend venue, an active-weeks streak, a 3-member crew, followed users). Images live in `prisma/seed-assets/` and are uploaded through the storage abstraction, so they land in Vercel Blob on staging and on local disk in dev.
+
+- **Runs automatically on Vercel staging/preview** — `vercel.json`'s build command chains `db:seed`, and the script self-guards: it runs only when `VERCEL_ENV=preview` or `SEED_DEMO=true`, never on production, and is a no-op on a normal local dev DB.
+- **Idempotent + safe** — skips if the demo account already has data, and refuses to touch the email if it belongs to a non-`Demobeer` user (so it won't clobber a real local account that happens to share the email).
+- **Run locally**: `docker exec -e SEED_DEMO=true birava-app npm run db:seed` (needs a DB where that email is free — locally it's taken by `SlayerofBeers`, so use a fresh DB to preview Demobeer).
+
 ## Route map
 - Tabs: `/dashboard` (merged session feed) · `/stats` · `/log` (create + edit via `?edit=<id>`) · `/crews` (+ `/crews/[id]`) · `/profile`. Off-nav: `/sessions/[id]`, `/achievements`, `/people`, `/profile/[username]`.
 - Folded legacy: `/history` and `/feed` are gone (404); `/leaderboard`, `/leaderboard/[groupId]`, `/groups` redirect into `/crews`. Don't re-add them.

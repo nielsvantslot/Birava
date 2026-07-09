@@ -1,5 +1,38 @@
 # HANDOFF
 
+## [2026-07-09] — Demo seed for staging (Demobeer account + full showcase data)
+
+**Branch:** `feature/frontend-redesign`
+
+**Goal**
+Add a committed, idempotent seed that auto-populates a **Demobeer** demo account on staging (credentials: `Demobeer` / `Test123!` / `jairo12.jn@gmail.com`) with enough data to show off every screen, including the three real beer photos.
+
+**Current state** (all uncommitted, `tsc`+eslint clean, seed verified end-to-end on a throwaway DB)
+- `prisma/seed.ts` — NEW: idempotent seed. Creates Demobeer + 18 check-ins (a 5-check-in / 3-venue evening session with route coords + the 3 photos, a lone check-in, all 4 drink types, notes, a Local Legend venue at The Local Taphouse, ~9 venues, sessions spread over 11 weeks for the active-weeks streak + chart) + 2 followed crew-mates (`sanne_b`, `niels_v` on `@demo.birava` emails) + a shared crew "Amsterdam Beer Club" (code `AMS2026`) with since-joined leaderboard data. Photos go through `saveBeerPhoto` (Blob on staging, disk in dev).
+- `prisma/seed-assets/{grass-bottle,pint-table,party-cup}.jpg` — NEW: committed, resized demo photos (136–213 KB).
+- `package.json` — added `db:seed` script (`tsx prisma/seed.ts`), `prisma.seed` config, and `tsx` devDep.
+- `vercel.json` — build command now `prisma:generate && db:migrate && db:seed && build` (generate added so the client exists for the seed step).
+- `.gitignore` — `/public/uploads/` (local upload storage) ignored.
+- Also this session: merged `dev` (blob storage pipeline) — see the merge commit; and wired the 3 real photos into the existing `designtest`/`sarah_pours` demo entries in the local dev DB.
+
+**What worked**
+- Verified on a throwaway DB (`birava_seedtest`, migrated + seeded inside the container, then dropped): 18/9/4/4 (check-ins/venues/types/photos) for Demobeer, 3-member crew, seed runs with no errors.
+- All three guards proven: idempotent re-run skips ("already seeded"); running against the dev DB skips because the email belongs to `SlayerofBeers` (won't clobber); default run (no flag, not preview) skips.
+- Photos upload through the same storage abstraction the app serves from, so `/api/photos/[entryId]` works in both environments.
+
+**What didn't work (and why)**
+- Can't preview Demobeer on the **local** dev DB: the demo email is already `SlayerofBeers`' email (unique constraint), and the seed deliberately refuses to overwrite it. To click around as Demobeer locally, seed a fresh DB (as the throwaway test did) or temporarily free the email.
+
+**Open questions / decisions needed**
+- Staging must be a Vercel **preview** deploy (`VERCEL_ENV=preview`) for the auto-seed to fire — confirm the `staging` branch deploys as preview, not as a second production env. If not, set `SEED_DEMO=true` on that Vercel environment.
+- Staging needs `BLOB_READ_WRITE_TOKEN` + the staging `DATABASE_URL` available **at build time** (the seed runs in the build command, like migrations already do).
+- Demo password `Test123!` is committed in `prisma/seed.ts` — intended (it's a throwaway demo login), just be aware it's public in the repo.
+
+**Next steps**
+1. Review the diff and commit (seed + assets + package/vercel/gitignore). The `dev` merge is already committed (`2689df3`).
+2. Merge to `staging`; confirm the preview build logs show `[seed] Done — Demobeer …` and that photos render (they need `BLOB_READ_WRITE_TOKEN`).
+3. If the auto-seed doesn't fire, set `SEED_DEMO=true` on the staging Vercel environment.
+
 ## [2026-07-09] — Birava 2.0: session-as-hero rebuild from the "Birava 2.0" design handoff
 
 **Branch:** `feature/frontend-redesign`
