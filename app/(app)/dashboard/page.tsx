@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { createClient, getUser } from "@/lib/supabase/server";
+import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth/session";
+import { toBeerEntry } from "@/lib/mappers";
 import { StatCard } from "@/components/beer/stat-card";
 import { BeerCard } from "@/components/beer/beer-card";
 import { getEarnedAchievements } from "@/lib/achievements";
@@ -57,17 +59,15 @@ function getAvgPerDay(entries: BeerEntry[]): string {
 }
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
-  const user = await getUser();
+  const user = await getCurrentUser();
   if (!user) return null;
 
-  const { data: entries = [] } = await supabase
-    .from("beer_entries")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+  const entries = await db.beerEntry.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "desc" },
+  });
 
-  const all = entries ?? [];
+  const all = entries.map(toBeerEntry);
   const total = all.reduce((sum: number, e: BeerEntry) => sum + e.amount, 0);
   const todayCount = getTodayBeers(all);
   const streak = getStreak(all);

@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
-import { createClient, getUser } from "@/lib/supabase/server";
+import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth/session";
+import { toBeerEntry } from "@/lib/mappers";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -51,48 +53,50 @@ function getAvgPerDay(entries: { created_at: string; amount: number }[]): string
 
 export default async function PublicProfilePage({ params }: Props) {
   const { username } = await params;
-  const supabase = await createClient();
-  const currentUser = await getUser();
+  const currentUser = await getCurrentUser();
 
   // Fetch the target profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, username, avatar_url, created_at")
-    .eq("username", username)
-    .single();
+  const targetUser = await db.user.findUnique({ where: { username } });
 
-  if (!profile) notFound();
+  if (!targetUser) notFound();
+
+  const profile = {
+    id: targetUser.id,
+    username: targetUser.username,
+    avatar_url: targetUser.avatarUrl,
+    created_at: targetUser.createdAt.toISOString(),
+  };
 
   // If viewing own profile, redirect to /profile
   // (We still render the public view here for simplicity)
 
   const isOwnProfile = currentUser?.id === profile.id;
 
-  // Fetch follow status and counts in parallel
-  const [followCheckResult, followCountsResult, entriesResult] =
+  // Fetch follow status, counts, and entries in parallel
+  const [followCheck, followerCount, followingCount, entryRows] =
     await Promise.all([
       currentUser && !isOwnProfile
-        ? supabase
-            .from("follows")
-            .select("follower_id")
-            .eq("follower_id", currentUser.id)
-            .eq("following_id", profile.id)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-      supabase.rpc("get_follow_counts", { profile_id: profile.id }),
-      supabase
-        .from("beer_entries")
-        .select("id, beer_name, brewery, style, amount, notes, created_at, user_id")
-        .eq("user_id", profile.id)
-        .order("created_at", { ascending: false })
-        .limit(20),
+        ? db.follow.findUnique({
+            where: {
+              followerId_followingId: {
+                followerId: currentUser.id,
+                followingId: profile.id,
+              },
+            },
+          })
+        : Promise.resolve(null),
+      db.follow.count({ where: { followingId: profile.id } }),
+      db.follow.count({ where: { followerId: profile.id } }),
+      db.beerEntry.findMany({
+        where: { userId: profile.id },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
     ]);
 
-  const isFollowing = followCheckResult.data !== null;
-  const followerCount = Number(followCountsResult.data?.[0]?.followers ?? 0);
-  const followingCount = Number(followCountsResult.data?.[0]?.following ?? 0);
+  const isFollowing = followCheck !== null;
 
-  const entries = (entriesResult.data ?? []) as BeerEntry[];
+  const entries: BeerEntry[] = entryRows.map(toBeerEntry);
   const totalBeers = entries.reduce((sum, e) => sum + e.amount, 0);
   const streak = getStreak(entries);
   const avgPerDay = getAvgPerDay(entries);

@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { createClient, getUser } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/session";
 import { TopBar } from "@/components/layout/top-bar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { AddBeerFab } from "@/components/beer/add-beer-fab";
@@ -30,22 +30,10 @@ export default function AppLayout({
 }
 
 async function TopBarLoader() {
-  const user = await getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("username, avatar_url")
-    .eq("id", user.id)
-    .single();
-
-  return (
-    <TopBar
-      username={profile?.username ?? user.email?.split("@")[0]}
-      avatarUrl={profile?.avatar_url}
-    />
-  );
+  return <TopBar username={user.username} avatarUrl={user.avatar_url} />;
 }
 
 function TopBarSkeleton() {

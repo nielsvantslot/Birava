@@ -1,4 +1,6 @@
-import { createClient, getUser } from "@/lib/supabase/server";
+import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth/session";
+import { toBeerEntry } from "@/lib/mappers";
 import { StatsCharts } from "@/components/beer/stats-charts";
 import { Last24hRecap } from "@/components/beer/last-24h-recap";
 import { BeerEntry } from "@/lib/types";
@@ -29,17 +31,15 @@ function getTopCategory(
 }
 
 export default async function StatsPage() {
-  const supabase = await createClient();
-  const user = await getUser();
+  const user = await getCurrentUser();
   if (!user) return null;
 
-  const { data: entries = [] } = await supabase
-    .from("beer_entries")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: true });
+  const entries = await db.beerEntry.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "asc" },
+  });
 
-  const all: BeerEntry[] = entries ?? [];
+  const all: BeerEntry[] = entries.map(toBeerEntry);
   const last24WindowStartDate = new Date();
   last24WindowStartDate.setHours(last24WindowStartDate.getHours() - 24);
   const last24WindowStart = last24WindowStartDate.getTime();

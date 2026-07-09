@@ -3,12 +3,17 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Copy, LogOut, Plus, Trash2, UserPlus } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn, generateInviteCode } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import {
+  createGroup as createGroupAction,
+  deleteOwnedGroup,
+  joinGroupByInvite,
+  leaveGroup as leaveGroupAction,
+} from "@/lib/actions/groups";
 
 interface GroupsClientProps {
   groups: Array<{ id: string; name: string; invite_code: string; owner_id: string | null }>;
@@ -29,25 +34,8 @@ export function GroupsClient({ groups, userId, selectedGroupId, onSelectGroup }:
     e.preventDefault();
     if (!newGroupName.trim()) return;
     startTransition(async () => {
-      const supabase = createClient();
-      const code = generateInviteCode();
-      const groupId = crypto.randomUUID();
-      const { error: createGroupError } = await supabase
-        .from("groups")
-        .insert({ id: groupId, name: newGroupName.trim(), invite_code: code, owner_id: userId });
-
-      if (createGroupError) {
-        alert("Could not create the group.");
-        return;
-      }
-
-      const { error: addOwnerError } = await supabase.from("group_members").insert({
-        group_id: groupId,
-        user_id: userId,
-      });
-
-      if (addOwnerError) {
-        await supabase.rpc("delete_owned_group", { target_group_id: groupId });
+      const result = await createGroupAction(newGroupName);
+      if (result.error) {
         alert("Could not create the group.");
         return;
       }
@@ -61,11 +49,8 @@ export function GroupsClient({ groups, userId, selectedGroupId, onSelectGroup }:
     e.preventDefault();
     if (!inviteCode.trim()) return;
     startTransition(async () => {
-      const supabase = createClient();
-      const { error } = await supabase.rpc("join_group_by_invite_code", {
-        invite: inviteCode.trim().toUpperCase(),
-      });
-      if (error) {
+      const result = await joinGroupByInvite(inviteCode);
+      if (result.error) {
         alert("Group not found. Check the invite code.");
         return;
       }
@@ -85,14 +70,11 @@ export function GroupsClient({ groups, userId, selectedGroupId, onSelectGroup }:
 
     startTransition(async () => {
       setActiveGroupAction(groupId);
-      const supabase = createClient();
-      const { error } = await supabase.rpc("leave_group", {
-        target_group_id: groupId,
-      });
+      const result = await leaveGroupAction(groupId);
 
       setActiveGroupAction(null);
 
-      if (error) {
+      if (result.error) {
         alert("Could not leave the group.");
         return;
       }
@@ -106,14 +88,11 @@ export function GroupsClient({ groups, userId, selectedGroupId, onSelectGroup }:
 
     startTransition(async () => {
       setActiveGroupAction(groupId);
-      const supabase = createClient();
-      const { error } = await supabase.rpc("delete_owned_group", {
-        target_group_id: groupId,
-      });
+      const result = await deleteOwnedGroup(groupId);
 
       setActiveGroupAction(null);
 
-      if (error) {
+      if (result.error) {
         alert("Could not delete the group.");
         return;
       }

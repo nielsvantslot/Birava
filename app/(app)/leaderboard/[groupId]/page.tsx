@@ -1,13 +1,31 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth/session";
+import { toFeedEntry } from "@/lib/mappers";
 import { buildLeaderboard } from "@/lib/leaderboard";
 import { LeaderboardClient } from "@/components/beer/leaderboard-client";
 import { GroupLeaderboardClient } from "@/components/beer/group-leaderboard-client";
 import { FeedEntry } from "@/lib/types";
 import { GroupMediaGallery } from "@/components/beer/group-media-gallery";
 
+function toLeaderboardInput(entry: {
+  userId: string;
+  amount: unknown;
+  createdAt: Date;
+  user: { username: string; avatarUrl: string | null };
+}) {
+  return {
+    user_id: entry.userId,
+    amount: Number(entry.amount),
+    created_at: entry.createdAt.toISOString(),
+    profiles: {
+      username: entry.user.username,
+      avatar_url: entry.user.avatarUrl,
+    },
+  };
+}
 
 export default async function GroupLeaderboardPage({
   params,
@@ -15,30 +33,27 @@ export default async function GroupLeaderboardPage({
   params: Promise<{ groupId: string }>;
 }) {
   const { groupId } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return null;
 
   const isFriends = groupId === "friends";
 
   if (isFriends) {
     // Friends leaderboard: current user + people they follow
-    const { data: followsData } = await supabase
-      .from("follows")
-      .select("following_id")
-      .eq("follower_id", user.id);
+    const follows = await db.follow.findMany({
+      where: { followerId: user.id },
+      select: { followingId: true },
+    });
 
-    const followedIds = (followsData ?? []).map((f) => f.following_id);
+    const followedIds = follows.map((f) => f.followingId);
     const friendIds = [...new Set([user.id, ...followedIds])];
 
-    const { data: entries } = await supabase
-      .from("beer_entries")
-      .select("user_id, amount, created_at, profiles(username, avatar_url)")
-      .in("user_id", friendIds);
+    const entries = await db.beerEntry.findMany({
+      where: { userId: { in: friendIds } },
+      include: { user: { select: { username: true, avatarUrl: true } } },
+    });
 
-    const leaderboard = buildLeaderboard(entries ?? []);
+    const leaderboard = buildLeaderboard(entries.map(toLeaderboardInput));
 
     return (
       <div className="space-y-6 py-4">
@@ -66,55 +81,47 @@ export default async function GroupLeaderboardPage({
   }
 
   // Group leaderboard
-  const { data: membershipData } = await supabase
-    .from("group_members")
-    .select("groups(id, name, invite_code, owner_id)")
-    .eq("user_id", user.id)
-    .eq("group_id", groupId)
-    .single();
+  const membership = await db.groupMember.findUnique({
+    where: { groupId_userId: { groupId, userId: user.id } },
+    include: { group: true },
+  });
 
-  const group =
-    membershipData?.groups
-      ? Array.isArray(membershipData.groups)
-        ? membershipData.groups[0]
-        : membershipData.groups
-      : null;
+  const group = membership
+    ? {
+        id: membership.group.id,
+        name: membership.group.name,
+        invite_code: membership.group.inviteCode,
+        owner_id: membership.group.ownerId,
+      }
+    : null;
 
   if (!group) notFound();
 
   // Fetch all members of this group
-  const { data: allMembers } = await supabase
-    .from("group_members")
-    .select("user_id")
-    .eq("group_id", groupId);
+  const allMembers = await db.groupMember.findMany({
+    where: { groupId },
+    select: { userId: true },
+  });
 
-  const memberIds = (allMembers ?? []).map((m) => m.user_id);
+  const memberIds = allMembers.map((m) => m.userId);
 
   const targetMemberIds = memberIds.length > 0 ? memberIds : [user.id];
 
-  const [entriesResult, photosResult] = await Promise.all([
-    supabase
-      .from("beer_entries")
-      .select("user_id, amount, created_at, profiles(username, avatar_url)")
-      .in("user_id", targetMemberIds),
-    supabase
-      .from("beer_entries")
-      .select("id, user_id, group_id, beer_name, brewery, style, amount, notes, photo_url, created_at, profiles(username, avatar_url)")
-      .in("user_id", targetMemberIds)
-      .not("photo_url", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(50),
+  const [entries, photos] = await Promise.all([
+    db.beerEntry.findMany({
+      where: { userId: { in: targetMemberIds } },
+      include: { user: { select: { username: true, avatarUrl: true } } },
+    }),
+    db.beerEntry.findMany({
+      where: { userId: { in: targetMemberIds }, photoUrl: { not: null } },
+      include: { user: { select: { username: true, avatarUrl: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    }),
   ]);
 
-  const leaderboard = buildLeaderboard(entriesResult.data ?? []);
-  const galleryEntries: FeedEntry[] = (photosResult.data ?? []).map((entry) => {
-    const profile = Array.isArray(entry.profiles) ? entry.profiles[0] : entry.profiles;
-    return {
-      ...entry,
-      username: (profile as { username: string })?.username ?? "",
-      avatar_url: (profile as { avatar_url: string | null })?.avatar_url ?? null,
-    };
-  });
+  const leaderboard = buildLeaderboard(entries.map(toLeaderboardInput));
+  const galleryEntries: FeedEntry[] = photos.map(toFeedEntry);
 
   return (
     <div className="space-y-6 py-4">

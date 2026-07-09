@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient, getUser } from "@/lib/supabase/server";
+import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth/session";
 import { checkAchievements } from "@/lib/achievements";
+import { removeBeerPhotoByUrl } from "@/lib/storage";
 
 const BEER_PATHS = ["/dashboard", "/stats", "/history", "/feed"];
 
@@ -20,44 +22,28 @@ export async function addBeer(payload: {
   photo_url: string | null;
   created_at: string;
 }): Promise<{ error?: string; achievementUnlocked?: boolean }> {
-  const supabase = await createClient();
-  const user = await getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
-  // Ensure profile exists
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!profile) {
-    const username =
-      typeof user.user_metadata?.username === "string" &&
-      user.user_metadata.username.trim().length > 0
-        ? user.user_metadata.username.trim()
-        : `${(user.email?.split("@")[0] ?? "beerlover").replace(/[^a-zA-Z0-9_-]/g, "") || "beerlover"}-${user.id.slice(0, 8)}`;
-
-    const { error: profileInsertError } = await supabase
-      .from("profiles")
-      .insert({ id: user.id, username });
-
-    if (profileInsertError) return { error: profileInsertError.message };
+  try {
+    await db.beerEntry.create({
+      data: {
+        userId: user.id,
+        beerName: payload.beer_name,
+        brewery: payload.brewery,
+        style: payload.style,
+        amount: payload.amount,
+        notes: payload.notes,
+        photoUrl: payload.photo_url,
+        createdAt: new Date(payload.created_at),
+      },
+    });
+  } catch {
+    return { error: "Failed to save beer." };
   }
 
-  const { error } = await supabase.from("beer_entries").insert({
-    user_id: user.id,
-    ...payload,
-  });
-
-  if (error) return { error: error.message };
-
-  // Check achievements
-  const { count, error: countError } = await supabase
-    .from("beer_entries")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id);
-  const achievementUnlocked = !countError && checkAchievements(count ?? 0);
+  const count = await db.beerEntry.count({ where: { userId: user.id } });
+  const achievementUnlocked = checkAchievements(count);
 
   revalidateBeerPaths();
 
@@ -76,54 +62,47 @@ export async function editBeer(
     created_at: string;
   }
 ): Promise<{ error?: string }> {
-  const supabase = await createClient();
-  const user = await getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
-  const { error } = await supabase
-    .from("beer_entries")
-    .update({ ...payload })
-    .eq("id", id)
-    .eq("user_id", user.id);
-
-  if (error) return { error: error.message };
+  try {
+    await db.beerEntry.updateMany({
+      where: { id, userId: user.id },
+      data: {
+        beerName: payload.beer_name,
+        brewery: payload.brewery,
+        style: payload.style,
+        amount: payload.amount,
+        notes: payload.notes,
+        photoUrl: payload.photo_url,
+        createdAt: new Date(payload.created_at),
+      },
+    });
+  } catch {
+    return { error: "Failed to update beer." };
+  }
 
   revalidateBeerPaths();
   return {};
 }
 
 export async function deleteBeer(id: string): Promise<{ error?: string }> {
-  const supabase = await createClient();
-  const user = await getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
-  // Fetch photo_url before deleting so we can clean up storage
-  const { data: entry } = await supabase
-    .from("beer_entries")
-    .select("photo_url")
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const entry = await db.beerEntry.findFirst({
+    where: { id, userId: user.id },
+    select: { photoUrl: true },
+  });
 
-  const { error } = await supabase
-    .from("beer_entries")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", user.id);
+  try {
+    await db.beerEntry.deleteMany({ where: { id, userId: user.id } });
+  } catch {
+    return { error: "Failed to delete beer." };
+  }
 
-  if (error) return { error: error.message };
-
-  // Clean up photo from storage if present
-  if (entry?.photo_url) {
-    const url = new URL(entry.photo_url);
-    // Path is like /storage/v1/object/public/beer-photos/{userId}/{filename}
-    const prefix = "/storage/v1/object/public/beer-photos/";
-    const storagePath = url.pathname.startsWith(prefix)
-      ? url.pathname.slice(prefix.length)
-      : null;
-    if (storagePath) {
-      await supabase.storage.from("beer-photos").remove([storagePath]);
-    }
+  if (entry?.photoUrl) {
+    await removeBeerPhotoByUrl(entry.photoUrl);
   }
 
   revalidateBeerPaths();
