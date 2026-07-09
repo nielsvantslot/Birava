@@ -3,8 +3,36 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
-import { toFeedEntry } from "@/lib/mappers";
-import { FeedEntry, FollowCounts, PublicProfile } from "@/lib/types";
+import { FollowCounts } from "@/lib/types";
+
+/**
+ * Toggle a proost on a session (keyed by its anchor check-in id).
+ * Returns the new state so the button can settle without a refetch.
+ */
+export async function toggleProost(
+  entryId: string
+): Promise<{ on: boolean; count: number } | { error: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const key = { entryId_userId: { entryId, userId: user.id } };
+  const existing = await db.proost.findUnique({ where: key });
+
+  try {
+    if (existing) {
+      await db.proost.delete({ where: key });
+    } else {
+      await db.proost.create({ data: { entryId, userId: user.id } });
+    }
+  } catch {
+    return { error: "Failed to proost" };
+  }
+
+  const count = await db.proost.count({ where: { entryId } });
+  revalidatePath("/dashboard");
+  revalidatePath("/sessions", "layout");
+  return { on: !existing, count };
+}
 
 export async function followUser(targetUserId: string) {
   const user = await getCurrentUser();
@@ -18,7 +46,7 @@ export async function followUser(targetUserId: string) {
     throw new Error("Failed to follow user");
   }
 
-  revalidatePath("/feed");
+  revalidatePath("/dashboard");
   revalidatePath("/people");
 }
 
@@ -30,7 +58,7 @@ export async function unfollowUser(targetUserId: string) {
     where: { followerId: user.id, followingId: targetUserId },
   });
 
-  revalidatePath("/feed");
+  revalidatePath("/dashboard");
   revalidatePath("/people");
 }
 
@@ -42,31 +70,6 @@ export async function getFollowCounts(
     db.follow.count({ where: { followerId: profileId } }),
   ]);
   return { followers, following };
-}
-
-export async function getSocialFeed(
-  limit = 20,
-  offset = 0
-): Promise<FeedEntry[]> {
-  const user = await getCurrentUser();
-  if (!user) throw new Error("Not authenticated");
-
-  const following = await db.follow.findMany({
-    where: { followerId: user.id },
-    select: { followingId: true },
-  });
-  const ids = following.map((f) => f.followingId);
-  if (ids.length === 0) return [];
-
-  const entries = await db.beerEntry.findMany({
-    where: { userId: { in: ids } },
-    include: { user: { select: { username: true, avatarUrl: true } } },
-    orderBy: { createdAt: "desc" },
-    skip: offset,
-    take: limit,
-  });
-
-  return entries.map(toFeedEntry);
 }
 
 export async function searchUsers(query: string) {
@@ -89,27 +92,6 @@ export async function searchUsers(query: string) {
   }));
 }
 
-export async function getPublicProfile(
-  username: string
-): Promise<PublicProfile | null> {
-  const user = await db.user.findUnique({ where: { username } });
-  if (!user) return null;
-
-  const total = await db.beerEntry.aggregate({
-    where: { userId: user.id },
-    _sum: { amount: true },
-  });
-
-  return {
-    id: user.id,
-    username: user.username,
-    avatar_url: user.avatarUrl,
-    member_since: user.createdAt.toISOString(),
-    total_beers: Number(total._sum.amount ?? 0),
-    streak_days: 0,
-  };
-}
-
 export async function getIsFollowing(
   targetUserId: string
 ): Promise<boolean> {
@@ -126,22 +108,4 @@ export async function getIsFollowing(
   });
 
   return follow !== null;
-}
-
-export async function getPublicRecentEntries(targetUserId: string) {
-  const entries = await db.beerEntry.findMany({
-    where: { userId: targetUserId },
-    orderBy: { createdAt: "desc" },
-    take: 10,
-  });
-
-  return entries.map((e) => ({
-    id: e.id,
-    beer_name: e.beerName,
-    brewery: e.brewery,
-    style: e.style,
-    amount: Number(e.amount),
-    notes: e.notes,
-    created_at: e.createdAt.toISOString(),
-  }));
 }

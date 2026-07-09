@@ -22,6 +22,7 @@ model User {
   follows              Follow[]               @relation("FollowFollower")
   followedBy           Follow[]               @relation("FollowFollowing")
   sessions             Session[]
+  proosts              Proost[]
 }
 
 model Session {
@@ -66,16 +67,35 @@ model BeerEntry {
   beerName  String?
   brewery   String?
   style     String?
+  drinkType String   @default("Beer")
   amount    Decimal  @default(1) @db.Decimal(10, 2)
+  rating    Int?
+  venue     String?
+  lat       Decimal? @db.Decimal(9, 6)
+  lng       Decimal? @db.Decimal(9, 6)
   notes     String?
   photoUrl  String?
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   group     Group?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  proosts   Proost[]
 
   @@index([userId])
   @@index([groupId])
   @@index([createdAt(sort: Desc)])
+}
+
+/// A "proost" (kudos) on a session, keyed by the session's anchor
+/// check-in — the session id is its first check-in's id.
+model Proost {
+  entryId   String   @db.Uuid
+  userId    String   @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  entry     BeerEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([entryId, userId])
+  @@index([entryId])
 }
 
 model Follow {
