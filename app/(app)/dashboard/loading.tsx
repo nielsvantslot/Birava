@@ -22,7 +22,7 @@ export default function DashboardLoading() {
         ))}
       </div>
 
-      {/* Recent beers */}
+      {/* Recent sessions */}
       <div>
         <Skeleton className="h-4 w-28 mb-3" />
         <div className="space-y-2">

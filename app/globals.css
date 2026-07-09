@@ -1,20 +1,38 @@
 @import "tailwindcss";
 
+/* ================================================================
+   BIRAVA DESIGN TOKENS (from claude.ai/design birava.css)
+   ================================================================ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --card: #f9fafb;
-  --card-foreground: #171717;
-  --border: #e5e7eb;
-  --input: #e5e7eb;
-  --primary: #f97316;
-  --primary-foreground: #ffffff;
-  --muted: #f3f4f6;
-  --muted-foreground: #6b7280;
-  --accent: #f97316;
-  --accent-foreground: #ffffff;
-  --destructive: #ef4444;
-  --ring: #f97316;
+  --bg:        #0A0D09;   /* app background + section gaps */
+  --surface:   #111510;   /* section blocks */
+  --surface-2: #1A211A;   /* inputs, chips, inline callouts */
+  --line:      rgba(242, 238, 228, 0.10);
+
+  --ink:       #EEF2E7;
+  --ink-dim:   #88907F;
+
+  --accent:     #A9C641;  /* one job: actions + your data */
+  --accent-ink: #141A06;
+  --honey:      #E8C15A;  /* semantic only: achievements */
+
+  --font:  var(--font-archivo), -apple-system, "Segoe UI", sans-serif;
+  --serif: var(--font-source-serif), Georgia, serif;
+
+  /* Legacy semantic vars — kept so existing components inherit the theme */
+  --background: var(--bg);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --border: var(--line);
+  --input: var(--surface-2);
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-ink);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--ink-dim);
+  --accent-foreground: var(--accent-ink);
+  --destructive: #e5484d;
+  --ring: var(--accent);
   --radius: 0.75rem;
 }
 
@@ -33,43 +51,33 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-ring: var(--ring);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-dim: var(--ink-dim);
+  --color-honey: var(--honey);
+  --font-sans: var(--font);
+  --font-serif: var(--serif);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0f0f0f;
-    --foreground: #f5f5f5;
-    --card: #1a1a1a;
-    --card-foreground: #f5f5f5;
-    --border: #2a2a2a;
-    --input: #2a2a2a;
-    --muted: #1f1f1f;
-    --muted-foreground: #a1a1aa;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
 }
 
 * {
   border-color: var(--border);
 }
 
-/* Smooth scrolling */
 html {
   scroll-behavior: smooth;
 }
 
-/* Hide scrollbar for mobile */
 ::-webkit-scrollbar {
   width: 4px;
   height: 4px;
@@ -78,11 +86,377 @@ html {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--surface-2);
   border-radius: 2px;
 }
 
-/* Safe area for mobile */
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom, 1rem);
 }
+
+/* ================================================================
+   BIRAVA COMPONENT GRAMMAR (ported from birava.css)
+   ================================================================ */
+
+/* ---- header: avatar / centered title / actions ---- */
+.header {
+  display: grid;
+  grid-template-columns: 44px 1fr 88px;
+  align-items: center;
+  padding: 10px 16px;
+  background: var(--surface);
+}
+.header .title { text-align: center; font-size: 17px; font-weight: 700; }
+.header .left { justify-self: start; }
+.header .right { justify-self: end; display: flex; gap: 14px; }
+.hicon {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: grid; place-items: center;
+  color: var(--ink); background: transparent; border: none; cursor: pointer;
+}
+.hicon svg { width: 23px; height: 23px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.hicon.avatar-btn { background: var(--surface-2); color: var(--ink-dim); overflow: hidden; }
+.hicon.avatar-btn img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ---- tab strip with underline indicator ---- */
+.tabs {
+  display: flex;
+  background: var(--surface);
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+.tabs button, .tabs a {
+  background: none; border: none; font: inherit; cursor: pointer;
+  font-size: 15.5px; font-weight: 700; color: var(--ink-dim);
+  padding: 14px 0 12px; margin-right: 28px; position: relative;
+  text-decoration: none;
+}
+.tabs button.on, .tabs a.on { color: var(--ink); }
+.tabs button.on::after, .tabs a.on::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px;
+  background: var(--accent); border-radius: 2px 2px 0 0;
+}
+
+/* Edge-to-edge sections separated by bg gaps — the Strava structure */
+.section { background: var(--surface); padding: 18px 16px; margin-bottom: 8px; }
+.section.flush { padding: 0; }
+
+.h-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
+.h-row h3 { font-family: var(--serif); font-size: 20px; font-weight: 600; letter-spacing: 0; }
+.h-row a, .h-row button.link { font-size: 13px; font-weight: 700; color: var(--accent); text-decoration: none; background: none; border: none; cursor: pointer; font-family: inherit; }
+
+/* ---- THE STAT GRAMMAR: flat, no boxes. label over number, in a row ---- */
+.stats { display: flex; gap: 0; }
+.stats .stat { flex: 1; }
+.stat .label { font-size: 12.5px; color: var(--ink-dim); margin-bottom: 3px; font-weight: 500; }
+.stat .num {
+  font-size: 24px; font-weight: 800; font-stretch: 108%;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1.15;
+}
+.stat .num small { font-size: 15px; font-weight: 700; color: var(--ink); }
+.stats.big .num { font-size: 30px; }
+
+/* ---- buttons: tall, full-width, confident ---- */
+.btn {
+  display: block; width: 100%; border: none; border-radius: 999px;
+  font: inherit; font-weight: 800; font-size: 16.5px; padding: 16px; cursor: pointer;
+  text-align: center; text-decoration: none;
+}
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
+.btn:disabled { opacity: 0.6; cursor: default; }
+.btn:focus-visible, .tabs button:focus-visible, .nav a:focus-visible,
+input:focus-visible, .chip:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+/* ---- chips ---- */
+.chips { display: flex; gap: 8px; padding: 12px 16px; background: var(--surface); overflow-x: auto; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  display: flex; align-items: center; gap: 7px; white-space: nowrap;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px;
+  font: inherit; font-size: 14px; font-weight: 600; color: var(--ink);
+  padding: 8px 15px; cursor: pointer;
+}
+.chip.on { border-color: var(--accent); color: var(--accent); background: transparent; }
+
+/* ---- feed activity (Strava anatomy) ---- */
+.who { display: flex; align-items: center; gap: 11px; padding: 16px 16px 12px; }
+.avatar {
+  width: 42px; height: 42px; border-radius: 50%; background: var(--surface-2);
+  display: grid; place-items: center; font-weight: 700; font-size: 14px; color: var(--ink-dim); flex: none;
+  overflow: hidden;
+}
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.who b { display: block; font-size: 14.5px; font-weight: 700; }
+.who .meta { font-size: 12.5px; color: var(--ink-dim); margin-top: 1px; }
+.who .more { margin-left: auto; color: var(--ink-dim); font-size: 20px; line-height: 0; background: none; border: none; cursor: pointer; }
+
+.act-title { font-family: var(--serif); font-size: 23px; font-weight: 600; letter-spacing: 0; padding: 2px 16px 12px; }
+.act-stats { padding: 0 16px 16px; }
+
+/* Achievement callout — quiet inline block */
+.callout {
+  display: flex; gap: 13px; align-items: flex-start;
+  background: var(--surface-2); border-radius: 12px; padding: 14px; margin: 0 16px 16px;
+}
+.callout .mark { color: var(--honey); flex: none; padding-top: 1px; }
+.callout b { display: block; font-size: 14.5px; font-weight: 700; line-height: 1.35; margin-bottom: 2px; }
+.callout p { font-size: 13px; color: var(--ink-dim); line-height: 1.45; }
+
+/* Photo: full-bleed-ish */
+.act-photo { display: block; width: 100%; max-height: 320px; object-fit: cover; }
+
+.social {
+  display: flex; gap: 22px; padding: 13px 16px; border-top: 1px solid var(--line);
+  font-size: 13.5px; color: var(--ink-dim); font-weight: 600;
+}
+.social span { font-variant-numeric: tabular-nums; }
+.social button { background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 0; }
+
+/* ---- line chart (Stats) ---- */
+.linechart { display: block; width: 100%; height: auto; margin: 4px 0 2px; }
+.axis-label { font-size: 11.5px; fill: var(--ink-dim); font-family: var(--font); font-variant-numeric: tabular-nums; }
+
+/* ---- calendar streak ---- */
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; text-align: center; margin-top: 14px; }
+.cal .dow { font-size: 12px; color: var(--ink-dim); font-weight: 600; }
+.cal .day {
+  width: 36px; height: 36px; margin: 0 auto; border-radius: 50%;
+  display: grid; place-items: center; font-size: 13.5px; font-weight: 600;
+  font-variant-numeric: tabular-nums; background: var(--surface-2); color: var(--ink-dim);
+}
+.cal .day.hit { background: var(--accent); color: var(--accent-ink); font-weight: 800; }
+.cal .day.today { border: 1.5px solid var(--ink); background: transparent; color: var(--ink); }
+.cal .day.mute { background: transparent; color: rgba(147, 141, 126, 0.4); }
+
+/* ---- forms ---- */
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 12.5px; color: var(--ink-dim); font-weight: 600; margin-bottom: 7px; }
+.field input {
+  width: 100%; background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 14px; font: inherit; font-size: 15.5px; color: var(--ink);
+}
+.field input::placeholder { color: var(--ink-dim); }
+.seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.seg .chip { justify-content: center; }
+
+/* ---- rows ---- */
+.row { display: flex; align-items: center; gap: 13px; padding: 14px 0; }
+.row + .row { border-top: 1px solid var(--line); }
+.row .grow { flex: 1; min-width: 0; }
+.row b { display: block; font-size: 15px; font-weight: 700; }
+.row span { font-size: 13px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.row .chev { color: var(--ink-dim); font-size: 18px; }
+.code {
+  font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 800; letter-spacing: 0.08em;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px;
+}
+.rowmark {
+  width: 42px; height: 42px; border-radius: 50%; background: var(--surface-2);
+  display: grid; place-items: center; color: var(--accent); flex: none;
+}
+.rowmark svg { width: 19px; height: 19px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.rowmark.ach { color: var(--honey); }
+
+/* ---- profile ---- */
+.profile-head { display: flex; align-items: center; gap: 16px; padding: 20px 16px; }
+.profile-head .avatar { width: 64px; height: 64px; font-size: 20px; }
+.profile-head h1 { font-family: var(--serif); font-size: 23px; font-weight: 600; letter-spacing: 0; }
+.profile-head p { font-size: 13.5px; color: var(--ink-dim); margin-top: 3px; }
+
+/* ---- toast ---- */
+.toast {
+  position: fixed; left: 50%; bottom: 104px; transform: translateX(-50%) translateY(8px);
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--ink);
+  font-size: 13.5px; font-weight: 600; padding: 12px 20px; border-radius: 999px;
+  opacity: 0; pointer-events: none; transition: opacity 0.18s ease, transform 0.18s ease;
+  white-space: nowrap; z-index: 50;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---- bottom nav: filled accent when active ---- */
+.navwrap {
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.nav {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  max-width: 32rem; margin: 0 auto;
+  padding: 9px 4px calc(9px + env(safe-area-inset-bottom, 13px));
+}
+.nav a {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  text-decoration: none; color: var(--ink-dim); font-size: 11px; font-weight: 700;
+  cursor: pointer; border-radius: 8px;
+}
+.nav a svg { width: 25px; height: 25px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.nav a.active { color: var(--accent); }
+.nav a.active svg { stroke: var(--accent); }
+
+/* ================================================================
+   2.0 ADDITIONS — session is the unit (from birava.css)
+   ================================================================ */
+
+/* ---- session card: title is the tap target into detail ---- */
+.act-title-link { display: block; text-decoration: none; color: inherit; }
+.act-title-link:hover .act-title { color: var(--ink); }
+.act-title .chev-in { color: var(--ink-dim); font-weight: 400; font-size: 19px; margin-left: 4px; }
+
+/* slim variant — a lone check-in, no fake session stats */
+.checkin-line { padding: 0 16px 14px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.checkin-line .meta { font-size: 13.5px; color: var(--ink-dim); }
+.checkin-note { font-size: 14.5px; line-height: 1.55; color: var(--ink); padding: 0 16px 16px; }
+
+/* ---- expander: reveal check-ins inline ---- */
+.expander {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  background: none; border: none; border-top: 1px solid var(--line);
+  font: inherit; font-size: 13.5px; font-weight: 700; color: var(--ink-dim);
+  padding: 13px 16px; cursor: pointer; text-align: left;
+}
+.expander .arrow { transition: transform 0.2s ease; font-size: 16px; line-height: 0; }
+.expander.open .arrow { transform: rotate(90deg); }
+.collapse { overflow: hidden; transition: height 0.22s ease; }
+
+/* ---- check-in splits (the Strava "splits" equivalent) ---- */
+.venue-head { display: flex; align-items: center; gap: 10px; padding: 15px 16px 8px; }
+.venue-head .vdot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); flex: none; }
+.venue-head .vdot.legend { background: var(--honey); }
+.venue-head b { font-size: 14px; font-weight: 800; letter-spacing: -0.01em; }
+.venue-head .vmeta { font-size: 12.5px; color: var(--ink-dim); margin-left: auto; font-variant-numeric: tabular-nums; }
+.splits { padding: 0 16px; }
+.split { display: flex; align-items: center; gap: 13px; padding: 12px 0; }
+.split + .split { border-top: 1px solid var(--line); }
+.split .idx {
+  width: 26px; height: 26px; border-radius: 50%; background: var(--surface-2);
+  display: grid; place-items: center; font-size: 11.5px; font-weight: 800;
+  font-variant-numeric: tabular-nums; color: var(--ink-dim); flex: none;
+}
+.split .grow { flex: 1; min-width: 0; }
+.split b { display: block; font-size: 14.5px; font-weight: 700; }
+.split .sub { font-size: 12.5px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.splits.compact { padding-bottom: 8px; }
+
+/* ---- photo gallery ---- */
+.gallery { display: flex; gap: 8px; padding: 2px 16px 4px; overflow-x: auto; scrollbar-width: none; }
+.gallery::-webkit-scrollbar { display: none; }
+.gallery > * {
+  width: 148px; height: 186px; flex: none; border-radius: 14px; overflow: hidden;
+}
+.gallery img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gallery.tight > * { width: 118px; height: 118px; }
+
+/* ---- first-time hint strip on the bg gap ---- */
+.hint {
+  padding: 13px 16px 15px; font-size: 13px; line-height: 1.5; color: var(--ink-dim);
+  display: flex; gap: 10px; align-items: flex-start;
+}
+.hint .mark { color: var(--ink-dim); flex: none; padding-top: 1px; }
+.hint b { color: var(--ink); font-weight: 700; }
+
+/* ---- real social row: icon affordances, no emoji ---- */
+.social.acts { gap: 0; justify-content: flex-start; align-items: center; }
+.social .act {
+  display: inline-flex; align-items: center; gap: 7px; background: none; border: none;
+  font: inherit; font-size: 13.5px; font-weight: 600; color: var(--ink-dim);
+  cursor: pointer; padding: 0; margin-right: 22px; min-height: 44px;
+}
+.social .act svg { width: 19px; height: 19px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.social .act.proost.on { color: var(--accent); }
+.social .act.proost.on svg { fill: var(--accent); stroke: var(--accent); }
+.social .act.share { margin-left: auto; margin-right: 0; }
+.social .act span { font-variant-numeric: tabular-nums; }
+
+/* ---- card hero photo: the fun, front and centre ---- */
+.card-photo { padding: 2px 16px 14px; }
+.card-photo > * { display: block; width: 100%; height: 288px; border-radius: 16px; overflow: hidden; }
+.card-photo img { object-fit: cover; }
+.card-photo.short > * { height: 230px; }
+
+/* ---- route chip: map demoted to a tappable summary that opens detail ---- */
+.routechip {
+  display: flex; align-items: center; gap: 12px; margin: 0 16px 14px;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px;
+  padding: 10px 12px; text-decoration: none; color: var(--ink); cursor: pointer;
+}
+.routechip:hover { border-color: rgba(242, 238, 228, 0.2); }
+.routechip .minimap { width: 60px; height: 44px; border-radius: 9px; overflow: hidden; flex: none; display: block; }
+.routechip .grow { flex: 1; min-width: 0; }
+.routechip b { display: block; font-size: 14px; font-weight: 700; }
+.routechip .rsub { font-size: 12.5px; color: var(--ink-dim); }
+.routechip .chev { color: var(--ink-dim); font-size: 19px; line-height: 0; }
+
+/* ---- back header (detail screens) ---- */
+.header .left .back { background: transparent; }
+.header .left .back svg { width: 24px; height: 24px; }
+
+/* ================================================================
+   2.0 — stats, crews, profile, achievements
+   ================================================================ */
+
+/* stat sublabel (e.g. streak explanation) */
+.stat .sub { font-size: 11px; color: var(--ink-dim); margin-top: 5px; font-weight: 500; line-height: 1.3; }
+
+/* ---- active-weeks strip: rest-week framing, not consecutive days ---- */
+.weeks { display: flex; gap: 6px; margin-top: 16px; }
+.weeks .cell { flex: 1; height: 40px; border-radius: 8px; background: var(--surface-2); }
+.weeks .cell.on { background: var(--accent); }
+.weeks .cell.rest { background: transparent; border: 1.5px dashed var(--line); }
+.weeks-legend { display: flex; gap: 16px; margin-top: 12px; font-size: 12px; color: var(--ink-dim); flex-wrap: wrap; }
+.weeks-legend span { display: flex; align-items: center; gap: 7px; }
+.weeks-legend i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+.weeks-legend i.on { background: var(--accent); }
+.weeks-legend i.rest { border: 1.5px dashed var(--line); }
+
+/* ---- discovery bars (types explored) ---- */
+.barrow { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.barrow .bl { width: 78px; font-size: 13.5px; color: var(--ink); font-weight: 600; }
+.barrow .track { flex: 1; height: 10px; border-radius: 6px; background: var(--surface-2); overflow: hidden; }
+.barrow .track i { display: block; height: 100%; background: var(--accent); border-radius: 6px; }
+.barrow .bn { width: 24px; text-align: right; font-size: 13.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* ---- achievements grid ---- */
+.ach-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ach-card { background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; padding: 15px; }
+.ach-card .ac-ic { width: 40px; height: 40px; border-radius: 11px; background: #20241b; display: grid; place-items: center; color: var(--honey); margin-bottom: 11px; }
+.ach-card .ac-ic svg { width: 21px; height: 21px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.ach-card b { font-size: 14px; font-weight: 800; display: block; letter-spacing: -0.01em; }
+.ach-card p { font-size: 12px; color: var(--ink-dim); line-height: 1.42; margin-top: 3px; }
+.ach-card .prog { margin-top: 11px; height: 5px; border-radius: 3px; background: #20241b; overflow: hidden; }
+.ach-card .prog i { display: block; height: 100%; background: var(--honey); border-radius: 3px; }
+.ach-card .pt { font-size: 11px; color: var(--ink-dim); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.ach-card.locked { opacity: 0.5; }
+.ach-card.locked .ac-ic { color: var(--ink-dim); }
+.ach-card.locked .prog i { background: var(--ink-dim); }
+
+/* ---- crew leaderboard: live scoreboard ---- */
+.lb .lr { display: flex; align-items: center; gap: 13px; padding: 13px 0; }
+.lb .lr + .lr { border-top: 1px solid var(--line); }
+.lb .rank { width: 24px; text-align: center; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink-dim); flex: none; }
+.lb .rank.top { color: var(--honey); }
+.lb .lr .grow { flex: 1; min-width: 0; }
+.lb .lr b { display: block; font-size: 14.5px; font-weight: 700; }
+.lb .lr span { font-size: 12.5px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.lb .score { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; flex: none; }
+.lb .lr.you b { color: var(--accent); }
+.lb .lr.you .score { color: var(--accent); }
+
+/* event banner (crew detail) */
+.event {
+  display: flex; align-items: center; gap: 12px; background: var(--surface-2);
+  border: 1px solid var(--line); border-radius: 12px; padding: 13px 14px; margin-bottom: 2px;
+}
+.event .ev-live { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 800; letter-spacing: 0.04em; color: var(--accent); text-transform: uppercase; }
+.event .ev-live .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.event .ev-end { margin-left: auto; font-size: 12.5px; color: var(--ink-dim); font-weight: 600; }
+
+/* member avatars stack */
+.members { display: flex; align-items: center; }
+.members .avatar { width: 30px; height: 30px; font-size: 11px; margin-left: -8px; border: 2px solid var(--surface); }
+.members .avatar:first-child { margin-left: 0; }
+
+/* segmented metric switch */
+.metric-seg { display: flex; gap: 8px; margin: 2px 0 8px; }
+.metric-seg .chip { flex: 1; justify-content: center; }

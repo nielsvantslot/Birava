@@ -2,43 +2,80 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, BarChart2, Trophy, Rss } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const navItems = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Home" },
-  { href: "/stats", icon: BarChart2, label: "Stats" },
-  { href: "/leaderboard", icon: Trophy, label: "Board" },
-  { href: "/feed", icon: Rss, label: "Feed" },
+const NAV_ITEMS = [
+  {
+    href: "/dashboard",
+    label: "Home",
+    icon: (
+      <svg viewBox="0 0 24 24">
+        <path d="M4 11l8-7 8 7v9a1 1 0 01-1 1h-4v-6h-6v6H5a1 1 0 01-1-1z"></path>
+      </svg>
+    ),
+  },
+  {
+    href: "/stats",
+    label: "Stats",
+    icon: (
+      <svg viewBox="0 0 24 24">
+        <path d="M4 20V10"></path>
+        <path d="M10 20V4"></path>
+        <path d="M16 20v-7"></path>
+        <path d="M22 20H2"></path>
+      </svg>
+    ),
+  },
+  {
+    href: "/log",
+    label: "Log",
+    icon: (
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9.5"></circle>
+        <path d="M12 8v8M8 12h8"></path>
+      </svg>
+    ),
+  },
+  {
+    href: "/crews",
+    label: "Crews",
+    icon: (
+      <svg viewBox="0 0 24 24">
+        <circle cx="8" cy="9" r="3"></circle>
+        <circle cx="16" cy="9" r="3"></circle>
+        <path d="M2.5 19c.5-3 2.8-4.5 5.5-4.5S13 16 13.5 19"></path>
+        <path d="M14.5 14.8c2.4.2 4.5 1.6 5 4.2"></path>
+      </svg>
+    ),
+  },
+  {
+    href: "/profile",
+    label: "You",
+    icon: (
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="8" r="4"></circle>
+        <path d="M5 21c0-4 3-6 7-6s7 2 7 6z"></path>
+      </svg>
+    ),
+  },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border)] bg-[var(--card)] safe-bottom">
-      <div className="flex items-center justify-around px-2 py-2">
-        {navItems.map(({ href, icon: Icon, label }) => {
-          const active = pathname === href;
+    <div className="navwrap fixed bottom-0 left-0 right-0 z-40">
+      <nav className="nav">
+        {NAV_ITEMS.map(({ href, label, icon }) => {
+          const active = pathname === href || pathname.startsWith(href + "/");
           return (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all",
-                active
-                  ? "text-[var(--primary)]"
-                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-              )}
-            >
-              <Icon
-                className={cn("h-5 w-5", active && "stroke-[2.5px]")}
-              />
-              <span className="text-[10px] font-medium">{label}</span>
+            <Link key={href} href={href} className={cn(active && "active")}>
+              {icon}
+              {label}
             </Link>
           );
         })}
-      </div>
-    </nav>
+      </nav>
+    </div>
   );
 }

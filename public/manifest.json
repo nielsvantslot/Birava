@@ -1,11 +1,11 @@
 {
-  "name": "Birava – Beer Tracker",
+  "name": "Birava",
   "short_name": "Birava",
-  "description": "Strava, but for beer. Track your holiday beers.",
+  "description": "Strava, but for beer. Log check-ins, relive your sessions, keep score with your crew.",
   "start_url": "/dashboard",
   "display": "standalone",
-  "background_color": "#0f0f0f",
-  "theme_color": "#f97316",
+  "background_color": "#0A0D09",
+  "theme_color": "#0A0D09",
   "orientation": "portrait",
   "icons": [
     {
@@ -52,5 +52,9 @@
     }
   ],
   "screenshots": [],
-  "categories": ["food", "lifestyle", "social"]
+  "categories": [
+    "food",
+    "lifestyle",
+    "social"
+  ]
 }

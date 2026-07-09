@@ -70,11 +70,11 @@ export default function SignupPage() {
     <div className="space-y-6">
       <div className="text-center space-y-2">
         <div className="flex justify-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--primary)] shadow-lg shadow-orange-500/30">
-            <Beer className="h-8 w-8 text-white" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--primary)] shadow-lg">
+            <Beer className="h-8 w-8 text-[var(--accent-ink)]" />
           </div>
         </div>
-        <h1 className="text-3xl font-black">Birava 🍺</h1>
+        <h1 className="text-3xl font-black">Birava</h1>
         <p className="text-[var(--muted-foreground)] text-sm">
           Create your account
         </p>
@@ -83,7 +83,7 @@ export default function SignupPage() {
       <Card>
         <CardHeader>
           <CardTitle>Sign up</CardTitle>
-          <CardDescription>Start tracking your holiday beers</CardDescription>
+          <CardDescription>Log your first check-in tonight</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignup} className="space-y-4">
@@ -132,7 +132,7 @@ export default function SignupPage() {
             )}
 
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? "Creating account..." : "Create account 🍺"}
+              {loading ? "Creating account..." : "Create account"}
             </Button>
           </form>
         </CardContent>
