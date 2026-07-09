@@ -34,7 +34,7 @@ export default function ProfileLoading() {
         ))}
       </div>
 
-      {/* Recent beers */}
+      {/* Recent sessions */}
       <div className="space-y-2">
         {[...Array(3)].map((_, i) => (
           <SkeletonAvatarRow key={i} />

@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# user-uploaded photos (local dev storage — prod uses Vercel Blob)
+/public/uploads/

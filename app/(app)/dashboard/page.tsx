@@ -1,151 +1,121 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getUserTimeZone } from "@/lib/timezone";
 import { toBeerEntry } from "@/lib/mappers";
-import { StatCard } from "@/components/beer/stat-card";
-import { BeerCard } from "@/components/beer/beer-card";
-import { getEarnedAchievements } from "@/lib/achievements";
-import { BeerEntry } from "@/lib/types";
+import { groupIntoSessions, getLocalLegendVenue } from "@/lib/sessions";
+import { getProostStates } from "@/lib/proost";
+import { ScreenTabs } from "@/components/ui/screen-tabs";
+import { SessionCard } from "@/components/beer/session-card";
 
-
-function getTodayBeers(entries: BeerEntry[]) {
-  const today = new Date();
-  return entries
-    .filter((e) => {
-      const d = new Date(e.created_at);
-      return (
-        d.getDate() === today.getDate() &&
-        d.getMonth() === today.getMonth() &&
-        d.getFullYear() === today.getFullYear()
-      );
-    })
-    .reduce((sum, e) => sum + e.amount, 0);
-}
-
-function getStreak(entries: BeerEntry[]): number {
-  if (!entries.length) return 0;
-  const days = new Set(
-    entries.map((e) => new Date(e.created_at).toLocaleDateString())
-  );
-  const daysArr = Array.from(days).sort(
-    (a, b) => new Date(b).getTime() - new Date(a).getTime()
-  );
-
-  let streak = 0;
-  const check = new Date();
-  for (const day of daysArr) {
-    const d = new Date(day);
-    if (
-      d.getDate() === check.getDate() &&
-      d.getMonth() === check.getMonth() &&
-      d.getFullYear() === check.getFullYear()
-    ) {
-      streak++;
-      check.setDate(check.getDate() - 1);
-    } else {
-      break;
-    }
-  }
-  return streak;
-}
-
-function getAvgPerDay(entries: BeerEntry[]): string {
-  if (!entries.length) return "0";
-  const days = new Set(
-    entries.map((e) => new Date(e.created_at).toLocaleDateString())
-  );
-  const total = entries.reduce((sum, e) => sum + e.amount, 0);
-  return (total / days.size).toFixed(1);
-}
-
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) return null;
 
+  const { tab } = await searchParams;
+  const showOnlyOwn = tab === "you";
+  const tz = await getUserTimeZone();
+
+  const following = await db.follow.findMany({
+    where: { followerId: user.id },
+    select: { followingId: true },
+  });
+  const userIds = showOnlyOwn
+    ? [user.id]
+    : [user.id, ...following.map((f) => f.followingId)];
+
   const entries = await db.beerEntry.findMany({
-    where: { userId: user.id },
+    where: { userId: { in: userIds } },
+    include: { user: { select: { username: true, avatarUrl: true } } },
     orderBy: { createdAt: "desc" },
+    take: 150,
   });
 
   const all = entries.map(toBeerEntry);
-  const total = all.reduce((sum: number, e: BeerEntry) => sum + e.amount, 0);
-  const todayCount = getTodayBeers(all);
-  const streak = getStreak(all);
-  const avg = getAvgPerDay(all);
-  const recent = all.slice(0, 5);
-  const achievements = getEarnedAchievements(total);
+  const sessions = groupIntoSessions(all).slice(0, 12);
+  const legendVenue = getLocalLegendVenue(
+    all.filter((e) => e.user_id === user.id)
+  );
+  const proosts = await getProostStates(
+    sessions.map((s) => s.id),
+    user.id
+  );
+
+  // The Local Legend callout appears once, on the newest own session
+  const newestOwnId = sessions.find((s) => s.userId === user.id)?.id;
 
   return (
-    <div className="space-y-6 py-4">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-black">Dashboard 🍺</h1>
-        <p className="text-[var(--muted-foreground)] text-sm mt-0.5">
-          Your beer tracker
-        </p>
-      </div>
+    <>
+      <ScreenTabs
+        tabs={[
+          { label: "Following", href: "/dashboard", active: !showOnlyOwn },
+          { label: "You", href: "/dashboard?tab=you", active: showOnlyOwn },
+        ]}
+      />
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-3">
-        <StatCard label="Total Beers" value={total} emoji="🍺" highlight />
-        <StatCard label="Today" value={todayCount} emoji="☀️" />
-        <StatCard label="Streak" value={`${streak}d`} emoji="🔥" sub="days in a row" />
-        <StatCard label="Avg / Day" value={avg} emoji="📊" />
-      </div>
-
-      {/* Achievements */}
-      {achievements.length > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold text-[var(--muted-foreground)] uppercase tracking-wide mb-3">
-            Achievements
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {achievements.map((a) => (
-              <div
-                key={a.id}
-                className="flex items-center gap-1.5 rounded-full bg-[var(--primary)]/10 border border-[var(--primary)]/20 px-3 py-1.5"
-              >
-                <span className="text-lg">{a.emoji}</span>
-                <span className="text-sm font-semibold text-[var(--primary)]">
-                  {a.label}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Recent beers */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
-            Recent Beers
-          </h2>
-          <Link
-            href="/history"
-            className="text-xs font-medium text-[var(--primary)] hover:underline"
+      {sessions.length === 0 ? (
+        <div
+          className="section"
+          style={{ textAlign: "center", padding: "48px 16px" }}
+        >
+          <h3
+            style={{
+              fontFamily: "var(--serif)",
+              fontSize: 20,
+              fontWeight: 600,
+              marginBottom: 6,
+            }}
           >
-            View all →
+            No sessions yet
+          </h3>
+          <p style={{ fontSize: 14, color: "var(--ink-dim)", marginBottom: 20 }}>
+            Log a drink and your first session starts here.
+          </p>
+          <Link className="btn btn-primary" href="/log">
+            Log a drink
           </Link>
         </div>
-        {recent.length > 0 ? (
-          <div className="space-y-2">
-            {recent.map((entry: BeerEntry) => (
-              <BeerCard key={entry.id} entry={entry} />
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <span className="text-5xl mb-3">🍺</span>
-            <p className="font-semibold text-[var(--foreground)]">
-              No beers yet!
-            </p>
-            <p className="text-sm text-[var(--muted-foreground)] mt-1">
-              Tap the + button to log your first one.
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
+      ) : (
+        sessions.map((session, index) => (
+          <Fragment key={session.id}>
+            <SessionCard
+              session={session}
+              tz={tz}
+              isSelf={session.userId === user.id}
+              legendVenue={session.id === newestOwnId ? legendVenue : null}
+              proost={proosts.get(session.id) ?? { count: 0, on: false }}
+            />
+            {index === 0 && (
+              <div className="hint">
+                <span className="mark">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.9"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="9"></circle>
+                    <path d="M12 16v-4M12 8h.01"></path>
+                  </svg>
+                </span>
+                <div>
+                  <b>Check-ins on the same night group into a session.</b> Log
+                  each drink as you go — Birava stitches your evening together.
+                </div>
+              </div>
+            )}
+          </Fragment>
+        ))
+      )}
+    </>
   );
 }
