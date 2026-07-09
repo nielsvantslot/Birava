@@ -17,9 +17,17 @@ export default function AppLayout({
         <Suspense fallback={<HeaderSkeleton />}>
           <AppHeaderLoader />
         </Suspense>
-        <main className="flex-1 pb-28">{children}</main>
+        {/* Pages read cookies (getCurrentUser) at render; under cacheComponents
+            that dynamic access must stream inside a Suspense boundary. Routes
+            with their own loading.tsx use that nested boundary instead. */}
+        <main className="flex-1 pb-28">
+          <Suspense fallback={null}>{children}</Suspense>
+        </main>
       </div>
-      <BottomNav />
+      {/* usePathname reads request data — must sit inside Suspense under cacheComponents */}
+      <Suspense fallback={null}>
+        <BottomNav />
+      </Suspense>
       <ToastPill />
       <TimezoneSync />
     </div>
