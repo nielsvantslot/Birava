@@ -10,8 +10,8 @@ import { computeAchievements } from "@/lib/achievements";
 import { relativeDay } from "@/lib/dates";
 import { getMyDrinkHistory } from "@/lib/controllers/drinkController";
 import { getFollowCounts } from "@/lib/controllers/socialController";
-import { ProfileHead, ProfileActions } from "@/components/beer/profile-client";
-import { AchievementGlyph } from "@/components/beer/achievement-icon";
+import { ProfileHead, ProfileActions } from "@/components/drink/profile-client";
+import { AchievementGlyph } from "@/components/drink/achievement-icon";
 
 export default async function ProfilePage() {
   const user = await getCurrentUser();

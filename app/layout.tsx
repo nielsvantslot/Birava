@@ -19,7 +19,7 @@ const sourceSerif = Source_Serif_4({
 export const metadata: Metadata = {
   title: "Birava — the drinks you remember",
   description:
-    "Strava, but for beer. Log check-ins, relive your sessions, keep score with your crew.",
+    "Strava, but for drinks. Log check-ins, relive your sessions, keep score with your crew.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

@@ -4,7 +4,6 @@ import {
   ActionResultDTO,
   CreateGroupDTO,
   CreateGroupResultDTO,
-  DeleteGroupDTO,
   JoinGroupDTO,
   JoinGroupResultDTO,
   LeaveGroupDTO,
@@ -59,17 +58,6 @@ export async function leaveGroup(userId: string, input: LeaveGroupDTO): Promise<
   await db.groupMember.deleteMany({
     where: { groupId: input.groupId, userId },
   });
-
-  return {};
-}
-
-export async function deleteGroup(ownerId: string, input: DeleteGroupDTO): Promise<ActionResultDTO> {
-  const deleted = await db.group.deleteMany({
-    where: { id: input.groupId, ownerId },
-  });
-  if (deleted.count === 0) {
-    return { error: "Only the crew owner can delete this crew" };
-  }
 
   return {};
 }

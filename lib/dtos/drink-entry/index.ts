@@ -6,8 +6,6 @@ export * from "./createDrinkEntryDTO";
 export * from "./updateDrinkEntryDTO";
 export * from "./deleteDrinkEntryDTO";
 export * from "./addDrinkResultDTO";
-export * from "./getMyDrinkEntriesDTO";
-export * from "./getPublicDrinkEntriesForUserDTO";
 export * from "./getMyFeedDTO";
 export * from "./getDrinkHistoryForUserDTO";
 export * from "./getSessionProostsDTO";

@@ -5,11 +5,11 @@ import {
   getMyDrinkEntry,
   getMyRecentDrinks,
 } from "@/lib/controllers/drinkController";
-import { BeerEntry } from "@/lib/types";
+import { DrinkEntry } from "@/lib/types";
 import { relativeDay } from "@/lib/dates";
-import { CheckinForm } from "@/components/beer/log-beer-form";
+import { CheckinForm } from "@/components/drink/log-drink-form";
 
-function recentMeta(entry: BeerEntry, tz: string): string {
+function recentMeta(entry: DrinkEntry, tz: string): string {
   return [
     entry.drink_type,
     relativeDay(new Date(entry.created_at), tz).toLowerCase(),
@@ -35,7 +35,7 @@ export default async function LogPage({
     edit ? getMyDrinkEntry({ id: edit }) : Promise.resolve(null),
     getMyRecentDrinks({ limit: 4 }),
   ]);
-  const editEntry: BeerEntry | undefined = editEntryOrNull ?? undefined;
+  const editEntry: DrinkEntry | undefined = editEntryOrNull ?? undefined;
 
   return (
     <>
@@ -74,7 +74,7 @@ export default async function LogPage({
                 </svg>
               </div>
               <div className="grow">
-                <b>{entry.beer_name?.trim() || entry.drink_type}</b>
+                <b>{entry.drink_name?.trim() || entry.drink_type}</b>
                 <span>{recentMeta(entry, tz)}</span>
               </div>
               <span className="chev">›</span>

@@ -7,7 +7,6 @@ import {
   createGroup as createGroupCommand,
   joinGroup,
   leaveGroup as leaveGroupCommand,
-  deleteGroup,
 } from "@/lib/commands/groupCommands";
 import {
   getCrewSummariesForUser,
@@ -19,7 +18,6 @@ import {
   ActionResultDTO,
   CreateGroupDTO,
   CreateGroupResultDTO,
-  DeleteGroupDTO,
   GetCrewDTO,
   JoinGroupDTO,
   JoinGroupResultDTO,
@@ -54,15 +52,6 @@ export async function leaveGroup(input: LeaveGroupDTO): Promise<ActionResultDTO>
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await leaveGroupCommand(user.id, input);
-  if (!result.error) revalidateGroupPaths();
-  return result;
-}
-
-export async function deleteOwnedGroup(input: DeleteGroupDTO): Promise<ActionResultDTO> {
-  const user = await getCurrentUser();
-  if (!user) return NOT_AUTHENTICATED;
-
-  const result = await deleteGroup(user.id, input);
   if (!result.error) revalidateGroupPaths();
   return result;
 }

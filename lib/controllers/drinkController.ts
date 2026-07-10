@@ -5,7 +5,6 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { NOT_AUTHENTICATED } from "@/lib/auth/authErrors";
 import { createDrinkEntry, updateDrinkEntry, deleteDrinkEntry } from "@/lib/commands/drinkEntryCommands";
 import {
-  getDrinkEntriesByUser,
   getDrinkHistory,
   getFeedDrinkHistory,
   getSessionWindow,
@@ -14,25 +13,21 @@ import {
   drinkHistoryTag,
 } from "@/lib/queries/drinkEntryQueries";
 import { getFollowingIds } from "@/lib/queries/followQueries";
-import type { BeerEntry } from "@/lib/types";
+import type { DrinkEntry } from "@/lib/types";
 import {
   ActionResultDTO,
   AddDrinkResultDTO,
-  DrinkEntryDTO,
   CreateDrinkEntryDTO,
   DeleteDrinkEntryDTO,
   GetDrinkHistoryForUserDTO,
-  GetMyDrinkEntriesDTO,
   GetMyDrinkEntryDTO,
   GetMyFeedDTO,
   GetMyRecentDrinksDTO,
-  GetPublicDrinkEntriesForUserDTO,
   GetSessionCheckinsDTO,
   UpdateDrinkEntryDTO,
 } from "@/lib/dtos";
 
 const DRINK_PATHS = ["/dashboard", "/stats", "/log", "/profile", "/achievements"];
-const MAX_PUBLIC_LIMIT = 50;
 
 function revalidateDrinkPaths(userId: string) {
   for (const path of DRINK_PATHS) revalidatePath(path);
@@ -68,34 +63,13 @@ export async function deleteDrink(input: DeleteDrinkEntryDTO): Promise<ActionRes
   return result;
 }
 
-/** Always scoped to the current session's own id — the caller can never supply a different one. */
-export async function getMyDrinkEntries(input: GetMyDrinkEntriesDTO): Promise<DrinkEntryDTO[]> {
-  const user = await getCurrentUser();
-  if (!user) return [];
-
-  return getDrinkEntriesByUser(user.id, {
-    orderByCreatedAt: input.orderByCreatedAt,
-    limit: input.limit,
-  });
-}
-
-/** Public read (no auth required, matches today's public-profile view) — `limit` is required and capped. */
-export async function getPublicDrinkEntriesForUser(
-  input: GetPublicDrinkEntriesForUserDTO
-): Promise<DrinkEntryDTO[]> {
-  return getDrinkEntriesByUser(input.userId, {
-    orderByCreatedAt: "desc",
-    limit: Math.min(input.limit, MAX_PUBLIC_LIMIT),
-  });
-}
-
-// The reads below return the legacy `BeerEntry` shape (not DrinkEntryDTO)
+// The reads below return the legacy `DrinkEntry` shape (not DrinkEntryDTO)
 // because they feed the session engine (groupIntoSessions / computeAchievements
 // / activeWeeks), which is built on it. Same reason the mapper still exports
-// toBeerEntry. Controllers stay the frontend's only entry point.
+// toDrinkEntry. Controllers stay the frontend's only entry point.
 
 /** Current user's full history for the session-derived screens (stats, achievements, own profile). */
-export async function getMyDrinkHistory(): Promise<BeerEntry[]> {
+export async function getMyDrinkHistory(): Promise<DrinkEntry[]> {
   const user = await getCurrentUser();
   if (!user) return [];
 
@@ -105,12 +79,12 @@ export async function getMyDrinkHistory(): Promise<BeerEntry[]> {
 /** Another user's history for the public profile. Public read (no auth). */
 export async function getDrinkHistoryForUser(
   input: GetDrinkHistoryForUserDTO
-): Promise<BeerEntry[]> {
+): Promise<DrinkEntry[]> {
   return getDrinkHistory(input.userId);
 }
 
 /** The dashboard feed: viewer alone ("You" tab) or viewer + everyone they follow. */
-export async function getMyFeed(input: GetMyFeedDTO): Promise<BeerEntry[]> {
+export async function getMyFeed(input: GetMyFeedDTO): Promise<DrinkEntry[]> {
   const user = await getCurrentUser();
   if (!user) return [];
 
@@ -123,7 +97,7 @@ export async function getMyFeed(input: GetMyFeedDTO): Promise<BeerEntry[]> {
 /** The ±48h check-in window a session page recomputes its session from. */
 export async function getSessionCheckins(
   input: GetSessionCheckinsDTO
-): Promise<BeerEntry[] | null> {
+): Promise<DrinkEntry[] | null> {
   const user = await getCurrentUser();
   if (!user) return null;
 
@@ -133,7 +107,7 @@ export async function getSessionCheckins(
 /** One of the current user's own check-ins (for the edit form). */
 export async function getMyDrinkEntry(
   input: GetMyDrinkEntryDTO
-): Promise<BeerEntry | null> {
+): Promise<DrinkEntry | null> {
   const user = await getCurrentUser();
   if (!user) return null;
 
@@ -143,7 +117,7 @@ export async function getMyDrinkEntry(
 /** The current user's most recent check-ins (the "Recent" list on /log). */
 export async function getMyRecentDrinks(
   input: GetMyRecentDrinksDTO
-): Promise<BeerEntry[]> {
+): Promise<DrinkEntry[]> {
   const user = await getCurrentUser();
   if (!user) return [];
 

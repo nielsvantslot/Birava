@@ -7,7 +7,7 @@ import { computeAchievements } from "@/lib/achievements";
 import { weekIndex } from "@/lib/dates";
 import { DRINK_TYPES } from "@/lib/types";
 import { ScreenTabs } from "@/components/ui/screen-tabs";
-import { AchievementGlyph } from "@/components/beer/achievement-icon";
+import { AchievementGlyph } from "@/components/drink/achievement-icon";
 
 function SessionsPerWeekChart({
   counts,
@@ -115,7 +115,7 @@ export default async function StatsPage() {
   );
   const drinksTried = new Set(
     entries
-      .map((e) => e.beer_name?.trim().toLowerCase())
+      .map((e) => e.drink_name?.trim().toLowerCase())
       .filter((n): n is string => !!n)
   );
   const weeks = activeWeeks(sessions, tz);
