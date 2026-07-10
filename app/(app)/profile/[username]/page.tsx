@@ -21,13 +21,14 @@ interface Props {
 
 export default async function PublicProfilePage({ params }: Props) {
   const { username } = await params;
-  const currentUser = await getCurrentUser();
-
-  const targetUser = await getProfileByUsername({ username });
+  const [currentUser, targetUser, tz] = await Promise.all([
+    getCurrentUser(),
+    getProfileByUsername({ username }),
+    getUserTimeZone(),
+  ]);
   if (!targetUser) notFound();
 
   const isOwnProfile = currentUser?.id === targetUser.id;
-  const tz = await getUserTimeZone();
 
   const [isFollowing, counts, entries] = await Promise.all([
     currentUser && !isOwnProfile

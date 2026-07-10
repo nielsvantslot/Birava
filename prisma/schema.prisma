@@ -80,9 +80,8 @@ model DrinkEntry {
   group     Group?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
   proosts   Proost[]
 
-  @@index([userId])
   @@index([groupId])
-  @@index([createdAt(sort: Desc)])
+  @@index([userId, createdAt])
 }
 
 /// A "proost" (kudos) on a session, keyed by the session's anchor
@@ -95,7 +94,6 @@ model Proost {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([entryId, userId])
-  @@index([entryId])
 }
 
 model Follow {
