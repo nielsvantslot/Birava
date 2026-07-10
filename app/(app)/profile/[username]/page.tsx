@@ -42,7 +42,7 @@ export default async function PublicProfilePage({ params }: Props) {
         : Promise.resolve(null),
       db.follow.count({ where: { followingId: targetUser.id } }),
       db.follow.count({ where: { followerId: targetUser.id } }),
-      db.beerEntry.findMany({
+      db.drinkEntry.findMany({
         where: { userId: targetUser.id },
         include: { user: { select: { username: true, avatarUrl: true } } },
         orderBy: { createdAt: "asc" },

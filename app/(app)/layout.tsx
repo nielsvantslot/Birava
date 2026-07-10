@@ -38,7 +38,7 @@ async function AppHeaderLoader() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  return <AppHeader username={user.username} avatarUrl={user.avatar_url} />;
+  return <AppHeader username={user.username} avatarUrl={user.avatarUrl} />;
 }
 
 function HeaderSkeleton() {

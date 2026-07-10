@@ -8,7 +8,7 @@ async function ensureDir(dirPath: string) {
   await fs.mkdir(dirPath, { recursive: true });
 }
 
-export async function saveBeerPhoto(userId: string, file: File) {
+export async function saveDrinkPhoto(userId: string, file: File) {
   const ext = path.extname(file.name) || ".jpg";
   const fileName = `${crypto.randomUUID()}${ext.toLowerCase()}`;
   const userDir = path.join(uploadsRoot, userId);
@@ -21,7 +21,7 @@ export async function saveBeerPhoto(userId: string, file: File) {
   return `/uploads/entries-photos/${userId}/${fileName}`;
 }
 
-export async function removeBeerPhotoByUrl(photoUrl: string) {
+export async function removeDrinkPhotoByUrl(photoUrl: string) {
   try {
     const filePath = resolveLocalPath(photoUrl);
     if (!filePath) return;
@@ -47,7 +47,7 @@ function resolveLocalPath(photoUrl: string) {
   return path.join(process.cwd(), "public", pathname.replace(/^\//, ""));
 }
 
-export async function readBeerPhoto(photoUrl: string) {
+export async function readDrinkPhoto(photoUrl: string) {
   const filePath = resolveLocalPath(photoUrl);
   if (!filePath) return null;
 
