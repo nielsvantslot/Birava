@@ -52,11 +52,13 @@ export default async function SessionDetailPage({
   if (!user) return null;
 
   const { id } = await params;
-  const tz = await getUserTimeZone();
 
   // The session is computed, never stored: fetch the ±48h window around the
   // anchor and pick the session that contains it.
-  const windowCheckins = await getSessionCheckins({ anchorId: id });
+  const [tz, windowCheckins] = await Promise.all([
+    getUserTimeZone(),
+    getSessionCheckins({ anchorId: id }),
+  ]);
   if (!windowCheckins) notFound();
 
   const session = findSessionWithCheckin(windowCheckins, id);

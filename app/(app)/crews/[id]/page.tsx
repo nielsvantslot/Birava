@@ -17,9 +17,10 @@ export default async function CrewDetailPage({
   if (!user) return null;
 
   const { id } = await params;
-  const tz = await getUserTimeZone();
-
-  const crew = await getCrew({ crewId: id });
+  const [tz, crew] = await Promise.all([
+    getUserTimeZone(),
+    getCrew({ crewId: id }),
+  ]);
   if (!crew) notFound();
 
   const { scores, recentSessions } = crew;

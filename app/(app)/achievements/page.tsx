@@ -10,8 +10,10 @@ export default async function AchievementsPage() {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  const tz = await getUserTimeZone();
-  const entries = await getMyDrinkHistory();
+  const [tz, entries] = await Promise.all([
+    getUserTimeZone(),
+    getMyDrinkHistory(),
+  ]);
   const sessions = groupIntoSessions(entries);
   const weeks = activeWeeks(sessions, tz);
   const achievements = computeAchievements(entries, tz);
