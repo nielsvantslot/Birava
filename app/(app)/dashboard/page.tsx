@@ -18,9 +18,11 @@ export default async function DashboardPage({
 
   const { tab } = await searchParams;
   const showOnlyOwn = tab === "you";
-  const tz = await getUserTimeZone();
 
-  const all = await getMyFeed({ onlyOwn: showOnlyOwn });
+  const [tz, all] = await Promise.all([
+    getUserTimeZone(),
+    getMyFeed({ onlyOwn: showOnlyOwn }),
+  ]);
   const sessions = groupIntoSessions(all).slice(0, 12);
   const legendVenue = getLocalLegendVenue(
     all.filter((e) => e.user_id === user.id)
