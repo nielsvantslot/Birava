@@ -5,7 +5,6 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { NOT_AUTHENTICATED } from "@/lib/auth/authErrors";
 import { createDrinkEntry, updateDrinkEntry, deleteDrinkEntry } from "@/lib/commands/drinkEntryCommands";
 import {
-  getDrinkEntriesByUser,
   getDrinkHistory,
   getFeedDrinkHistory,
   getSessionWindow,
@@ -18,21 +17,17 @@ import type { BeerEntry } from "@/lib/types";
 import {
   ActionResultDTO,
   AddDrinkResultDTO,
-  DrinkEntryDTO,
   CreateDrinkEntryDTO,
   DeleteDrinkEntryDTO,
   GetDrinkHistoryForUserDTO,
-  GetMyDrinkEntriesDTO,
   GetMyDrinkEntryDTO,
   GetMyFeedDTO,
   GetMyRecentDrinksDTO,
-  GetPublicDrinkEntriesForUserDTO,
   GetSessionCheckinsDTO,
   UpdateDrinkEntryDTO,
 } from "@/lib/dtos";
 
 const DRINK_PATHS = ["/dashboard", "/stats", "/log", "/profile", "/achievements"];
-const MAX_PUBLIC_LIMIT = 50;
 
 function revalidateDrinkPaths(userId: string) {
   for (const path of DRINK_PATHS) revalidatePath(path);
@@ -66,27 +61,6 @@ export async function deleteDrink(input: DeleteDrinkEntryDTO): Promise<ActionRes
   const result = await deleteDrinkEntry(user.id, input);
   if (!result.error) revalidateDrinkPaths(user.id);
   return result;
-}
-
-/** Always scoped to the current session's own id — the caller can never supply a different one. */
-export async function getMyDrinkEntries(input: GetMyDrinkEntriesDTO): Promise<DrinkEntryDTO[]> {
-  const user = await getCurrentUser();
-  if (!user) return [];
-
-  return getDrinkEntriesByUser(user.id, {
-    orderByCreatedAt: input.orderByCreatedAt,
-    limit: input.limit,
-  });
-}
-
-/** Public read (no auth required, matches today's public-profile view) — `limit` is required and capped. */
-export async function getPublicDrinkEntriesForUser(
-  input: GetPublicDrinkEntriesForUserDTO
-): Promise<DrinkEntryDTO[]> {
-  return getDrinkEntriesByUser(input.userId, {
-    orderByCreatedAt: "desc",
-    limit: Math.min(input.limit, MAX_PUBLIC_LIMIT),
-  });
 }
 
 // The reads below return the legacy `BeerEntry` shape (not DrinkEntryDTO)

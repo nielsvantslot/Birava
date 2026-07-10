@@ -1,8 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
-import { readDrinkPhoto } from "@/lib/storage";
 import { DrinkEntryMapper, toBeerEntry } from "@/lib/mappers";
-import { DrinkEntryDTO, DrinkEntryWithAuthorDTO } from "@/lib/dtos";
+import { DrinkEntryWithAuthorDTO } from "@/lib/dtos";
 import { getFollowingIds, isFollowing } from "@/lib/queries/followQueries";
 import type { BeerEntry } from "@/lib/types";
 
@@ -45,43 +44,6 @@ export async function getViewableDrinkPhotoUrl(
   if (!allowed) return null;
 
   return entry.photoUrl;
-}
-
-export async function getViewableDrinkPhoto(viewerId: string, entryId: string) {
-  const photoUrl = await getViewableDrinkPhotoUrl(viewerId, entryId);
-  if (!photoUrl) return null;
-
-  return readDrinkPhoto(photoUrl);
-}
-
-export async function getDrinkEntriesByUser(
-  userId: string,
-  options: { orderByCreatedAt: "asc" | "desc"; limit?: number }
-): Promise<DrinkEntryDTO[]> {
-  const entries = await db.drinkEntry.findMany({
-    where: { userId },
-    orderBy: { createdAt: options.orderByCreatedAt },
-    ...(options.limit ? { take: options.limit } : {}),
-  });
-
-  return entries.map((entry) => DrinkEntryMapper.toDTO(entry));
-}
-
-export async function getDrinkEntriesForUsers(
-  userIds: string[],
-  options: { onlyWithPhoto?: boolean; orderByCreatedAt?: "asc" | "desc"; limit?: number } = {}
-): Promise<DrinkEntryWithAuthorDTO[]> {
-  const entries = await db.drinkEntry.findMany({
-    where: {
-      userId: { in: userIds },
-      ...(options.onlyWithPhoto ? { photoUrl: { not: null } } : {}),
-    },
-    include: { user: { select: { username: true, avatarUrl: true } } },
-    ...(options.orderByCreatedAt ? { orderBy: { createdAt: options.orderByCreatedAt } } : {}),
-    ...(options.limit ? { take: options.limit } : {}),
-  });
-
-  return entries.map((entry) => DrinkEntryMapper.toDTOWithAuthor(entry));
 }
 
 export async function getSocialFeed(
