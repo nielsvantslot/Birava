@@ -1,7 +1,7 @@
 {
   "name": "Birava",
   "short_name": "Birava",
-  "description": "Strava, but for beer. Log check-ins, relive your sessions, keep score with your crew.",
+  "description": "Strava, but for drinks. Log check-ins, relive your sessions, keep score with your crew.",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#0A0D09",

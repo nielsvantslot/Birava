@@ -51,7 +51,7 @@ export default function LoginPage() {
         </div>
         <h1 className="text-3xl font-black">Birava</h1>
         <p className="text-[var(--muted-foreground)] text-sm">
-          Strava, but for beer
+          Strava, but for drinks
         </p>
       </div>
 
