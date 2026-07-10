@@ -28,6 +28,14 @@ function getPosition(): Promise<Coords> {
   });
 }
 
+const HEIC_EXTENSIONS = [".heic", ".heif"];
+const HEIC_MIME_TYPES = ["image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence"];
+
+function isHeicFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  return HEIC_EXTENSIONS.some((ext) => name.endsWith(ext)) || HEIC_MIME_TYPES.includes(file.type);
+}
+
 async function reverseGeocode(coords: Coords): Promise<string | null> {
   try {
     const res = await fetch(
@@ -106,11 +114,28 @@ export function CheckinForm({ editEntry }: { editEntry?: DrinkEntry }) {
       .catch(() => {});
   }, [editing]);
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
+
+    // The original file still uploads as-is and gets converted server-side
+    // (lib/storage/heic.ts) — this is only so the preview isn't blank, since
+    // Chrome/Firefox/Edge can't render HEIC (iPhone's default photo format)
+    // in an <img> tag at all.
+    if (!isHeicFile(file)) {
+      setPhotoPreview(URL.createObjectURL(file));
+      return;
+    }
+
+    try {
+      const convert = (await import("heic-convert/browser")).default;
+      const buffer = new Uint8Array(await file.arrayBuffer());
+      const jpeg = await convert({ buffer, format: "JPEG", quality: 0.9 });
+      setPhotoPreview(URL.createObjectURL(new Blob([Uint8Array.from(jpeg)], { type: "image/jpeg" })));
+    } catch {
+      setPhotoPreview(null);
+    }
   };
 
   const handleRemovePhoto = () => {
