@@ -12,10 +12,15 @@ import { getFollowCounts as getFollowCountsQuery, getFollowingIds, isFollowing }
 import { getSocialFeed as getSocialFeedQuery } from "@/lib/queries/drinkEntryQueries";
 import { searchUsers as searchUsersQuery } from "@/lib/queries/userQueries";
 import {
+  getProostStates,
+  type ProostState,
+} from "@/lib/queries/proostQueries";
+import {
   DrinkEntryWithAuthorDTO,
   FollowCountsDTO,
   FollowCountsQueryDTO,
   FollowUserDTO,
+  GetSessionProostsDTO,
   GetSocialFeedDTO,
   IsFollowingQueryDTO,
   SearchUsersDTO,
@@ -31,8 +36,12 @@ export async function followUser(input: FollowUserDTO): Promise<void> {
 
   await followUserCommand(user.id, input);
 
-  revalidatePath("/feed");
+  revalidatePath("/dashboard");
   revalidatePath("/people");
+  // F9: the follower/following counts render on the public profile — refresh
+  // it too, which the old path list missed.
+  revalidatePath("/profile/[username]", "page");
+  revalidatePath("/profile");
 }
 
 export async function unfollowUser(input: UnfollowUserDTO): Promise<void> {
@@ -41,8 +50,10 @@ export async function unfollowUser(input: UnfollowUserDTO): Promise<void> {
 
   await unfollowUserCommand(user.id, input);
 
-  revalidatePath("/feed");
+  revalidatePath("/dashboard");
   revalidatePath("/people");
+  revalidatePath("/profile/[username]", "page");
+  revalidatePath("/profile");
 }
 
 export async function getFollowCounts(input: FollowCountsQueryDTO): Promise<FollowCountsDTO> {
@@ -92,4 +103,14 @@ export async function toggleProost(input: ToggleProostDTO): Promise<ToggleProost
     revalidatePath("/sessions", "layout");
   }
   return result;
+}
+
+/** Proost counts + the viewer's own state for a set of session anchor ids. */
+export async function getSessionProosts(
+  input: GetSessionProostsDTO
+): Promise<Map<string, ProostState>> {
+  const user = await getCurrentUser();
+  if (!user) return new Map();
+
+  return getProostStates(input.entryIds, user.id);
 }

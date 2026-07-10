@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { toBeerEntry } from "@/lib/mappers";
+import {
+  getMyDrinkEntry,
+  getMyRecentDrinks,
+} from "@/lib/controllers/drinkController";
 import { BeerEntry } from "@/lib/types";
 import { relativeDay } from "@/lib/dates";
 import { CheckinForm } from "@/components/beer/log-beer-form";
@@ -28,20 +30,12 @@ export default async function LogPage({
   const { edit } = await searchParams;
   const tz = await getUserTimeZone();
 
-  let editEntry: BeerEntry | undefined;
-  if (edit) {
-    const entry = await db.drinkEntry.findFirst({
-      where: { id: edit, userId: user.id },
-    });
-    if (entry) editEntry = toBeerEntry(entry);
-  }
-
-  const entries = await db.drinkEntry.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: "desc" },
-    take: 4,
-  });
-  const recent = entries.map(toBeerEntry);
+  // Independent reads — run in parallel (F2).
+  const [editEntryOrNull, recent] = await Promise.all([
+    edit ? getMyDrinkEntry({ id: edit }) : Promise.resolve(null),
+    getMyRecentDrinks({ limit: 4 }),
+  ]);
+  const editEntry: BeerEntry | undefined = editEntryOrNull ?? undefined;
 
   return (
     <>

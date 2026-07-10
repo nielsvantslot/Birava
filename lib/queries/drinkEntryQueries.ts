@@ -1,8 +1,9 @@
 import { db } from "@/lib/db";
 import { readDrinkPhoto } from "@/lib/storage";
-import { DrinkEntryMapper } from "@/lib/mappers";
+import { DrinkEntryMapper, toBeerEntry } from "@/lib/mappers";
 import { DrinkEntryDTO, DrinkEntryWithAuthorDTO } from "@/lib/dtos";
 import { getFollowingIds, isFollowing } from "@/lib/queries/followQueries";
+import type { BeerEntry } from "@/lib/types";
 
 const ENTRY_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -22,7 +23,15 @@ async function canViewDrinkEntry(
   return isFollowing(viewerId, entry.userId);
 }
 
-export async function getViewableDrinkPhoto(viewerId: string, entryId: string) {
+/**
+ * Resolve the storage URL of a photo the viewer is allowed to see, without
+ * reading the bytes. Lets the route emit an ETag and answer conditional
+ * requests with a 304 (no storage read) — see the photos route.
+ */
+export async function getViewableDrinkPhotoUrl(
+  viewerId: string,
+  entryId: string
+): Promise<string | null> {
   if (!ENTRY_ID_PATTERN.test(entryId)) return null;
 
   const entry = await db.drinkEntry.findUnique({
@@ -34,7 +43,14 @@ export async function getViewableDrinkPhoto(viewerId: string, entryId: string) {
   const allowed = await canViewDrinkEntry(entry, viewerId);
   if (!allowed) return null;
 
-  return readDrinkPhoto(entry.photoUrl);
+  return entry.photoUrl;
+}
+
+export async function getViewableDrinkPhoto(viewerId: string, entryId: string) {
+  const photoUrl = await getViewableDrinkPhotoUrl(viewerId, entryId);
+  if (!photoUrl) return null;
+
+  return readDrinkPhoto(photoUrl);
 }
 
 export async function getDrinkEntriesByUser(
@@ -83,4 +99,87 @@ export async function getSocialFeed(
   });
 
   return entries.map((entry) => DrinkEntryMapper.toDTOWithAuthor(entry));
+}
+
+/**
+ * Full check-in history for the session-derived screens (stats, achievements,
+ * profile). Returns the legacy snake_case `BeerEntry` shape because the session
+ * engine (groupIntoSessions / computeAchievements / activeWeeks in lib/sessions
+ * + lib/achievements) is built on it — the same shape the DTO-returning reads
+ * above deliberately don't produce.
+ */
+export async function getDrinkHistory(userId: string): Promise<BeerEntry[]> {
+  const entries = await db.drinkEntry.findMany({
+    where: { userId },
+    orderBy: { createdAt: "asc" },
+  });
+  return entries.map(toBeerEntry);
+}
+
+/**
+ * Merged feed (viewer + followed) for the dashboard, newest first, capped at
+ * 150. Legacy `BeerEntry` shape (with author) for the same session-engine
+ * reason as getDrinkHistory.
+ */
+export async function getFeedDrinkHistory(
+  userIds: string[]
+): Promise<BeerEntry[]> {
+  const entries = await db.drinkEntry.findMany({
+    where: { userId: { in: userIds } },
+    include: { user: { select: { username: true, avatarUrl: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 150,
+  });
+  return entries.map(toBeerEntry);
+}
+
+const SESSION_WINDOW_MS = 48 * 60 * 60 * 1000;
+
+/**
+ * The ±48h check-in window around an anchor's owner, from which the session
+ * is recomputed (sessions are never stored). Legacy `BeerEntry` shape.
+ */
+export async function getSessionWindow(
+  anchorId: string
+): Promise<BeerEntry[] | null> {
+  const anchor = await db.drinkEntry.findUnique({
+    where: { id: anchorId },
+    select: { userId: true, createdAt: true },
+  });
+  if (!anchor) return null;
+
+  const neighbours = await db.drinkEntry.findMany({
+    where: {
+      userId: anchor.userId,
+      createdAt: {
+        gte: new Date(anchor.createdAt.getTime() - SESSION_WINDOW_MS),
+        lte: new Date(anchor.createdAt.getTime() + SESSION_WINDOW_MS),
+      },
+    },
+    include: { user: { select: { username: true, avatarUrl: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+  return neighbours.map(toBeerEntry);
+}
+
+/** A single own check-in (for the edit form). Legacy `BeerEntry` shape. */
+export async function getDrinkEntryForUser(
+  userId: string,
+  id: string
+): Promise<BeerEntry | null> {
+  const entry = await db.drinkEntry.findFirst({ where: { id, userId } });
+  return entry ? toBeerEntry(entry) : null;
+}
+
+/** A user's most recent check-ins (the "Recent" list on /log). */
+export async function getRecentDrinkHistory(
+  userId: string,
+  limit: number
+): Promise<BeerEntry[]> {
+  const entries = await db.drinkEntry.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+  return entries.map(toBeerEntry);
 }

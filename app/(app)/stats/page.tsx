@@ -1,8 +1,7 @@
 import Link from "next/link";
-import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { toBeerEntry } from "@/lib/mappers";
+import { getMyDrinkHistory } from "@/lib/controllers/drinkController";
 import { groupIntoSessions, activeWeeks } from "@/lib/sessions";
 import { computeAchievements } from "@/lib/achievements";
 import { weekIndex } from "@/lib/dates";
@@ -83,11 +82,7 @@ export default async function StatsPage() {
   if (!user) return null;
 
   const tz = await getUserTimeZone();
-  const rows = await db.drinkEntry.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: "asc" },
-  });
-  const entries = rows.map(toBeerEntry);
+  const entries = await getMyDrinkHistory();
   const sessions = groupIntoSessions(entries);
 
   const tabs = (
