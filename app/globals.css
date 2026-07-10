@@ -182,7 +182,7 @@ input:focus-visible, .chip:focus-visible {
 .chip.on { border-color: var(--accent); color: var(--accent); background: transparent; }
 
 /* ---- feed activity (Strava anatomy) ---- */
-.who { display: flex; align-items: center; gap: 11px; padding: 16px 16px 12px; }
+.who { display: flex; align-items: center; gap: 11px; padding: 16px 16px 12px; text-decoration: none; color: inherit; }
 .avatar {
   width: 42px; height: 42px; border-radius: 50%; background: var(--surface-2);
   display: grid; place-items: center; font-weight: 700; font-size: 14px; color: var(--ink-dim); flex: none;
@@ -295,6 +295,80 @@ input:focus-visible, .chip:focus-visible {
 .nav a.active { color: var(--accent); }
 .nav a.active svg { stroke: var(--accent); }
 
+/* ---- sidebar nav (desktop): replaces header + bottom nav on primary tabs ---- */
+.sidebar {
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+  padding: 20px 12px;
+  gap: 4px;
+}
+.sidebar-brand {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 10px 22px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.sidebar-brand svg { width: 28px; height: 28px; stroke: var(--accent); fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.sidebar-brand span { font-family: var(--serif); font-size: 19px; font-weight: 600; display: none; white-space: nowrap; }
+
+.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+.sidebar-nav a {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px; border-radius: 10px;
+  color: var(--ink-dim); font-size: 15px; font-weight: 700;
+  text-decoration: none;
+}
+.sidebar-nav a svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.sidebar-nav a:hover { background: var(--surface-2); color: var(--ink); }
+.sidebar-nav a.active { color: var(--accent); }
+.sidebar-nav a.active svg { stroke: var(--accent); }
+.sidebar-avatar {
+  width: 24px; height: 24px; border-radius: 50%; overflow: hidden; flex: none;
+  display: grid; place-items: center; background: var(--surface-2);
+}
+.sidebar-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.sidebar-more { margin-top: auto; }
+.sidebar-more button {
+  display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
+  padding: 12px; border-radius: 10px; font: inherit;
+  color: var(--ink-dim); font-size: 15px; font-weight: 700;
+  background: none; border: none; cursor: pointer;
+}
+.sidebar-more button svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.sidebar-more button:hover { background: var(--surface-2); color: var(--ink); }
+
+.sidebar .label { display: none; }
+@media (min-width: 1280px) {
+  .sidebar-brand span, .sidebar .label { display: inline; }
+}
+
+/* ---- right rail (desktop, xl+): profile + light discovery, fills the third column ---- */
+.right-rail {
+  flex-direction: column;
+  width: 300px;
+  padding: 24px 16px;
+  gap: 16px;
+}
+.rail-profile {
+  display: flex; align-items: center; gap: 12px;
+  text-decoration: none; color: var(--ink);
+  padding-bottom: 4px;
+}
+.rail-profile .avatar { width: 44px; height: 44px; font-size: 15px; }
+.rail-profile b { display: block; font-size: 15px; font-weight: 700; }
+.rail-sub { font-size: 12.5px; color: var(--ink-dim); }
+
+.rail-card {
+  display: block; text-decoration: none;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+  padding: 14px 16px;
+}
+.rail-card b { display: block; font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 3px; }
+.rail-card p { font-size: 12.5px; color: var(--ink-dim); line-height: 1.4; }
+.rail-card:hover { border-color: rgba(242, 238, 228, 0.2); }
+
 /* ================================================================
    2.0 ADDITIONS — session is the unit (from birava.css)
    ================================================================ */
@@ -318,14 +392,9 @@ input:focus-visible, .chip:focus-visible {
 }
 .expander .arrow { transition: transform 0.2s ease; font-size: 16px; line-height: 0; }
 .expander.open .arrow { transform: rotate(90deg); }
-.collapse { overflow: hidden; transition: height 0.22s ease; }
+.checkin-collapse { overflow: hidden; transition: height 0.22s ease; }
 
 /* ---- check-in splits (the Strava "splits" equivalent) ---- */
-.venue-head { display: flex; align-items: center; gap: 10px; padding: 15px 16px 8px; }
-.venue-head .vdot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); flex: none; }
-.venue-head .vdot.legend { background: var(--honey); }
-.venue-head b { font-size: 14px; font-weight: 800; letter-spacing: -0.01em; }
-.venue-head .vmeta { font-size: 12.5px; color: var(--ink-dim); margin-left: auto; font-variant-numeric: tabular-nums; }
 .splits { padding: 0 16px; }
 .split { display: flex; align-items: center; gap: 13px; padding: 12px 0; }
 .split + .split { border-top: 1px solid var(--line); }
@@ -339,14 +408,54 @@ input:focus-visible, .chip:focus-visible {
 .split .sub { font-size: 12.5px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
 .splits.compact { padding-bottom: 8px; }
 
-/* ---- photo gallery ---- */
-.gallery { display: flex; gap: 8px; padding: 2px 16px 4px; overflow-x: auto; scrollbar-width: none; }
-.gallery::-webkit-scrollbar { display: none; }
-.gallery > * {
-  width: 148px; height: 186px; flex: none; border-radius: 14px; overflow: hidden;
+/* ---- check-in grid (Explore-style) + lightbox ---- */
+.checkin-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
 }
-.gallery img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.gallery.tight > * { width: 118px; height: 118px; }
+.grid-item {
+  position: relative; aspect-ratio: 1; border-radius: 0; overflow: hidden;
+  border: none; padding: 0; cursor: pointer; background: var(--surface-2);
+}
+.grid-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.grid-item-badge {
+  position: absolute; top: 6px; left: 6px; width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 10.5px; font-weight: 800;
+  font-variant-numeric: tabular-nums; display: grid; place-items: center; z-index: 1;
+}
+.grid-item-caption {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 8px 7px;
+  display: flex; flex-direction: column; gap: 1px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0) 100%);
+}
+.grid-item-caption b {
+  font-size: 12.5px; font-weight: 700; color: #fff; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.grid-item-caption span { font-size: 10.5px; color: rgba(255, 255, 255, 0.75); font-variant-numeric: tabular-nums; }
+
+.lightbox {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.92);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200; padding: 24px;
+}
+.lightbox figure { margin: 0; max-width: 92vw; max-height: 86vh; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.lightbox figure img { max-width: 100%; max-height: 78vh; object-fit: contain; border-radius: 12px; }
+.lightbox-card {
+  width: 260px; max-width: 80vw; aspect-ratio: 1; border-radius: 12px; background: var(--surface-2);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center;
+}
+.lightbox-card b { font-size: 17px; font-weight: 700; color: var(--ink); }
+.lightbox-card span { font-size: 13px; color: var(--ink-dim); }
+.lightbox figcaption { color: #eee; font-size: 13px; text-align: center; }
+.lightbox figcaption a { color: var(--accent); font-weight: 700; }
+.lightbox-close, .lightbox-nav {
+  position: absolute; border: none; background: rgba(255, 255, 255, 0.1); color: #fff;
+  border-radius: 50%; cursor: pointer; line-height: 0; display: grid; place-items: center;
+}
+.lightbox-close { top: 16px; right: 16px; width: 40px; height: 40px; font-size: 22px; }
+.lightbox-nav { top: 50%; transform: translateY(-50%); width: 44px; height: 44px; font-size: 26px; }
+.lightbox-nav.prev { left: 16px; }
+.lightbox-nav.next { right: 16px; }
 
 /* ---- first-time hint strip on the bg gap ---- */
 .hint {

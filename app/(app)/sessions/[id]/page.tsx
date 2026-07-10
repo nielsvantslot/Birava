@@ -17,7 +17,7 @@ import { getSessionProosts } from "@/lib/controllers/socialController";
 import { formatTime, relativeDayTime } from "@/lib/dates";
 import { SessionMap, MapPin } from "@/components/drink/session-map";
 import { SocialActs } from "@/components/drink/social-row";
-import { drinkPhotoSrc } from "@/lib/utils";
+import { CheckinGrid } from "@/components/drink/checkin-grid";
 
 type VenueGroup = { venue: string | null; checkins: DrinkEntry[] };
 
@@ -33,14 +33,10 @@ function groupByVenueRun(checkins: DrinkEntry[]): VenueGroup[] {
   return groups;
 }
 
-function timeRange(checkins: DrinkEntry[], tz: string): string {
-  const first = formatTime(new Date(checkins[0].created_at), tz);
-  if (checkins.length === 1) return first;
-  const last = formatTime(
-    new Date(checkins[checkins.length - 1].created_at),
-    tz
-  );
-  return first === last ? first : `${first} – ${last}`;
+function checkinCaption(c: DrinkEntry, tz: string): string {
+  return [c.drink_name?.trim() || c.drink_type, c.venue, formatTime(new Date(c.created_at), tz)]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 export default async function SessionDetailPage({
@@ -119,7 +115,7 @@ export default async function SessionDetailPage({
     <>
       {/* who + serif title + full stat row */}
       <div className="section flush">
-        <div className="who">
+        <Link className="who" href={`/profile/${session.username}`}>
           <div className="avatar">
             {session.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -135,7 +131,7 @@ export default async function SessionDetailPage({
               {session.venues[0] ? ` · ${session.venues[0]}` : ""}
             </div>
           </div>
-        </div>
+        </Link>
         <div className="act-title" style={{ paddingBottom: 14 }}>
           {title}
         </div>
@@ -208,7 +204,7 @@ export default async function SessionDetailPage({
         </div>
       )}
 
-      {/* Check-ins (the splits), grouped by venue */}
+      {/* Check-ins (the splits), chronological */}
       <div className="section flush" style={{ padding: "6px 0 14px" }}>
         <div
           className="h-row"
@@ -229,85 +225,20 @@ export default async function SessionDetailPage({
           </span>
         </div>
 
-        {venueGroups.map((group, gi) => {
-          const startIndex = venueGroups
-            .slice(0, gi)
-            .reduce((sum, g) => sum + g.checkins.length, 0);
-          return (
-            <div key={gi}>
-              {group.venue && (
-                <div className="venue-head">
-                  <span
-                    className={
-                      legendVenue && group.venue === legendVenue
-                        ? "vdot legend"
-                        : "vdot"
-                    }
-                  ></span>
-                  <b>{group.venue}</b>
-                  <span className="vmeta">{timeRange(group.checkins, tz)}</span>
-                </div>
-              )}
-              <div className="splits">
-                {group.checkins.map((c, ci) => {
-                  const sub = [
-                    c.drink_type,
-                    formatTime(new Date(c.created_at), tz),
-                  ]
-                    .filter(Boolean)
-                    .join(" · ");
-                  const inner = (
-                    <>
-                      <div className="idx">{startIndex + ci + 1}</div>
-                      <div className="grow">
-                        <b>{c.drink_name?.trim() || c.drink_type}</b>
-                        <div className="sub">{sub}</div>
-                      </div>
-                      {isSelf && <span className="chev">›</span>}
-                    </>
-                  );
-                  return isSelf ? (
-                    <Link
-                      key={c.id}
-                      className="split"
-                      href={`/log?edit=${c.id}`}
-                      style={{ textDecoration: "none", color: "inherit" }}
-                    >
-                      {inner}
-                    </Link>
-                  ) : (
-                    <div className="split" key={c.id}>
-                      {inner}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
+        <CheckinGrid
+          items={checkins.map((c, i) => ({
+            id: c.id,
+            order: i + 1,
+            title: c.drink_name?.trim() || c.drink_type,
+            sub: [c.venue, formatTime(new Date(c.created_at), tz)]
+              .filter(Boolean)
+              .join(" · "),
+            caption: checkinCaption(c, tz),
+            hasPhoto: !!c.photo_url,
+            editHref: isSelf ? `/log?edit=${c.id}` : null,
+          }))}
+        />
       </div>
-
-      {/* Photos */}
-      {session.photoIds.length > 0 && (
-        <div className="section flush" style={{ padding: "14px 0" }}>
-          <div className="h-row" style={{ padding: "0 16px" }}>
-            <h3>Photos</h3>
-          </div>
-          <div className="gallery">
-            {session.photoIds.map((id, i) => (
-              <div key={id}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={drinkPhotoSrc(id)}
-                  alt={`Session photo ${i + 1}`}
-                  loading="lazy"
-                  decoding="async"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* social */}
       <div className="section flush">

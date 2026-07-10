@@ -219,6 +219,7 @@ export function CheckinForm({ editEntry }: { editEntry?: DrinkEntry }) {
       setName("");
       setVenue("");
       handleRemovePhoto();
+      router.push(`/sessions/${result.id}`);
       router.refresh();
     });
   };

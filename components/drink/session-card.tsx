@@ -111,7 +111,7 @@ export function SessionCard({
 
   return (
     <div className="section flush">
-      <div className="who">
+      <Link className="who" href={`/profile/${session.username}`}>
         <div className="avatar">
           {session.avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -124,7 +124,7 @@ export function SessionCard({
           <b>{session.username}</b>
           <div className="meta">{meta}</div>
         </div>
-      </div>
+      </Link>
 
       <Link className="act-title-link" href={`/sessions/${session.id}`}>
         <div className="act-title">

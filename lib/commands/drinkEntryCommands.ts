@@ -43,7 +43,7 @@ export async function createDrinkEntry(
   const earnedAfter = earnedIds([...beforeEntries, toDrinkEntry(created)], tz);
   const achievementUnlocked = [...earnedAfter].some((id) => !earnedBefore.has(id));
 
-  return { achievementUnlocked };
+  return { achievementUnlocked, id: created.id };
 }
 
 export async function updateDrinkEntry(

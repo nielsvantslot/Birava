@@ -25,7 +25,7 @@ export function CheckinExpander({
         </span>
         <span className="arrow">›</span>
       </button>
-      {open && <div className="collapse">{children}</div>}
+      {open && <div className="checkin-collapse">{children}</div>}
     </>
   );
 }
