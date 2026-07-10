@@ -1,7 +1,8 @@
 import crypto from "crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { cache } from "react";
 import { db } from "@/lib/db";
+import { TRUSTED_USER_HEADER } from "@/lib/auth/proxy-session";
 import { SessionUserDTO } from "@/lib/dtos";
 import { SessionUserMapper } from "@/lib/mappers";
 
@@ -58,6 +59,12 @@ export async function clearUserSession() {
 }
 
 export const getCurrentUser = cache(async (): Promise<SessionUserDTO | null> => {
+  // middleware.ts already validated this request's session and attached the
+  // result here — reuse it instead of paying a second Session lookup on every
+  // page render. Routes outside the middleware matcher (api/*) fall through.
+  const trusted = (await headers()).get(TRUSTED_USER_HEADER);
+  if (trusted) return JSON.parse(trusted) as SessionUserDTO;
+
   const token = await readSessionToken();
   if (!token) return null;
 

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/session";
 import { NOT_AUTHENTICATED } from "@/lib/auth/authErrors";
 import { createDrinkEntry, updateDrinkEntry, deleteDrinkEntry } from "@/lib/commands/drinkEntryCommands";
@@ -11,6 +11,7 @@ import {
   getSessionWindow,
   getDrinkEntryForUser,
   getRecentDrinkHistory,
+  drinkHistoryTag,
 } from "@/lib/queries/drinkEntryQueries";
 import { getFollowingIds } from "@/lib/queries/followQueries";
 import type { BeerEntry } from "@/lib/types";
@@ -33,10 +34,11 @@ import {
 const DRINK_PATHS = ["/dashboard", "/stats", "/log", "/profile", "/achievements"];
 const MAX_PUBLIC_LIMIT = 50;
 
-function revalidateDrinkPaths() {
+function revalidateDrinkPaths(userId: string) {
   for (const path of DRINK_PATHS) revalidatePath(path);
   revalidatePath("/sessions", "layout");
   revalidatePath("/crews", "layout");
+  revalidateTag(drinkHistoryTag(userId));
 }
 
 export async function addDrink(input: CreateDrinkEntryDTO): Promise<AddDrinkResultDTO> {
@@ -44,7 +46,7 @@ export async function addDrink(input: CreateDrinkEntryDTO): Promise<AddDrinkResu
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await createDrinkEntry(user.id, input);
-  if (!result.error) revalidateDrinkPaths();
+  if (!result.error) revalidateDrinkPaths(user.id);
   return result;
 }
 
@@ -53,7 +55,7 @@ export async function editDrink(input: UpdateDrinkEntryDTO): Promise<ActionResul
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await updateDrinkEntry(user.id, input);
-  if (!result.error) revalidateDrinkPaths();
+  if (!result.error) revalidateDrinkPaths(user.id);
   return result;
 }
 
@@ -62,7 +64,7 @@ export async function deleteDrink(input: DeleteDrinkEntryDTO): Promise<ActionRes
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await deleteDrinkEntry(user.id, input);
-  if (!result.error) revalidateDrinkPaths();
+  if (!result.error) revalidateDrinkPaths(user.id);
   return result;
 }
 

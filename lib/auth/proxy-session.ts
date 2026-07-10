@@ -1,5 +1,14 @@
 import { db } from "@/lib/db";
+import { SessionUserMapper } from "@/lib/mappers";
 import { NextResponse, type NextRequest } from "next/server";
+
+/**
+ * Carries the already-validated session user from middleware to the RSC render,
+ * so getCurrentUser() (lib/auth/session.ts) can skip a second Session lookup for
+ * the same request. Always stripped from the incoming request first so a client
+ * can't spoof it.
+ */
+export const TRUSTED_USER_HEADER = "x-birava-session-user";
 
 export async function updateSession(request: NextRequest) {
   const token = request.cookies.get("birava_session")?.value;
@@ -7,14 +16,12 @@ export async function updateSession(request: NextRequest) {
   const session = token
     ? await db.session.findUnique({
         where: { sessionToken: token },
-        select: { expiresAt: true },
+        include: { user: true },
       })
     : null;
 
-  const user =
-    session && session.expiresAt.getTime() > Date.now()
-      ? { id: "authenticated" }
-      : null;
+  const isValid = !!session && session.expiresAt.getTime() > Date.now();
+  const dto = isValid ? SessionUserMapper.toDTO(session.user) : null;
 
   const url = request.nextUrl.clone();
   const isAuthPage =
@@ -23,15 +30,21 @@ export async function updateSession(request: NextRequest) {
     url.pathname.startsWith("/forgot-password") ||
     url.pathname.startsWith("/reset-password");
 
-  if (!user && !isAuthPage) {
+  if (!dto && !isAuthPage) {
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  if (user && isAuthPage) {
+  if (dto && isAuthPage) {
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
 
-  return NextResponse.next({ request });
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.delete(TRUSTED_USER_HEADER);
+  if (dto) {
+    requestHeaders.set(TRUSTED_USER_HEADER, JSON.stringify(dto));
+  }
+
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
