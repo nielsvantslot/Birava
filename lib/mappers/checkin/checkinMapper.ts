@@ -1,4 +1,4 @@
-import { Prisma, type DrinkEntry as BeerEntryRow } from "@prisma/client";
+import type { DrinkEntry as BeerEntryRow } from "@prisma/client";
 import type { BeerEntry } from "@/lib/types";
 
 type ProfileInclude = { username: string; avatarUrl: string | null } | null;
@@ -32,51 +32,5 @@ export function toBeerEntry(
           },
         }
       : {}),
-  };
-}
-
-/**
- * Minimal column set for the history-stats screens (stats, achievements,
- * profile) and the achievement diff on logging. These consumers only read
- * what feeds groupIntoSessions / computeAchievements / activeWeeks — never
- * the Decimal columns (amount/lat/lng), whose per-row deserialization
- * dominates cost on long histories. Keep this in sync with toStatsEntry.
- */
-export const statsEntrySelect = {
-  id: true,
-  userId: true,
-  createdAt: true,
-  venue: true,
-  drinkType: true,
-  drinkName: true,
-  notes: true,
-} satisfies Prisma.DrinkEntrySelect;
-
-type StatsEntryRow = Prisma.DrinkEntryGetPayload<{
-  select: typeof statsEntrySelect;
-}>;
-
-/**
- * Map a projected row (statsEntrySelect) into a full snake_case BeerEntry.
- * Columns not selected are set to their inert defaults — the stats screens
- * never read them, and this keeps the DTO boundary intact.
- */
-export function toStatsEntry(entry: StatsEntryRow): BeerEntry {
-  return {
-    id: entry.id,
-    user_id: entry.userId,
-    group_id: null,
-    beer_name: entry.drinkName,
-    brewery: null,
-    style: null,
-    drink_type: entry.drinkType,
-    amount: 0,
-    rating: null,
-    venue: entry.venue,
-    lat: null,
-    lng: null,
-    notes: entry.notes,
-    photo_url: null,
-    created_at: entry.createdAt.toISOString(),
   };
 }

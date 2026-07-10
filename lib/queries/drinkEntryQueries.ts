@@ -1,8 +1,9 @@
 import { db } from "@/lib/db";
 import { readDrinkPhoto } from "@/lib/storage";
-import { DrinkEntryMapper } from "@/lib/mappers";
+import { DrinkEntryMapper, toBeerEntry } from "@/lib/mappers";
 import { DrinkEntryDTO, DrinkEntryWithAuthorDTO } from "@/lib/dtos";
 import { getFollowingIds, isFollowing } from "@/lib/queries/followQueries";
+import type { BeerEntry } from "@/lib/types";
 
 const ENTRY_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -98,4 +99,36 @@ export async function getSocialFeed(
   });
 
   return entries.map((entry) => DrinkEntryMapper.toDTOWithAuthor(entry));
+}
+
+/**
+ * Full check-in history for the session-derived screens (stats, achievements,
+ * profile). Returns the legacy snake_case `BeerEntry` shape because the session
+ * engine (groupIntoSessions / computeAchievements / activeWeeks in lib/sessions
+ * + lib/achievements) is built on it — the same shape the DTO-returning reads
+ * above deliberately don't produce.
+ */
+export async function getDrinkHistory(userId: string): Promise<BeerEntry[]> {
+  const entries = await db.drinkEntry.findMany({
+    where: { userId },
+    orderBy: { createdAt: "asc" },
+  });
+  return entries.map(toBeerEntry);
+}
+
+/**
+ * Merged feed (viewer + followed) for the dashboard, newest first, capped at
+ * 150. Legacy `BeerEntry` shape (with author) for the same session-engine
+ * reason as getDrinkHistory.
+ */
+export async function getFeedDrinkHistory(
+  userIds: string[]
+): Promise<BeerEntry[]> {
+  const entries = await db.drinkEntry.findMany({
+    where: { userId: { in: userIds } },
+    include: { user: { select: { username: true, avatarUrl: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 150,
+  });
+  return entries.map(toBeerEntry);
 }

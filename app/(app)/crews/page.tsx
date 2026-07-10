@@ -2,7 +2,6 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { scoreCrew } from "@/lib/crews";
-import { statsEntrySelect } from "@/lib/mappers";
 import { CreateCrewForm, JoinCrewForm } from "@/components/beer/crews-forms";
 
 function ordinal(n: number): string {
@@ -52,7 +51,6 @@ export default async function CrewsPage() {
               ),
             },
           },
-          select: statsEntrySelect,
           orderBy: { createdAt: "asc" },
         });
 

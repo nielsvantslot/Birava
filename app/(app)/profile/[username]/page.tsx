@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { getUserHistory } from "@/lib/reads";
+import { getDrinkHistory } from "@/lib/queries/drinkEntryQueries";
 import {
   groupIntoSessions,
   activeWeeks,
@@ -42,7 +42,7 @@ export default async function PublicProfilePage({ params }: Props) {
         : Promise.resolve(null),
       db.follow.count({ where: { followingId: targetUser.id } }),
       db.follow.count({ where: { followerId: targetUser.id } }),
-      getUserHistory(targetUser.id),
+      getDrinkHistory(targetUser.id),
     ]);
 
   const sessions = groupIntoSessions(entries);

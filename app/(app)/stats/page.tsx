@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { getUserHistory } from "@/lib/reads";
+import { getDrinkHistory } from "@/lib/queries/drinkEntryQueries";
 import { groupIntoSessions, activeWeeks } from "@/lib/sessions";
 import { computeAchievements } from "@/lib/achievements";
 import { weekIndex } from "@/lib/dates";
@@ -82,7 +82,7 @@ export default async function StatsPage() {
   if (!user) return null;
 
   const tz = await getUserTimeZone();
-  const entries = await getUserHistory(user.id);
+  const entries = await getDrinkHistory(user.id);
   const sessions = groupIntoSessions(entries);
 
   const tabs = (

@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { earnedIds } from "@/lib/achievements";
 import { getUserTimeZone } from "@/lib/timezone";
-import { statsEntrySelect, toStatsEntry } from "@/lib/mappers";
+import { toBeerEntry } from "@/lib/mappers";
 import { removeDrinkPhotoByUrl } from "@/lib/storage";
 import {
   ActionResultDTO,
@@ -16,12 +16,9 @@ export async function createDrinkEntry(
   input: CreateDrinkEntryDTO
 ): Promise<AddDrinkResultDTO> {
   const tz = await getUserTimeZone();
-  // Read history once (projected columns only); the "after" set is provably
-  // "before + the new row", so there's no need for a second full-table scan.
-  const before = await db.drinkEntry.findMany({
-    where: { userId },
-    select: statsEntrySelect,
-  });
+  // Read history once; the "after" set is provably "before + the new row",
+  // so there's no need for a second full-table scan.
+  const before = await db.drinkEntry.findMany({ where: { userId } });
 
   let created;
   try {
@@ -36,15 +33,14 @@ export async function createDrinkEntry(
         notes: input.notes,
         photoUrl: input.photoUrl,
       },
-      select: statsEntrySelect,
     });
   } catch {
     return { error: "Failed to save check-in." };
   }
 
-  const beforeEntries = before.map(toStatsEntry);
+  const beforeEntries = before.map(toBeerEntry);
   const earnedBefore = earnedIds(beforeEntries, tz);
-  const earnedAfter = earnedIds([...beforeEntries, toStatsEntry(created)], tz);
+  const earnedAfter = earnedIds([...beforeEntries, toBeerEntry(created)], tz);
   const achievementUnlocked = [...earnedAfter].some((id) => !earnedBefore.has(id));
 
   return { achievementUnlocked };

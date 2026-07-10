@@ -1,5 +1,6 @@
+import type { DrinkEntry } from "@prisma/client";
 import { db } from "@/lib/db";
-import { statsEntrySelect, toStatsEntry } from "@/lib/mappers";
+import { toBeerEntry } from "@/lib/mappers";
 import { DrinkSession, groupIntoSessions } from "@/lib/sessions";
 
 /**
@@ -29,17 +30,6 @@ export type CrewMemberInput = {
   joinedAt: Date;
 };
 
-/** Projected check-in row for crew scoring (statsEntrySelect shape). */
-type CrewEntryRow = {
-  id: string;
-  userId: string;
-  createdAt: Date;
-  venue: string | null;
-  drinkType: string;
-  drinkName: string | null;
-  notes: string | null;
-};
-
 /**
  * Pure scorer: given a crew's members and a (possibly larger) pool of
  * check-in rows, compute the leaderboard and recent sessions. Rows that
@@ -48,7 +38,7 @@ type CrewEntryRow = {
  */
 export function scoreCrew(
   members: CrewMemberInput[],
-  rows: CrewEntryRow[]
+  rows: DrinkEntry[]
 ): CrewBoard {
   if (members.length === 0) return { scores: [], recentSessions: [] };
 
@@ -60,7 +50,7 @@ export function scoreCrew(
     const joined = joinedAt.get(r.userId);
     return joined !== undefined && r.createdAt >= joined;
   });
-  const entries = counted.map(toStatsEntry);
+  const entries = counted.map(toBeerEntry);
   const sessions = groupIntoSessions(entries);
 
   const scores: CrewMemberScore[] = members.map((m) => {
@@ -93,8 +83,8 @@ export function scoreCrew(
 
 /**
  * Board for a single crew — fetches that crew's since-earliest-join
- * check-ins (projected, no per-row user join) and scores them. The member
- * list is supplied by the caller, which has already loaded it.
+ * check-ins and scores them. The member list is supplied by the caller,
+ * which has already loaded it (so no per-crew re-query of members).
  */
 export async function getCrewBoard(
   members: CrewMemberInput[]
@@ -109,7 +99,6 @@ export async function getCrewBoard(
       userId: { in: members.map((m) => m.userId) },
       createdAt: { gte: earliest },
     },
-    select: statsEntrySelect,
     orderBy: { createdAt: "asc" },
   });
 

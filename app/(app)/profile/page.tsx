@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { getUserHistory } from "@/lib/reads";
+import { getDrinkHistory } from "@/lib/queries/drinkEntryQueries";
 import {
   groupIntoSessions,
   activeWeeks,
@@ -20,7 +20,7 @@ export default async function ProfilePage() {
   const tz = await getUserTimeZone();
   // Independent reads — run in parallel (F2).
   const [entries, followCounts] = await Promise.all([
-    getUserHistory(user.id),
+    getDrinkHistory(user.id),
     getFollowCounts({ profileId: user.id }),
   ]);
   const sessions = groupIntoSessions(entries);
