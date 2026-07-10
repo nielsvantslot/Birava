@@ -295,6 +295,80 @@ input:focus-visible, .chip:focus-visible {
 .nav a.active { color: var(--accent); }
 .nav a.active svg { stroke: var(--accent); }
 
+/* ---- sidebar nav (desktop): replaces header + bottom nav on primary tabs ---- */
+.sidebar {
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+  padding: 20px 12px;
+  gap: 4px;
+}
+.sidebar-brand {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 10px 22px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.sidebar-brand svg { width: 28px; height: 28px; stroke: var(--accent); fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.sidebar-brand span { font-family: var(--serif); font-size: 19px; font-weight: 600; display: none; white-space: nowrap; }
+
+.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+.sidebar-nav a {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px; border-radius: 10px;
+  color: var(--ink-dim); font-size: 15px; font-weight: 700;
+  text-decoration: none;
+}
+.sidebar-nav a svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.sidebar-nav a:hover { background: var(--surface-2); color: var(--ink); }
+.sidebar-nav a.active { color: var(--accent); }
+.sidebar-nav a.active svg { stroke: var(--accent); }
+.sidebar-avatar {
+  width: 24px; height: 24px; border-radius: 50%; overflow: hidden; flex: none;
+  display: grid; place-items: center; background: var(--surface-2);
+}
+.sidebar-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.sidebar-more { margin-top: auto; }
+.sidebar-more button {
+  display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
+  padding: 12px; border-radius: 10px; font: inherit;
+  color: var(--ink-dim); font-size: 15px; font-weight: 700;
+  background: none; border: none; cursor: pointer;
+}
+.sidebar-more button svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.sidebar-more button:hover { background: var(--surface-2); color: var(--ink); }
+
+.sidebar .label { display: none; }
+@media (min-width: 1280px) {
+  .sidebar-brand span, .sidebar .label { display: inline; }
+}
+
+/* ---- right rail (desktop, xl+): profile + light discovery, fills the third column ---- */
+.right-rail {
+  flex-direction: column;
+  width: 300px;
+  padding: 24px 16px;
+  gap: 16px;
+}
+.rail-profile {
+  display: flex; align-items: center; gap: 12px;
+  text-decoration: none; color: var(--ink);
+  padding-bottom: 4px;
+}
+.rail-profile .avatar { width: 44px; height: 44px; font-size: 15px; }
+.rail-profile b { display: block; font-size: 15px; font-weight: 700; }
+.rail-sub { font-size: 12.5px; color: var(--ink-dim); }
+
+.rail-card {
+  display: block; text-decoration: none;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+  padding: 14px 16px;
+}
+.rail-card b { display: block; font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 3px; }
+.rail-card p { font-size: 12.5px; color: var(--ink-dim); line-height: 1.4; }
+.rail-card:hover { border-color: rgba(242, 238, 228, 0.2); }
+
 /* ================================================================
    2.0 ADDITIONS — session is the unit (from birava.css)
    ================================================================ */

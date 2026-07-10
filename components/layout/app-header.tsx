@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,7 +60,7 @@ export function AppHeader({ username, avatarUrl }: AppHeaderProps) {
   };
 
   return (
-    <header className="header sticky top-0 z-40">
+    <header className={cn("header sticky top-0 z-40", !showBack && "md:!hidden")}>
       <div className="left">
         {showBack ? (
           <button
