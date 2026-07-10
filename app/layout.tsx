@@ -16,15 +16,24 @@ const sourceSerif = Source_Serif_4({
   style: ["normal", "italic"],
 });
 
+const isStaging = process.env.VERCEL_ENV === "preview";
+const appleIconPath = isStaging
+  ? "/icons/staging/icon-192x192.png"
+  : "/icons/icon-192x192.png";
+
 export const metadata: Metadata = {
-  title: "Birava — the drinks you remember",
+  title: isStaging
+    ? "Birava (Staging) — the drinks you remember"
+    : "Birava — the drinks you remember",
   description:
     "Strava, but for drinks. Log check-ins, relive your sessions, keep score with your crew.",
-  manifest: "/manifest.json",
+  icons: {
+    apple: appleIconPath,
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Birava",
+    title: isStaging ? "Birava Staging" : "Birava",
   },
   openGraph: {
     title: "Birava",
