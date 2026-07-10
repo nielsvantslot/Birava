@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { toBeerEntry } from "@/lib/mappers";
+import { getUserHistory } from "@/lib/reads";
 import {
   groupIntoSessions,
   activeWeeks,
@@ -28,7 +28,7 @@ export default async function PublicProfilePage({ params }: Props) {
   const isOwnProfile = currentUser?.id === targetUser.id;
   const tz = await getUserTimeZone();
 
-  const [followCheck, followerCount, followingCount, entryRows] =
+  const [followCheck, followerCount, followingCount, entries] =
     await Promise.all([
       currentUser && !isOwnProfile
         ? db.follow.findUnique({
@@ -42,14 +42,9 @@ export default async function PublicProfilePage({ params }: Props) {
         : Promise.resolve(null),
       db.follow.count({ where: { followingId: targetUser.id } }),
       db.follow.count({ where: { followerId: targetUser.id } }),
-      db.beerEntry.findMany({
-        where: { userId: targetUser.id },
-        include: { user: { select: { username: true, avatarUrl: true } } },
-        orderBy: { createdAt: "asc" },
-      }),
+      getUserHistory(targetUser.id),
     ]);
 
-  const entries = entryRows.map(toBeerEntry);
   const sessions = groupIntoSessions(entries);
   const weeks = activeWeeks(sessions, tz);
   const venues = new Set(

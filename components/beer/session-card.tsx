@@ -174,7 +174,12 @@ export function SessionCard({
       {heroPhotoId && (
         <div className={multiVenue || lone ? "card-photo" : "card-photo short"}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={beerPhotoSrc(heroPhotoId)} alt={`${title} photo`} />
+          <img
+            src={beerPhotoSrc(heroPhotoId)}
+            alt={`${title} photo`}
+            loading="lazy"
+            decoding="async"
+          />
         </div>
       )}
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { UserCheck, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { followUser, unfollowUser } from "@/lib/actions/social";
@@ -18,6 +19,7 @@ export function FollowButton({
 }: FollowButtonProps) {
   const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   const handleClick = () => {
     const next = !isFollowing;
@@ -29,6 +31,8 @@ export function FollowButton({
         } else {
           await unfollowUser(targetUserId);
         }
+        // Refresh so the server-rendered follower/following counts update.
+        router.refresh();
       } catch {
         setIsFollowing(!next); // revert on error
       }

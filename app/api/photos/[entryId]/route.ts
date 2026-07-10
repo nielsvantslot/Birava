@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { readBeerPhoto } from "@/lib/storage";
@@ -36,13 +37,27 @@ export async function GET(
   const allowed = await canViewEntry(entry, user.id);
   if (!allowed) return new Response("Not found", { status: 404 });
 
+  // The bytes behind a given photoUrl never change (an edit swaps in a new
+  // URL), so the URL is a perfect content validator. Hashing it also lets an
+  // edited check-in bust the cache under the same /api/photos/[entryId] URL.
+  const etag = `"${crypto.createHash("sha1").update(entry.photoUrl).digest("hex")}"`;
+  const cacheControl = "private, max-age=86400";
+
+  if (request.headers.get("if-none-match") === etag) {
+    return new Response(null, {
+      status: 304,
+      headers: { ETag: etag, "Cache-Control": cacheControl },
+    });
+  }
+
   const photo = await readBeerPhoto(entry.photoUrl);
   if (!photo) return new Response("Not found", { status: 404 });
 
   return new Response(photo.stream, {
     headers: {
       "Content-Type": photo.contentType,
-      "Cache-Control": "private, max-age=86400",
+      "Cache-Control": cacheControl,
+      ETag: etag,
     },
   });
 }

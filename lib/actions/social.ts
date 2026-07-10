@@ -48,6 +48,10 @@ export async function followUser(targetUserId: string) {
 
   revalidatePath("/dashboard");
   revalidatePath("/people");
+  // F9: the follower/following counts render on the public profile — refresh
+  // it too, which the old path list missed.
+  revalidatePath("/profile/[username]", "page");
+  revalidatePath("/profile");
 }
 
 export async function unfollowUser(targetUserId: string) {
@@ -60,6 +64,8 @@ export async function unfollowUser(targetUserId: string) {
 
   revalidatePath("/dashboard");
   revalidatePath("/people");
+  revalidatePath("/profile/[username]", "page");
+  revalidatePath("/profile");
 }
 
 export async function getFollowCounts(

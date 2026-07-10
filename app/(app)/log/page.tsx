@@ -28,20 +28,21 @@ export default async function LogPage({
   const { edit } = await searchParams;
   const tz = await getUserTimeZone();
 
-  let editEntry: BeerEntry | undefined;
-  if (edit) {
-    const entry = await db.beerEntry.findFirst({
-      where: { id: edit, userId: user.id },
-    });
-    if (entry) editEntry = toBeerEntry(entry);
-  }
-
-  const entries = await db.beerEntry.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: "desc" },
-    take: 4,
-  });
-  const recent = entries.map(toBeerEntry);
+  // Independent reads — run in parallel (F2).
+  const [editRow, recentRows] = await Promise.all([
+    edit
+      ? db.beerEntry.findFirst({ where: { id: edit, userId: user.id } })
+      : Promise.resolve(null),
+    db.beerEntry.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: "desc" },
+      take: 4,
+    }),
+  ]);
+  const editEntry: BeerEntry | undefined = editRow
+    ? toBeerEntry(editRow)
+    : undefined;
+  const recent = recentRows.map(toBeerEntry);
 
   return (
     <>

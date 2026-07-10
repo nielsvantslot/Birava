@@ -83,15 +83,22 @@ export default async function SessionDetailPage({
   const title = sessionTitle(session, tz);
   const venueGroups = groupByVenueRun(checkins);
 
-  // Local Legend is about the session owner's own data
+  // Local Legend needs the owner's own history; the proost state is
+  // independent — fetch both in parallel (F2).
+  const [ownForLegend, proostMap] = await Promise.all([
+    isSelf
+      ? db.beerEntry.findMany({
+          where: { userId: user.id },
+          select: { venue: true, createdAt: true },
+        })
+      : Promise.resolve(null),
+    getProostStates([session.id], user.id),
+  ]);
+
   let legendVenue: string | null = null;
-  if (isSelf) {
-    const own = await db.beerEntry.findMany({
-      where: { userId: user.id },
-      select: { venue: true, createdAt: true },
-    });
+  if (ownForLegend) {
     legendVenue = getLocalLegendVenue(
-      own.map((e) => ({
+      ownForLegend.map((e) => ({
         venue: e.venue,
         created_at: e.createdAt.toISOString(),
       }))
@@ -120,9 +127,7 @@ export default async function SessionDetailPage({
     });
   }
 
-  const proost = (await getProostStates([session.id], user.id)).get(
-    session.id
-  ) ?? { count: 0, on: false };
+  const proost = proostMap.get(session.id) ?? { count: 0, on: false };
 
   const startMeta = relativeDayTime(new Date(session.start), tz);
   const endTime = formatTime(new Date(session.end), tz);
@@ -314,7 +319,12 @@ export default async function SessionDetailPage({
             {session.photoIds.map((id, i) => (
               <div key={id}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={beerPhotoSrc(id)} alt={`Session photo ${i + 1}`} />
+                <img
+                  src={beerPhotoSrc(id)}
+                  alt={`Session photo ${i + 1}`}
+                  loading="lazy"
+                  decoding="async"
+                />
               </div>
             ))}
           </div>

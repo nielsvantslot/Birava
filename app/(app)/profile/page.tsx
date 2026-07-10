@@ -1,8 +1,7 @@
 import Link from "next/link";
-import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { toBeerEntry } from "@/lib/mappers";
+import { getUserHistory } from "@/lib/reads";
 import {
   groupIntoSessions,
   activeWeeks,
@@ -19,12 +18,11 @@ export default async function ProfilePage() {
   if (!user) return null;
 
   const tz = await getUserTimeZone();
-  const rows = await db.beerEntry.findMany({
-    where: { userId: user.id },
-    include: { user: { select: { username: true, avatarUrl: true } } },
-    orderBy: { createdAt: "asc" },
-  });
-  const entries = rows.map(toBeerEntry);
+  // Independent reads — run in parallel (F2).
+  const [entries, followCounts] = await Promise.all([
+    getUserHistory(user.id),
+    getFollowCounts(user.id),
+  ]);
   const sessions = groupIntoSessions(entries);
   const weeks = activeWeeks(sessions, tz);
 
@@ -43,7 +41,6 @@ export default async function ProfilePage() {
     .slice(0, 3);
 
   const recentSessions = sessions.slice(0, 3);
-  const followCounts = await getFollowCounts(user.id);
 
   const memberSince = new Date(user.created_at).toLocaleDateString("en-GB", {
     month: "long",

@@ -78,7 +78,7 @@ A committed, idempotent seed builds the **Demobeer** showcase account (email `ja
 - Folded legacy: `/history` and `/feed` are gone (404); `/leaderboard`, `/leaderboard/[groupId]`, `/groups` redirect into `/crews`. Don't re-add them.
 
 ## Known landmines (see `docs/audit/` for the full reports)
-- **`cacheComponents: true`** (`next.config.ts`) requires uncached data access to sit inside `<Suspense>`. Some routes don't comply, so **`next build` currently fails** on prerender (dev overlay shows "blocking-route" issues). Fix before adding build to CI.
+- **`cacheComponents: true`** (`next.config.ts`) requires uncached data access to sit inside `<Suspense>`. **`next build` passes** as of the 2026-07-10 perf audit — all app routes compile as Partial Prerender (◐). Safe to add the build to CI now.
 - **Uploads write to `public/uploads/` on the local filesystem** (`lib/storage/local.ts`) — this breaks on Vercel's ephemeral/read-only FS. No magic-byte/size validation yet.
 - **`app/api/auth/forgot-password/route.ts`** returns the reset URL/token in the HTTP response (account-takeover risk) — gate before deploy.
 - **Open product calls** (flagged 2026-07-09, don't silently decide): active-weeks streak grace rule (currently: one rest week survives, 2+ consecutive end the run — `activeWeeks()` in `lib/sessions.ts`); Countries/Passport badges omitted for lack of country data ("Types tried" substituted); comments are a "soon" toast stub (proost is real).

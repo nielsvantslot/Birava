@@ -22,12 +22,27 @@ export default async function CrewDetailPage({
 
   const crew = await db.group.findUnique({
     where: { id },
-    include: { members: { select: { userId: true } } },
+    include: {
+      members: {
+        select: {
+          userId: true,
+          joinedAt: true,
+          user: { select: { username: true, avatarUrl: true } },
+        },
+      },
+    },
   });
   if (!crew) notFound();
   if (!crew.members.some((m) => m.userId === user.id)) notFound();
 
-  const { scores, recentSessions } = await getCrewBoard(id);
+  const { scores, recentSessions } = await getCrewBoard(
+    crew.members.map((m) => ({
+      userId: m.userId,
+      username: m.user.username,
+      avatarUrl: m.user.avatarUrl,
+      joinedAt: m.joinedAt,
+    }))
+  );
   const you = scores.find((s) => s.userId === user.id);
   const usernameById = new Map(scores.map((s) => [s.userId, s.username]));
 

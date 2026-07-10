@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { toBeerEntry } from "@/lib/mappers";
+import { statsEntrySelect, toStatsEntry } from "@/lib/mappers";
 import { DrinkSession, groupIntoSessions } from "@/lib/sessions";
 
 /**
@@ -21,33 +21,46 @@ export type CrewBoard = {
   recentSessions: DrinkSession[]; // newest first, since each member joined
 };
 
-export async function getCrewBoard(groupId: string): Promise<CrewBoard> {
-  const members = await db.groupMember.findMany({
-    where: { groupId },
-    include: {
-      user: { select: { id: true, username: true, avatarUrl: true } },
-    },
-  });
+/** The identity + join date a board needs per member — fetched by the caller. */
+export type CrewMemberInput = {
+  userId: string;
+  username: string;
+  avatarUrl: string | null;
+  joinedAt: Date;
+};
+
+/** Projected check-in row for crew scoring (statsEntrySelect shape). */
+type CrewEntryRow = {
+  id: string;
+  userId: string;
+  createdAt: Date;
+  venue: string | null;
+  drinkType: string;
+  beerName: string | null;
+  notes: string | null;
+};
+
+/**
+ * Pure scorer: given a crew's members and a (possibly larger) pool of
+ * check-in rows, compute the leaderboard and recent sessions. Rows that
+ * don't belong to a member, or predate that member's join, are ignored —
+ * so the index can fetch every crew's rows in one query and slice per crew.
+ */
+export function scoreCrew(
+  members: CrewMemberInput[],
+  rows: CrewEntryRow[]
+): CrewBoard {
   if (members.length === 0) return { scores: [], recentSessions: [] };
 
-  const earliest = new Date(
-    Math.min(...members.map((m) => m.joinedAt.getTime()))
-  );
-  const rows = await db.beerEntry.findMany({
-    where: {
-      userId: { in: members.map((m) => m.userId) },
-      createdAt: { gte: earliest },
-    },
-    include: { user: { select: { username: true, avatarUrl: true } } },
-    orderBy: { createdAt: "asc" },
-  });
-
   const joinedAt = new Map(members.map((m) => [m.userId, m.joinedAt]));
-  // Only what a member logged after joining counts toward the crew
-  const counted = rows.filter(
-    (r) => r.createdAt >= (joinedAt.get(r.userId) ?? r.createdAt)
-  );
-  const entries = counted.map(toBeerEntry);
+  const info = new Map(members.map((m) => [m.userId, m]));
+
+  // Only what a member logged after joining counts toward the crew.
+  const counted = rows.filter((r) => {
+    const joined = joinedAt.get(r.userId);
+    return joined !== undefined && r.createdAt >= joined;
+  });
+  const entries = counted.map(toStatsEntry);
   const sessions = groupIntoSessions(entries);
 
   const scores: CrewMemberScore[] = members.map((m) => {
@@ -58,8 +71,8 @@ export async function getCrewBoard(groupId: string): Promise<CrewBoard> {
     );
     return {
       userId: m.userId,
-      username: m.user.username,
-      avatarUrl: m.user.avatarUrl,
+      username: m.username,
+      avatarUrl: m.avatarUrl,
       joinedAt: m.joinedAt.toISOString(),
       sessions: ownSessions.length,
       venues: venues.size,
@@ -68,5 +81,37 @@ export async function getCrewBoard(groupId: string): Promise<CrewBoard> {
 
   scores.sort((a, b) => b.sessions - a.sessions || b.venues - a.venues);
 
-  return { scores, recentSessions: sessions.slice(0, 4) };
+  // Identity isn't carried on the projected rows, so stamp it from members.
+  const recentSessions = sessions.slice(0, 4).map((s) => ({
+    ...s,
+    username: info.get(s.userId)?.username ?? "",
+    avatarUrl: info.get(s.userId)?.avatarUrl ?? null,
+  }));
+
+  return { scores, recentSessions };
+}
+
+/**
+ * Board for a single crew — fetches that crew's since-earliest-join
+ * check-ins (projected, no per-row user join) and scores them. The member
+ * list is supplied by the caller, which has already loaded it.
+ */
+export async function getCrewBoard(
+  members: CrewMemberInput[]
+): Promise<CrewBoard> {
+  if (members.length === 0) return { scores: [], recentSessions: [] };
+
+  const earliest = new Date(
+    Math.min(...members.map((m) => m.joinedAt.getTime()))
+  );
+  const rows = await db.beerEntry.findMany({
+    where: {
+      userId: { in: members.map((m) => m.userId) },
+      createdAt: { gte: earliest },
+    },
+    select: statsEntrySelect,
+    orderBy: { createdAt: "asc" },
+  });
+
+  return scoreCrew(members, rows);
 }

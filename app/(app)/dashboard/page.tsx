@@ -3,8 +3,8 @@ import { Fragment } from "react";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { toBeerEntry } from "@/lib/mappers";
 import { groupIntoSessions, getLocalLegendVenue } from "@/lib/sessions";
+import { getFeedEntries } from "@/lib/reads";
 import { getProostStates } from "@/lib/proost";
 import { ScreenTabs } from "@/components/ui/screen-tabs";
 import { SessionCard } from "@/components/beer/session-card";
@@ -21,22 +21,19 @@ export default async function DashboardPage({
   const showOnlyOwn = tab === "you";
   const tz = await getUserTimeZone();
 
-  const following = await db.follow.findMany({
-    where: { followerId: user.id },
-    select: { followingId: true },
-  });
+  // The follows query is only needed for the "Following" feed — skip it on
+  // the "You" tab, where its result would be discarded (F2).
+  const following = showOnlyOwn
+    ? []
+    : await db.follow.findMany({
+        where: { followerId: user.id },
+        select: { followingId: true },
+      });
   const userIds = showOnlyOwn
     ? [user.id]
     : [user.id, ...following.map((f) => f.followingId)];
 
-  const entries = await db.beerEntry.findMany({
-    where: { userId: { in: userIds } },
-    include: { user: { select: { username: true, avatarUrl: true } } },
-    orderBy: { createdAt: "desc" },
-    take: 150,
-  });
-
-  const all = entries.map(toBeerEntry);
+  const all = await getFeedEntries(userIds);
   const sessions = groupIntoSessions(all).slice(0, 12);
   const legendVenue = getLocalLegendVenue(
     all.filter((e) => e.user_id === user.id)

@@ -1,16 +1,23 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { toBeerEntry } from "@/lib/mappers";
+import { statsEntrySelect, toStatsEntry } from "@/lib/mappers";
 import { earnedIds } from "@/lib/achievements";
 import { removeBeerPhotoByUrl } from "@/lib/storage";
 
 const CHECKIN_PATHS = ["/dashboard", "/stats", "/log", "/profile", "/achievements"];
 
-function revalidateCheckinPaths() {
+function revalidateAfterCheckin(userId: string) {
+  // Server render cache: one tag busts exactly the cached views that contain
+  // this user's check-ins — their own history/stats/achievements AND every
+  // follower's feed (getFeedEntries tags each included user). updateTag gives
+  // read-your-own-writes: the next read waits for fresh data, never stale.
+  updateTag(`user:${userId}`);
+  // Client router cache: keep the actor's own tabs fresh on the spot, rather
+  // than serving the up-to-30s staleTimes copy after they just logged.
   for (const path of CHECKIN_PATHS) revalidatePath(path);
   revalidatePath("/sessions", "layout");
   revalidatePath("/crews", "layout");
@@ -33,10 +40,16 @@ export async function logCheckin(
   if (!user) return { error: "Not authenticated" };
 
   const tz = await getUserTimeZone();
-  const before = await db.beerEntry.findMany({ where: { userId: user.id } });
+  // Read history once; the "after" set is provably "before + the new row",
+  // so there's no need for a second full-table scan.
+  const before = await db.beerEntry.findMany({
+    where: { userId: user.id },
+    select: statsEntrySelect,
+  });
 
+  let created;
   try {
-    await db.beerEntry.create({
+    created = await db.beerEntry.create({
       data: {
         userId: user.id,
         beerName: payload.drink_name,
@@ -47,19 +60,20 @@ export async function logCheckin(
         notes: payload.notes,
         photoUrl: payload.photo_url,
       },
+      select: statsEntrySelect,
     });
   } catch {
     return { error: "Failed to save check-in." };
   }
 
-  const after = await db.beerEntry.findMany({ where: { userId: user.id } });
-  const earnedBefore = earnedIds(before.map(toBeerEntry), tz);
-  const earnedAfter = earnedIds(after.map(toBeerEntry), tz);
+  const beforeEntries = before.map(toStatsEntry);
+  const earnedBefore = earnedIds(beforeEntries, tz);
+  const earnedAfter = earnedIds([...beforeEntries, toStatsEntry(created)], tz);
   const achievementUnlocked = [...earnedAfter].some(
     (id) => !earnedBefore.has(id)
   );
 
-  revalidateCheckinPaths();
+  revalidateAfterCheckin(user.id);
 
   return { achievementUnlocked };
 }
@@ -98,7 +112,7 @@ export async function updateCheckin(
     await removeBeerPhotoByUrl(existing.photoUrl);
   }
 
-  revalidateCheckinPaths();
+  revalidateAfterCheckin(user.id);
   return {};
 }
 
@@ -121,6 +135,6 @@ export async function deleteCheckin(id: string): Promise<{ error?: string }> {
     await removeBeerPhotoByUrl(entry.photoUrl);
   }
 
-  revalidateCheckinPaths();
+  revalidateAfterCheckin(user.id);
   return {};
 }
