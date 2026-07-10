@@ -7,6 +7,6 @@ import * as blob from "./blob";
 // the production and staging/preview deployments.
 const backend = process.env.NODE_ENV === "production" ? blob : local;
 
-export const saveBeerPhoto = backend.saveBeerPhoto;
-export const removeBeerPhotoByUrl = backend.removeBeerPhotoByUrl;
-export const readBeerPhoto = backend.readBeerPhoto;
+export const saveDrinkPhoto = backend.saveDrinkPhoto;
+export const removeDrinkPhotoByUrl = backend.removeDrinkPhotoByUrl;
+export const readDrinkPhoto = backend.readDrinkPhoto;

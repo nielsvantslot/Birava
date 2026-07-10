@@ -1,4 +1,4 @@
-import type { BeerEntry as BeerEntryRow } from "@prisma/client";
+import type { DrinkEntry as BeerEntryRow } from "@prisma/client";
 import type { BeerEntry } from "@/lib/types";
 
 type ProfileInclude = { username: string; avatarUrl: string | null } | null;
@@ -10,7 +10,7 @@ export function toBeerEntry(
     id: entry.id,
     user_id: entry.userId,
     group_id: entry.groupId,
-    beer_name: entry.beerName,
+    beer_name: entry.drinkName,
     brewery: entry.brewery,
     style: entry.style,
     drink_type: entry.drinkType,

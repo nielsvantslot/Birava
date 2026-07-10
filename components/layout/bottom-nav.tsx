@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -61,8 +62,19 @@ const NAV_ITEMS = [
 ];
 
 export function BottomNav() {
-  const pathname = usePathname();
+  return (
+    <Suspense fallback={<NavInner pathname="" />}>
+      <NavInnerWithPathname />
+    </Suspense>
+  );
+}
 
+function NavInnerWithPathname() {
+  const pathname = usePathname();
+  return <NavInner pathname={pathname} />;
+}
+
+function NavInner({ pathname }: { pathname: string }) {
   return (
     <div className="navwrap fixed bottom-0 left-0 right-0 z-40">
       <nav className="nav">

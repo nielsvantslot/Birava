@@ -33,7 +33,7 @@ export async function getCrewBoard(groupId: string): Promise<CrewBoard> {
   const earliest = new Date(
     Math.min(...members.map((m) => m.joinedAt.getTime()))
   );
-  const rows = await db.beerEntry.findMany({
+  const rows = await db.drinkEntry.findMany({
     where: {
       userId: { in: members.map((m) => m.userId) },
       createdAt: { gte: earliest },

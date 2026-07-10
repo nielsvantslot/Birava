@@ -24,9 +24,8 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Skip non-GET and Supabase API calls
+  // Skip non-GET requests
   if (event.request.method !== "GET") return;
-  if (url.hostname.includes("supabase.co")) return;
 
   // Never cache HTML navigation requests — they are server-rendered and
   // auth-protected. Caching them causes stale/broken pages after session expiry.

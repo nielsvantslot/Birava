@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { UserCheck, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { followUser, unfollowUser } from "@/lib/actions/social";
+import { followUser, unfollowUser } from "@/lib/controllers/socialController";
 
 interface FollowButtonProps {
   targetUserId: string;
@@ -25,9 +25,9 @@ export function FollowButton({
     startTransition(async () => {
       try {
         if (next) {
-          await followUser(targetUserId);
+          await followUser({ targetUserId });
         } else {
-          await unfollowUser(targetUserId);
+          await unfollowUser({ targetUserId });
         }
       } catch {
         setIsFollowing(!next); // revert on error

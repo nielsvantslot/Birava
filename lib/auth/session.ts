@@ -2,17 +2,11 @@ import crypto from "crypto";
 import { cookies } from "next/headers";
 import { cache } from "react";
 import { db } from "@/lib/db";
+import { SessionUserDTO } from "@/lib/dtos";
+import { SessionUserMapper } from "@/lib/mappers";
 
 const SESSION_COOKIE = "birava_session";
 const SESSION_TTL_DAYS = 30;
-
-type SafeUser = {
-  id: string;
-  email: string;
-  username: string;
-  avatar_url: string | null;
-  created_at: string;
-};
 
 function expiryDate() {
   const expires = new Date();
@@ -63,7 +57,7 @@ export async function clearUserSession() {
   });
 }
 
-export const getCurrentUser = cache(async (): Promise<SafeUser | null> => {
+export const getCurrentUser = cache(async (): Promise<SessionUserDTO | null> => {
   const token = await readSessionToken();
   if (!token) return null;
 
@@ -79,11 +73,5 @@ export const getCurrentUser = cache(async (): Promise<SafeUser | null> => {
     return null;
   }
 
-  return {
-    id: session.user.id,
-    email: session.user.email,
-    username: session.user.username,
-    avatar_url: session.user.avatarUrl,
-    created_at: session.user.createdAt.toISOString(),
-  };
+  return SessionUserMapper.toDTO(session.user);
 });

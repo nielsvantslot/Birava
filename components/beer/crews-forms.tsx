@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createGroup, joinGroupByInvite } from "@/lib/actions/groups";
+import { createGroup, joinGroupByInvite } from "@/lib/controllers/groupController";
 import { showToast } from "@/components/ui/toast-pill";
 
 export function CreateCrewForm() {
@@ -16,7 +16,7 @@ export function CreateCrewForm() {
     if (!name.trim()) return;
     setError(null);
     startTransition(async () => {
-      const result = await createGroup(name);
+      const result = await createGroup({ name });
       if (result.error) {
         setError(result.error);
         return;
@@ -62,7 +62,7 @@ export function JoinCrewForm() {
     if (!code.trim()) return;
     setError(null);
     startTransition(async () => {
-      const result = await joinGroupByInvite(code);
+      const result = await joinGroupByInvite({ inviteCode: code });
       if (result.error) {
         setError(result.error);
         return;

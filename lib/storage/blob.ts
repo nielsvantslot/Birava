@@ -7,7 +7,7 @@ import {
   put,
 } from '@vercel/blob';
 
-export async function saveBeerPhoto(userId: string, file: File) {
+export async function saveDrinkPhoto(userId: string, file: File) {
   const ext = path.extname(file.name) || ".jpg";
   const fileName = `entries-photos/${userId}/${crypto.randomUUID()}${ext.toLowerCase()}`;
 
@@ -19,7 +19,7 @@ export async function saveBeerPhoto(userId: string, file: File) {
   return blob.url;
 }
 
-export async function removeBeerPhotoByUrl(photoUrl: string) {
+export async function removeDrinkPhotoByUrl(photoUrl: string) {
   try {
     await del(photoUrl);
   } catch {
@@ -27,7 +27,7 @@ export async function removeBeerPhotoByUrl(photoUrl: string) {
   }
 }
 
-export async function readBeerPhoto(photoUrl: string) {
+export async function readDrinkPhoto(photoUrl: string) {
   const result = await get(photoUrl, { access: "private" });
   if (!result || !result.stream) return null;
 
