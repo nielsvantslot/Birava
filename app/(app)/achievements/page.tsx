@@ -1,6 +1,6 @@
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { getDrinkHistory } from "@/lib/queries/drinkEntryQueries";
+import { getMyDrinkHistory } from "@/lib/controllers/drinkController";
 import { groupIntoSessions, activeWeeks } from "@/lib/sessions";
 import { computeAchievements } from "@/lib/achievements";
 import { AchievementGlyph } from "@/components/beer/achievement-icon";
@@ -11,7 +11,7 @@ export default async function AchievementsPage() {
   if (!user) return null;
 
   const tz = await getUserTimeZone();
-  const entries = await getDrinkHistory(user.id);
+  const entries = await getMyDrinkHistory();
   const sessions = groupIntoSessions(entries);
   const weeks = activeWeeks(sessions, tz);
   const achievements = computeAchievements(entries, tz);

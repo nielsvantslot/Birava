@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { getDrinkHistory } from "@/lib/queries/drinkEntryQueries";
+import { getDrinkHistoryForUser } from "@/lib/controllers/drinkController";
+import { getProfileByUsername } from "@/lib/controllers/profileController";
+import { getFollowCounts, isFollowingUser } from "@/lib/controllers/socialController";
 import {
   groupIntoSessions,
   activeWeeks,
@@ -22,28 +23,20 @@ export default async function PublicProfilePage({ params }: Props) {
   const { username } = await params;
   const currentUser = await getCurrentUser();
 
-  const targetUser = await db.user.findUnique({ where: { username } });
+  const targetUser = await getProfileByUsername({ username });
   if (!targetUser) notFound();
 
   const isOwnProfile = currentUser?.id === targetUser.id;
   const tz = await getUserTimeZone();
 
-  const [followCheck, followerCount, followingCount, entries] =
-    await Promise.all([
-      currentUser && !isOwnProfile
-        ? db.follow.findUnique({
-            where: {
-              followerId_followingId: {
-                followerId: currentUser.id,
-                followingId: targetUser.id,
-              },
-            },
-          })
-        : Promise.resolve(null),
-      db.follow.count({ where: { followingId: targetUser.id } }),
-      db.follow.count({ where: { followerId: targetUser.id } }),
-      getDrinkHistory(targetUser.id),
-    ]);
+  const [isFollowing, counts, entries] = await Promise.all([
+    currentUser && !isOwnProfile
+      ? isFollowingUser({ targetUserId: targetUser.id })
+      : Promise.resolve(false),
+    getFollowCounts({ profileId: targetUser.id }),
+    getDrinkHistoryForUser({ userId: targetUser.id }),
+  ]);
+  const { followers: followerCount, following: followingCount } = counts;
 
   const sessions = groupIntoSessions(entries);
   const weeks = activeWeeks(sessions, tz);
@@ -54,7 +47,7 @@ export default async function PublicProfilePage({ params }: Props) {
   const earned = computeAchievements(entries, tz).filter((a) => a.earned);
   const recentSessions = sessions.slice(0, 3);
 
-  const memberSince = targetUser.createdAt.toLocaleDateString("en-GB", {
+  const memberSince = new Date(targetUser.createdAt).toLocaleDateString("en-GB", {
     month: "long",
     year: "numeric",
   });
@@ -81,7 +74,7 @@ export default async function PublicProfilePage({ params }: Props) {
           {!isOwnProfile && currentUser && (
             <FollowButton
               targetUserId={targetUser.id}
-              initialIsFollowing={followCheck !== null}
+              initialIsFollowing={isFollowing}
             />
           )}
         </div>

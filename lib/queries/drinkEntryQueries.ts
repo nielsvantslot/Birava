@@ -132,3 +132,54 @@ export async function getFeedDrinkHistory(
   });
   return entries.map(toBeerEntry);
 }
+
+const SESSION_WINDOW_MS = 48 * 60 * 60 * 1000;
+
+/**
+ * The ±48h check-in window around an anchor's owner, from which the session
+ * is recomputed (sessions are never stored). Legacy `BeerEntry` shape.
+ */
+export async function getSessionWindow(
+  anchorId: string
+): Promise<BeerEntry[] | null> {
+  const anchor = await db.drinkEntry.findUnique({
+    where: { id: anchorId },
+    select: { userId: true, createdAt: true },
+  });
+  if (!anchor) return null;
+
+  const neighbours = await db.drinkEntry.findMany({
+    where: {
+      userId: anchor.userId,
+      createdAt: {
+        gte: new Date(anchor.createdAt.getTime() - SESSION_WINDOW_MS),
+        lte: new Date(anchor.createdAt.getTime() + SESSION_WINDOW_MS),
+      },
+    },
+    include: { user: { select: { username: true, avatarUrl: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+  return neighbours.map(toBeerEntry);
+}
+
+/** A single own check-in (for the edit form). Legacy `BeerEntry` shape. */
+export async function getDrinkEntryForUser(
+  userId: string,
+  id: string
+): Promise<BeerEntry | null> {
+  const entry = await db.drinkEntry.findFirst({ where: { id, userId } });
+  return entry ? toBeerEntry(entry) : null;
+}
+
+/** A user's most recent check-ins (the "Recent" list on /log). */
+export async function getRecentDrinkHistory(
+  userId: string,
+  limit: number
+): Promise<BeerEntry[]> {
+  const entries = await db.drinkEntry.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+  return entries.map(toBeerEntry);
+}

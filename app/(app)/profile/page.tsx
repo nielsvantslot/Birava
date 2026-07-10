@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { getDrinkHistory } from "@/lib/queries/drinkEntryQueries";
 import {
   groupIntoSessions,
   activeWeeks,
@@ -9,6 +8,7 @@ import {
 } from "@/lib/sessions";
 import { computeAchievements } from "@/lib/achievements";
 import { relativeDay } from "@/lib/dates";
+import { getMyDrinkHistory } from "@/lib/controllers/drinkController";
 import { getFollowCounts } from "@/lib/controllers/socialController";
 import { ProfileHead, ProfileActions } from "@/components/beer/profile-client";
 import { AchievementGlyph } from "@/components/beer/achievement-icon";
@@ -20,7 +20,7 @@ export default async function ProfilePage() {
   const tz = await getUserTimeZone();
   // Independent reads — run in parallel (F2).
   const [entries, followCounts] = await Promise.all([
-    getDrinkHistory(user.id),
+    getMyDrinkHistory(),
     getFollowCounts({ profileId: user.id }),
   ]);
   const sessions = groupIntoSessions(entries);

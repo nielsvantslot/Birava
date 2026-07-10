@@ -10,10 +10,17 @@ import {
   deleteGroup,
 } from "@/lib/commands/groupCommands";
 import {
+  getCrewSummariesForUser,
+  getCrewDetailForViewer,
+  type CrewSummary,
+  type CrewDetail,
+} from "@/lib/queries/groupQueries";
+import {
   ActionResultDTO,
   CreateGroupDTO,
   CreateGroupResultDTO,
   DeleteGroupDTO,
+  GetCrewDTO,
   JoinGroupDTO,
   JoinGroupResultDTO,
   LeaveGroupDTO,
@@ -58,4 +65,20 @@ export async function deleteOwnedGroup(input: DeleteGroupDTO): Promise<ActionRes
   const result = await deleteGroup(user.id, input);
   if (!result.error) revalidateGroupPaths();
   return result;
+}
+
+/** The current user's crews with their rank in each (one bulk read, no N+1). */
+export async function getMyCrews(): Promise<CrewSummary[]> {
+  const user = await getCurrentUser();
+  if (!user) return [];
+
+  return getCrewSummariesForUser(user.id);
+}
+
+/** A crew's board — null when the crew doesn't exist or the viewer isn't a member. */
+export async function getCrew(input: GetCrewDTO): Promise<CrewDetail | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  return getCrewDetailForViewer(input.crewId, user.id);
 }

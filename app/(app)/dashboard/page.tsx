@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { Fragment } from "react";
-import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
 import { groupIntoSessions, getLocalLegendVenue } from "@/lib/sessions";
-import { getFeedDrinkHistory } from "@/lib/queries/drinkEntryQueries";
-import { getProostStates } from "@/lib/proost";
+import { getMyFeed } from "@/lib/controllers/drinkController";
+import { getSessionProosts } from "@/lib/controllers/socialController";
 import { ScreenTabs } from "@/components/ui/screen-tabs";
 import { SessionCard } from "@/components/beer/session-card";
 
@@ -21,27 +20,14 @@ export default async function DashboardPage({
   const showOnlyOwn = tab === "you";
   const tz = await getUserTimeZone();
 
-  // The follows query is only needed for the "Following" feed — skip it on
-  // the "You" tab, where its result would be discarded (F2).
-  const following = showOnlyOwn
-    ? []
-    : await db.follow.findMany({
-        where: { followerId: user.id },
-        select: { followingId: true },
-      });
-  const userIds = showOnlyOwn
-    ? [user.id]
-    : [user.id, ...following.map((f) => f.followingId)];
-
-  const all = await getFeedDrinkHistory(userIds);
+  const all = await getMyFeed({ onlyOwn: showOnlyOwn });
   const sessions = groupIntoSessions(all).slice(0, 12);
   const legendVenue = getLocalLegendVenue(
     all.filter((e) => e.user_id === user.id)
   );
-  const proosts = await getProostStates(
-    sessions.map((s) => s.id),
-    user.id
-  );
+  const proosts = await getSessionProosts({
+    entryIds: sessions.map((s) => s.id),
+  });
 
   // The Local Legend callout appears once, on the newest own session
   const newestOwnId = sessions.find((s) => s.userId === user.id)?.id;

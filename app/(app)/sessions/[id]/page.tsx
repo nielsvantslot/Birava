@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { toBeerEntry } from "@/lib/mappers";
 import { BeerEntry } from "@/lib/types";
 import {
   findSessionWithCheckin,
@@ -11,7 +9,11 @@ import {
   sessionMinutes,
   sessionTitle,
 } from "@/lib/sessions";
-import { getProostStates } from "@/lib/proost";
+import {
+  getSessionCheckins,
+  getMyDrinkHistory,
+} from "@/lib/controllers/drinkController";
+import { getSessionProosts } from "@/lib/controllers/socialController";
 import { formatTime, relativeDayTime } from "@/lib/dates";
 import { SessionMap, MapPin } from "@/components/beer/session-map";
 import { SocialActs } from "@/components/beer/social-row";
@@ -52,28 +54,12 @@ export default async function SessionDetailPage({
   const { id } = await params;
   const tz = await getUserTimeZone();
 
-  const anchor = await db.drinkEntry.findUnique({
-    where: { id },
-    include: { user: { select: { username: true, avatarUrl: true } } },
-  });
-  if (!anchor) notFound();
+  // The session is computed, never stored: fetch the ±48h window around the
+  // anchor and pick the session that contains it.
+  const windowCheckins = await getSessionCheckins({ anchorId: id });
+  if (!windowCheckins) notFound();
 
-  // The session is computed, never stored: regroup this user's check-ins
-  // around the anchor and pick the session that contains it.
-  const windowMs = 48 * 60 * 60 * 1000;
-  const neighbours = await db.drinkEntry.findMany({
-    where: {
-      userId: anchor.userId,
-      createdAt: {
-        gte: new Date(anchor.createdAt.getTime() - windowMs),
-        lte: new Date(anchor.createdAt.getTime() + windowMs),
-      },
-    },
-    include: { user: { select: { username: true, avatarUrl: true } } },
-    orderBy: { createdAt: "asc" },
-  });
-
-  const session = findSessionWithCheckin(neighbours.map(toBeerEntry), id);
+  const session = findSessionWithCheckin(windowCheckins, id);
   if (!session) notFound();
 
   const isSelf = session.userId === user.id;
@@ -86,23 +72,13 @@ export default async function SessionDetailPage({
   // Local Legend needs the owner's own history; the proost state is
   // independent — fetch both in parallel (F2).
   const [ownForLegend, proostMap] = await Promise.all([
-    isSelf
-      ? db.drinkEntry.findMany({
-          where: { userId: user.id },
-          select: { venue: true, createdAt: true },
-        })
-      : Promise.resolve(null),
-    getProostStates([session.id], user.id),
+    isSelf ? getMyDrinkHistory() : Promise.resolve(null),
+    getSessionProosts({ entryIds: [session.id] }),
   ]);
 
   let legendVenue: string | null = null;
   if (ownForLegend) {
-    legendVenue = getLocalLegendVenue(
-      ownForLegend.map((e) => ({
-        venue: e.venue,
-        created_at: e.createdAt.toISOString(),
-      }))
-    );
+    legendVenue = getLocalLegendVenue(ownForLegend);
     if (legendVenue && !session.venues.includes(legendVenue)) {
       legendVenue = null;
     }

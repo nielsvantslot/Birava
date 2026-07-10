@@ -3,8 +3,8 @@ import { db } from "@/lib/db";
 export type ProostState = { count: number; on: boolean };
 
 /**
- * Proost counts + viewer-state for a set of session anchor ids.
- * Server-side read helper (not a server action).
+ * Proost counts + viewer-state for a set of session anchor ids, in one
+ * batched pair of queries (count grouped + the viewer's own rows).
  */
 export async function getProostStates(
   entryIds: string[],

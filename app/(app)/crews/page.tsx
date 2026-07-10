@@ -1,7 +1,5 @@
 import Link from "next/link";
-import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth/session";
-import { scoreCrew } from "@/lib/crews";
+import { getMyCrews } from "@/lib/controllers/groupController";
 import { CreateCrewForm, JoinCrewForm } from "@/components/beer/crews-forms";
 
 function ordinal(n: number): string {
@@ -14,63 +12,7 @@ function ordinal(n: number): string {
 }
 
 export default async function CrewsPage() {
-  const user = await getCurrentUser();
-  if (!user) return null;
-
-  const memberships = await db.groupMember.findMany({
-    where: { userId: user.id },
-    include: {
-      group: {
-        include: {
-          members: {
-            select: {
-              userId: true,
-              joinedAt: true,
-              user: { select: { username: true, avatarUrl: true } },
-            },
-          },
-        },
-      },
-    },
-    orderBy: { joinedAt: "desc" },
-  });
-
-  // De-N+1: load every crew member's since-join check-ins in ONE query,
-  // then score each crew in memory (no per-crew DB round-trip).
-  const allMembers = memberships.flatMap((m) => m.group.members);
-  const allMemberIds = [...new Set(allMembers.map((gm) => gm.userId))];
-  const rows =
-    allMemberIds.length === 0
-      ? []
-      : await db.drinkEntry.findMany({
-          where: {
-            userId: { in: allMemberIds },
-            createdAt: {
-              gte: new Date(
-                Math.min(...allMembers.map((gm) => gm.joinedAt.getTime()))
-              ),
-            },
-          },
-          orderBy: { createdAt: "asc" },
-        });
-
-  const crews = memberships.map((m) => {
-    const members = m.group.members.map((gm) => ({
-      userId: gm.userId,
-      username: gm.user.username,
-      avatarUrl: gm.user.avatarUrl,
-      joinedAt: gm.joinedAt,
-    }));
-    const { scores } = scoreCrew(members, rows);
-    const rank = 1 + scores.findIndex((s) => s.userId === user.id);
-    return {
-      id: m.group.id,
-      name: m.group.name,
-      code: m.group.inviteCode,
-      members: m.group.members.length,
-      rank: rank > 0 ? rank : null,
-    };
-  });
+  const crews = await getMyCrews();
 
   return (
     <>
@@ -94,13 +36,13 @@ export default async function CrewsPage() {
               <div className="grow">
                 <b>{crew.name}</b>
                 <span>
-                  {crew.members} member{crew.members === 1 ? "" : "s"}
+                  {crew.memberCount} member{crew.memberCount === 1 ? "" : "s"}
                   {crew.rank
                     ? ` · you're ${ordinal(crew.rank)} since you joined`
                     : ""}
                 </span>
               </div>
-              <span className="code">{crew.code}</span>
+              <span className="code">{crew.inviteCode}</span>
             </Link>
           ))
         )}

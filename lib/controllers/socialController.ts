@@ -12,10 +12,15 @@ import { getFollowCounts as getFollowCountsQuery, getFollowingIds, isFollowing }
 import { getSocialFeed as getSocialFeedQuery } from "@/lib/queries/drinkEntryQueries";
 import { searchUsers as searchUsersQuery } from "@/lib/queries/userQueries";
 import {
+  getProostStates,
+  type ProostState,
+} from "@/lib/queries/proostQueries";
+import {
   DrinkEntryWithAuthorDTO,
   FollowCountsDTO,
   FollowCountsQueryDTO,
   FollowUserDTO,
+  GetSessionProostsDTO,
   GetSocialFeedDTO,
   IsFollowingQueryDTO,
   SearchUsersDTO,
@@ -98,4 +103,14 @@ export async function toggleProost(input: ToggleProostDTO): Promise<ToggleProost
     revalidatePath("/sessions", "layout");
   }
   return result;
+}
+
+/** Proost counts + the viewer's own state for a set of session anchor ids. */
+export async function getSessionProosts(
+  input: GetSessionProostsDTO
+): Promise<Map<string, ProostState>> {
+  const user = await getCurrentUser();
+  if (!user) return new Map();
+
+  return getProostStates(input.entryIds, user.id);
 }
