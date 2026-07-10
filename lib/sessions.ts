@@ -1,4 +1,4 @@
-import { BeerEntry } from "@/lib/types";
+import { DrinkEntry } from "@/lib/types";
 import { localParts, weekIndex } from "@/lib/dates";
 
 /**
@@ -17,7 +17,7 @@ export type DrinkSession = {
   start: string; // ISO
   end: string; // ISO
   /** Ascending by time — the session's "splits". */
-  checkins: BeerEntry[];
+  checkins: DrinkEntry[];
   /** Distinct venues in first-visit order. */
   venues: string[];
   /** Distinct drink types in first-pour order. */
@@ -30,11 +30,11 @@ export type DrinkSession = {
   photoIds: string[];
 };
 
-function ts(entry: BeerEntry): number {
+function ts(entry: DrinkEntry): number {
   return new Date(entry.created_at).getTime();
 }
 
-function buildSession(checkins: BeerEntry[]): DrinkSession {
+function buildSession(checkins: DrinkEntry[]): DrinkSession {
   const first = checkins[0];
   const last = checkins[checkins.length - 1];
 
@@ -61,8 +61,8 @@ function buildSession(checkins: BeerEntry[]): DrinkSession {
 }
 
 /** Group check-ins into sessions per user by the 4-hour-gap rule. */
-export function groupIntoSessions(entries: BeerEntry[]): DrinkSession[] {
-  const byUser = new Map<string, BeerEntry[]>();
+export function groupIntoSessions(entries: DrinkEntry[]): DrinkSession[] {
+  const byUser = new Map<string, DrinkEntry[]>();
   for (const entry of entries) {
     const bucket = byUser.get(entry.user_id);
     if (bucket) bucket.push(entry);
@@ -72,7 +72,7 @@ export function groupIntoSessions(entries: BeerEntry[]): DrinkSession[] {
   const sessions: DrinkSession[] = [];
   for (const bucket of byUser.values()) {
     bucket.sort((a, b) => ts(a) - ts(b));
-    let current: BeerEntry[] = [];
+    let current: DrinkEntry[] = [];
     for (const entry of bucket) {
       if (
         current.length > 0 &&
@@ -93,7 +93,7 @@ export function groupIntoSessions(entries: BeerEntry[]): DrinkSession[] {
 
 /** The session that contains a given check-in, or null. */
 export function findSessionWithCheckin(
-  entries: BeerEntry[],
+  entries: DrinkEntry[],
   checkinId: string
 ): DrinkSession | null {
   return (
@@ -118,7 +118,7 @@ export function sessionMinutes(session: DrinkSession): number {
 export function sessionTitle(session: DrinkSession, tz: string): string {
   if (session.checkins.length === 1) {
     const only = session.checkins[0];
-    return only.beer_name?.trim() || only.drink_type || "Check-in";
+    return only.drink_name?.trim() || only.drink_type || "Check-in";
   }
   const { hour } = localParts(new Date(session.start), tz);
   if (hour < 6) return "Late session";
@@ -132,7 +132,7 @@ export function sessionTitle(session: DrinkSession, tz: string): string {
  * 90 days, if it has at least 3.
  */
 export function getLocalLegendVenue(
-  entries: Array<Pick<BeerEntry, "venue" | "created_at">>
+  entries: Array<Pick<DrinkEntry, "venue" | "created_at">>
 ): string | null {
   const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
   const counts = new Map<string, number>();

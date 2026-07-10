@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { earnedIds } from "@/lib/achievements";
 import { getUserTimeZone } from "@/lib/timezone";
-import { toBeerEntry } from "@/lib/mappers";
+import { toDrinkEntry } from "@/lib/mappers";
 import { removeDrinkPhotoByUrl } from "@/lib/storage";
 import {
   ActionResultDTO,
@@ -38,9 +38,9 @@ export async function createDrinkEntry(
     return { error: "Failed to save check-in." };
   }
 
-  const beforeEntries = before.map(toBeerEntry);
+  const beforeEntries = before.map(toDrinkEntry);
   const earnedBefore = earnedIds(beforeEntries, tz);
-  const earnedAfter = earnedIds([...beforeEntries, toBeerEntry(created)], tz);
+  const earnedAfter = earnedIds([...beforeEntries, toDrinkEntry(created)], tz);
   const achievementUnlocked = [...earnedAfter].some((id) => !earnedBefore.has(id));
 
   return { achievementUnlocked };

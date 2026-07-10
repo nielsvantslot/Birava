@@ -1,4 +1,4 @@
-import { BeerEntry, DRINK_TYPES } from "@/lib/types";
+import { DrinkEntry, DRINK_TYPES } from "@/lib/types";
 import { groupIntoSessions, getLocalLegendVenue } from "@/lib/sessions";
 import { weekIndex } from "@/lib/dates";
 
@@ -27,7 +27,7 @@ export type VarietyAchievement = {
 };
 
 export function computeAchievements(
-  entries: BeerEntry[],
+  entries: DrinkEntry[],
   tz: string
 ): VarietyAchievement[] {
   const sessions = groupIntoSessions(entries);
@@ -137,7 +137,7 @@ export function computeAchievements(
   ];
 }
 
-export function earnedIds(entries: BeerEntry[], tz: string): Set<string> {
+export function earnedIds(entries: DrinkEntry[], tz: string): Set<string> {
   return new Set(
     computeAchievements(entries, tz)
       .filter((a) => a.earned)

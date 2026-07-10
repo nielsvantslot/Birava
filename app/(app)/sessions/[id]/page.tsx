@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { BeerEntry } from "@/lib/types";
+import { DrinkEntry } from "@/lib/types";
 import {
   findSessionWithCheckin,
   getLocalLegendVenue,
@@ -15,14 +15,14 @@ import {
 } from "@/lib/controllers/drinkController";
 import { getSessionProosts } from "@/lib/controllers/socialController";
 import { formatTime, relativeDayTime } from "@/lib/dates";
-import { SessionMap, MapPin } from "@/components/beer/session-map";
-import { SocialActs } from "@/components/beer/social-row";
+import { SessionMap, MapPin } from "@/components/drink/session-map";
+import { SocialActs } from "@/components/drink/social-row";
 import { drinkPhotoSrc } from "@/lib/utils";
 
-type VenueGroup = { venue: string | null; checkins: BeerEntry[] };
+type VenueGroup = { venue: string | null; checkins: DrinkEntry[] };
 
 /** Consecutive same-venue runs, in visit order — the splits grouping. */
-function groupByVenueRun(checkins: BeerEntry[]): VenueGroup[] {
+function groupByVenueRun(checkins: DrinkEntry[]): VenueGroup[] {
   const groups: VenueGroup[] = [];
   for (const c of checkins) {
     const venue = c.venue?.trim() || null;
@@ -33,7 +33,7 @@ function groupByVenueRun(checkins: BeerEntry[]): VenueGroup[] {
   return groups;
 }
 
-function timeRange(checkins: BeerEntry[], tz: string): string {
+function timeRange(checkins: DrinkEntry[], tz: string): string {
   const first = formatTime(new Date(checkins[0].created_at), tz);
   if (checkins.length === 1) return first;
   const last = formatTime(
@@ -260,7 +260,7 @@ export default async function SessionDetailPage({
                     <>
                       <div className="idx">{startIndex + ci + 1}</div>
                       <div className="grow">
-                        <b>{c.beer_name?.trim() || c.drink_type}</b>
+                        <b>{c.drink_name?.trim() || c.drink_type}</b>
                         <div className="sub">{sub}</div>
                       </div>
                       {isSelf && <span className="chev">›</span>}

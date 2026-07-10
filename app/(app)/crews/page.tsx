@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getMyCrews } from "@/lib/controllers/groupController";
-import { CreateCrewForm, JoinCrewForm } from "@/components/beer/crews-forms";
+import { CreateCrewForm, JoinCrewForm } from "@/components/drink/crews-forms";
 
 function ordinal(n: number): string {
   const rem10 = n % 10;

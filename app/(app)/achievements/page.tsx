@@ -3,7 +3,7 @@ import { getUserTimeZone } from "@/lib/timezone";
 import { getMyDrinkHistory } from "@/lib/controllers/drinkController";
 import { groupIntoSessions, activeWeeks } from "@/lib/sessions";
 import { computeAchievements } from "@/lib/achievements";
-import { AchievementGlyph } from "@/components/beer/achievement-icon";
+import { AchievementGlyph } from "@/components/drink/achievement-icon";
 import { cn } from "@/lib/utils";
 
 export default async function AchievementsPage() {

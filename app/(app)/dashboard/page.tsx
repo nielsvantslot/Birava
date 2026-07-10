@@ -6,7 +6,7 @@ import { groupIntoSessions, getLocalLegendVenue } from "@/lib/sessions";
 import { getMyFeed } from "@/lib/controllers/drinkController";
 import { getSessionProosts } from "@/lib/controllers/socialController";
 import { ScreenTabs } from "@/components/ui/screen-tabs";
-import { SessionCard } from "@/components/beer/session-card";
+import { SessionCard } from "@/components/drink/session-card";
 
 export default async function DashboardPage({
   searchParams,

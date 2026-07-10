@@ -1,4 +1,4 @@
-import type { MapPoint } from "@/components/beer/session-map";
+import type { MapPoint } from "@/components/drink/session-map";
 
 /**
  * Abstract 60×44 route thumbnail for the route chip — the session's real

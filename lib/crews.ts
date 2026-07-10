@@ -1,6 +1,6 @@
 import type { DrinkEntry } from "@prisma/client";
 import { db } from "@/lib/db";
-import { toBeerEntry } from "@/lib/mappers";
+import { toDrinkEntry } from "@/lib/mappers";
 import { DrinkSession, groupIntoSessions } from "@/lib/sessions";
 
 /**
@@ -50,7 +50,7 @@ export function scoreCrew(
     const joined = joinedAt.get(r.userId);
     return joined !== undefined && r.createdAt >= joined;
   });
-  const entries = counted.map(toBeerEntry);
+  const entries = counted.map(toDrinkEntry);
   const sessions = groupIntoSessions(entries);
 
   const scores: CrewMemberScore[] = members.map((m) => {

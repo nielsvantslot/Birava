@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useCallback } from "react";
 import Link from "next/link";
-import { FollowButton } from "@/components/beer/follow-button";
+import { FollowButton } from "@/components/drink/follow-button";
 import { searchUsers } from "@/lib/controllers/socialController";
 
 interface UserResult {

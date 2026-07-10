@@ -12,8 +12,8 @@ import {
 } from "@/lib/sessions";
 import { computeAchievements } from "@/lib/achievements";
 import { relativeDay } from "@/lib/dates";
-import { FollowButton } from "@/components/beer/follow-button";
-import { AchievementGlyph } from "@/components/beer/achievement-icon";
+import { FollowButton } from "@/components/drink/follow-button";
+import { AchievementGlyph } from "@/components/drink/achievement-icon";
 
 interface Props {
   params: Promise<{ username: string }>;

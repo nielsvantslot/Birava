@@ -9,7 +9,7 @@ import {
 } from "@/lib/controllers/drinkController";
 import { triggerConfetti } from "@/lib/achievements";
 import { showToast } from "@/components/ui/toast-pill";
-import { BeerEntry, DRINK_TYPES } from "@/lib/types";
+import { DrinkEntry, DRINK_TYPES } from "@/lib/types";
 import { drinkPhotoSrc, cn } from "@/lib/utils";
 
 type Coords = { lat: number; lng: number };
@@ -54,11 +54,11 @@ async function reverseGeocode(coords: Coords): Promise<string | null> {
  * Deliberately small: name, type, optional photo, venue. Geolocation
  * prefills the venue silently and never blocks logging.
  */
-export function CheckinForm({ editEntry }: { editEntry?: BeerEntry }) {
+export function CheckinForm({ editEntry }: { editEntry?: DrinkEntry }) {
   const router = useRouter();
   const editing = !!editEntry;
   const [isPending, startTransition] = useTransition();
-  const [name, setName] = useState(editEntry?.beer_name ?? "");
+  const [name, setName] = useState(editEntry?.drink_name ?? "");
   const [type, setType] = useState<string>(
     editEntry?.drink_type ?? DRINK_TYPES[0]
   );

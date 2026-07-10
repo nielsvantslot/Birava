@@ -5,8 +5,8 @@ import { getUserTimeZone } from "@/lib/timezone";
 import { getCrew } from "@/lib/controllers/groupController";
 import { sessionTitle } from "@/lib/sessions";
 import { formatDate, timeAgo } from "@/lib/dates";
-import { CrewLeaderboard } from "@/components/beer/crew-leaderboard";
-import { CopyCodeChip } from "@/components/beer/crews-forms";
+import { CrewLeaderboard } from "@/components/drink/crew-leaderboard";
+import { CopyCodeChip } from "@/components/drink/crews-forms";
 
 export default async function CrewDetailPage({
   params,

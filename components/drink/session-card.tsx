@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BeerEntry } from "@/lib/types";
+import { DrinkEntry } from "@/lib/types";
 import {
   DrinkSession,
   sessionMinutes,
@@ -7,9 +7,9 @@ import {
 } from "@/lib/sessions";
 import { formatTime, relativeDayTime } from "@/lib/dates";
 import { drinkPhotoSrc } from "@/lib/utils";
-import { Minimap } from "@/components/beer/minimap";
-import { SocialActs } from "@/components/beer/social-row";
-import { CheckinExpander } from "@/components/beer/checkin-expander";
+import { Minimap } from "@/components/drink/minimap";
+import { SocialActs } from "@/components/drink/social-row";
+import { CheckinExpander } from "@/components/drink/checkin-expander";
 
 function initials(name: string): string {
   return name.slice(0, 2).toUpperCase();
@@ -38,7 +38,7 @@ function DurationNum({ minutes }: { minutes: number }) {
   );
 }
 
-function checkinSub(entry: BeerEntry, tz: string): string {
+function checkinSub(entry: DrinkEntry, tz: string): string {
   return [entry.drink_type, entry.venue, formatTime(new Date(entry.created_at), tz)]
     .filter(Boolean)
     .join(" · ");
@@ -49,7 +49,7 @@ export function SessionSplits({
   tz,
   compact,
 }: {
-  checkins: BeerEntry[];
+  checkins: DrinkEntry[];
   tz: string;
   compact?: boolean;
 }) {
@@ -59,7 +59,7 @@ export function SessionSplits({
         <div className="split" key={c.id}>
           <div className="idx">{i + 1}</div>
           <div className="grow">
-            <b>{c.beer_name?.trim() || c.drink_type}</b>
+            <b>{c.drink_name?.trim() || c.drink_type}</b>
             <div className="sub">{checkinSub(c, tz)}</div>
           </div>
         </div>

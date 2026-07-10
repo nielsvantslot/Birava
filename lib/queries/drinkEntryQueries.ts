@@ -1,9 +1,9 @@
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
-import { DrinkEntryMapper, toBeerEntry } from "@/lib/mappers";
+import { DrinkEntryMapper, toDrinkEntry } from "@/lib/mappers";
 import { DrinkEntryWithAuthorDTO } from "@/lib/dtos";
 import { getFollowingIds, isFollowing } from "@/lib/queries/followQueries";
-import type { BeerEntry } from "@/lib/types";
+import type { DrinkEntry } from "@/lib/types";
 
 const ENTRY_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -70,7 +70,7 @@ export function drinkHistoryTag(userId: string): string {
 
 /**
  * Full check-in history for the session-derived screens (stats, achievements,
- * profile). Returns the legacy snake_case `BeerEntry` shape because the session
+ * profile). Returns the legacy snake_case `DrinkEntry` shape because the session
  * engine (groupIntoSessions / computeAchievements / activeWeeks in lib/sessions
  * + lib/achievements) is built on it — the same shape the DTO-returning reads
  * above deliberately don't produce.
@@ -79,14 +79,14 @@ export function drinkHistoryTag(userId: string): string {
  * it's cached per user instead: `revalidateTag(drinkHistoryTag(userId))` fires
  * from drinkController's mutation actions, with a 60s revalidate as a backstop.
  */
-export async function getDrinkHistory(userId: string): Promise<BeerEntry[]> {
+export async function getDrinkHistory(userId: string): Promise<DrinkEntry[]> {
   return unstable_cache(
     async () => {
       const entries = await db.drinkEntry.findMany({
         where: { userId },
         orderBy: { createdAt: "asc" },
       });
-      return entries.map(toBeerEntry);
+      return entries.map(toDrinkEntry);
     },
     ["drink-history", userId],
     { tags: [drinkHistoryTag(userId)], revalidate: 60 }
@@ -95,7 +95,7 @@ export async function getDrinkHistory(userId: string): Promise<BeerEntry[]> {
 
 /**
  * Merged feed (viewer + followed) for the dashboard, newest first, capped at
- * 150. Legacy `BeerEntry` shape (with author) for the same session-engine
+ * 150. Legacy `DrinkEntry` shape (with author) for the same session-engine
  * reason as getDrinkHistory.
  *
  * Cached per unique set of userIds, tagged with each contributing user's
@@ -104,7 +104,7 @@ export async function getDrinkHistory(userId: string): Promise<BeerEntry[]> {
  */
 export async function getFeedDrinkHistory(
   userIds: string[]
-): Promise<BeerEntry[]> {
+): Promise<DrinkEntry[]> {
   const cacheKey = [...userIds].sort().join(",");
   return unstable_cache(
     async () => {
@@ -114,7 +114,7 @@ export async function getFeedDrinkHistory(
         orderBy: { createdAt: "desc" },
         take: 150,
       });
-      return entries.map(toBeerEntry);
+      return entries.map(toDrinkEntry);
     },
     ["feed-drink-history", cacheKey],
     { tags: userIds.map(drinkHistoryTag), revalidate: 60 }
@@ -125,11 +125,11 @@ const SESSION_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 /**
  * The ±48h check-in window around an anchor's owner, from which the session
- * is recomputed (sessions are never stored). Legacy `BeerEntry` shape.
+ * is recomputed (sessions are never stored). Legacy `DrinkEntry` shape.
  */
 export async function getSessionWindow(
   anchorId: string
-): Promise<BeerEntry[] | null> {
+): Promise<DrinkEntry[] | null> {
   const anchor = await db.drinkEntry.findUnique({
     where: { id: anchorId },
     select: { userId: true, createdAt: true },
@@ -147,27 +147,27 @@ export async function getSessionWindow(
     include: { user: { select: { username: true, avatarUrl: true } } },
     orderBy: { createdAt: "asc" },
   });
-  return neighbours.map(toBeerEntry);
+  return neighbours.map(toDrinkEntry);
 }
 
-/** A single own check-in (for the edit form). Legacy `BeerEntry` shape. */
+/** A single own check-in (for the edit form). Legacy `DrinkEntry` shape. */
 export async function getDrinkEntryForUser(
   userId: string,
   id: string
-): Promise<BeerEntry | null> {
+): Promise<DrinkEntry | null> {
   const entry = await db.drinkEntry.findFirst({ where: { id, userId } });
-  return entry ? toBeerEntry(entry) : null;
+  return entry ? toDrinkEntry(entry) : null;
 }
 
 /** A user's most recent check-ins (the "Recent" list on /log). */
 export async function getRecentDrinkHistory(
   userId: string,
   limit: number
-): Promise<BeerEntry[]> {
+): Promise<DrinkEntry[]> {
   const entries = await db.drinkEntry.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
     take: limit,
   });
-  return entries.map(toBeerEntry);
+  return entries.map(toDrinkEntry);
 }
