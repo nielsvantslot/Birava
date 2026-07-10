@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 @AGENTS.md
 
-Birava is a mobile-first PWA — "Strava for beer." Next.js 16 (App Router) + React 19, Prisma + PostgreSQL, Tailwind v4, custom shadcn-style UI. Deploys to Vercel.
+Birava is a mobile-first PWA — "Strava for beer." Next.js 15.5 (App Router) + React 19, Prisma + PostgreSQL, Tailwind v4, custom shadcn-style UI. Deploys to Vercel.
 
 ## Everything runs in Docker
 
@@ -34,8 +34,9 @@ npm run lint           # eslint (host is fine for lint)
 The repo was migrated off Supabase to direct Prisma. Auth is a hand-rolled session-cookie system:
 
 - **`birava_session` httpOnly cookie → `Session` table** (`lib/auth/session.ts`). `getCurrentUser()` is React-`cache`d and is the **single auth entry point** for all pages and server actions.
-- **`proxy.ts` at repo root** does the login/redirect gate — this is Next.js 16's replacement for `middleware.ts` and runs on the **Node.js runtime** (middleware ran on edge, where Prisma crashes). It delegates to `lib/auth/proxy-session.ts`, which does a cheap session-existence check on every matched request.
-- Do not reintroduce `middleware.ts` or edge-runtime DB queries.
+- **`middleware.ts` at repo root** does the login/redirect gate. It explicitly opts into the **Node.js runtime** via `export const runtime = "nodejs"` (Node-runtime middleware stabilized in Next 15.5; the default edge runtime crashes on Prisma). It delegates to `lib/auth/proxy-session.ts`, which does a cheap session-existence check on every matched request.
+- Do not remove `export const runtime = "nodejs"` from `middleware.ts` or add edge-runtime DB queries — Prisma cannot run on the edge runtime.
+- (Repo history note: this file was briefly named `proxy.ts` during a short-lived Next.js 16 upgrade — see "Next.js 16 downgrade" below. `proxy.ts` was Next 16's rename of `middleware.ts`.)
 
 ## Birava 2.0 product invariants (hold these in every change)
 
@@ -77,8 +78,16 @@ A committed, idempotent seed builds the **Demobeer** showcase account (email `ja
 - Tabs: `/dashboard` (merged session feed) · `/stats` · `/log` (create + edit via `?edit=<id>`) · `/crews` (+ `/crews/[id]`) · `/profile`. Off-nav: `/sessions/[id]`, `/achievements`, `/people`, `/profile/[username]`.
 - Folded legacy: `/history` and `/feed` are gone (404); `/leaderboard`, `/leaderboard/[groupId]`, `/groups` redirect into `/crews`. Don't re-add them.
 
+## Next.js 16 downgrade (2026-07-10)
+
+The app briefly ran on Next.js 16.2.9 (with `cacheComponents: true`) but was downgraded back to **Next.js 15.5.20** after hitting a confirmed, unfixable-from-app-code upstream Next 16 bug: `next build` unconditionally crashed prerendering the auto-generated `/_global-error` page (`TypeError: Cannot read properties of null (reading 'useContext')`, `next/link`'s `AppRouterContext` null during that SSR pass — see vercel/next.js#86178, #85668, #84994). Reproduced with cacheComponents on/off, with a custom `global-error.tsx`, and on the `16.3.0-canary` line; no workaround existed upstream at the time.
+
+- `cacheComponents` is **removed** from `next.config.ts` — this repo doesn't use `use cache`/`cacheLife`, so there was nothing to migrate back to route-segment configs.
+- `proxy.ts` → `middleware.ts` (see "Auth architecture" above) — Next 15.5 stabilized Node-runtime middleware, so the Prisma-on-edge-crash problem `proxy.ts` solved is still solved, just via the older file convention + an explicit `export const runtime = "nodejs"`.
+- `app/global-error.tsx`'s reset callback is the classic `reset` prop, not Next 16.2's `unstable_retry`.
+- If re-attempting a Next 16 upgrade later, check whether vercel/next.js#86178 (or its duplicates) has actually been fixed upstream before assuming `next build` will succeed — don't rediscover this from scratch.
+
 ## Known landmines (see `docs/audit/` for the full reports)
-- **`cacheComponents: true`** (`next.config.ts`) requires uncached data access to sit inside `<Suspense>`. **`next build` passes** as of the 2026-07-10 perf audit — all app routes compile as Partial Prerender (◐). Safe to add the build to CI now.
 - **Uploads write to `public/uploads/` on the local filesystem** (`lib/storage/local.ts`) — this breaks on Vercel's ephemeral/read-only FS. No magic-byte/size validation yet.
 - **`app/api/auth/forgot-password/route.ts`** returns the reset URL/token in the HTTP response (account-takeover risk) — gate before deploy.
 - **Open product calls** (flagged 2026-07-09, don't silently decide): active-weeks streak grace rule (currently: one rest week survives, 2+ consecutive end the run — `activeWeeks()` in `lib/sessions.ts`); Countries/Passport badges omitted for lack of country data ("Types tried" substituted); comments are a "soon" toast stub (proost is real).

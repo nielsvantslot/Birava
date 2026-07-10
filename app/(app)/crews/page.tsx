@@ -43,7 +43,7 @@ export default async function CrewsPage() {
   const rows =
     allMemberIds.length === 0
       ? []
-      : await db.beerEntry.findMany({
+      : await db.drinkEntry.findMany({
           where: {
             userId: { in: allMemberIds },
             createdAt: {

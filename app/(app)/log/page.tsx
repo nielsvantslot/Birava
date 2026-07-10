@@ -31,9 +31,9 @@ export default async function LogPage({
   // Independent reads — run in parallel (F2).
   const [editRow, recentRows] = await Promise.all([
     edit
-      ? db.beerEntry.findFirst({ where: { id: edit, userId: user.id } })
+      ? db.drinkEntry.findFirst({ where: { id: edit, userId: user.id } })
       : Promise.resolve(null),
-    db.beerEntry.findMany({
+    db.drinkEntry.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
       take: 4,

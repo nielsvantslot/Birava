@@ -19,7 +19,7 @@ import { PrismaClient } from "@prisma/client";
 import { readFile } from "fs/promises";
 import path from "path";
 import { hashPassword } from "../lib/auth/password";
-import { saveBeerPhoto } from "../lib/storage";
+import { saveDrinkPhoto } from "../lib/storage";
 
 const db = new PrismaClient();
 
@@ -129,7 +129,7 @@ async function uploadPhotos(userId: string) {
       path.join(process.cwd(), "prisma", "seed-assets", file)
     );
     const upload = new File([new Uint8Array(bytes)], file, { type: "image/jpeg" });
-    urls[key] = await saveBeerPhoto(userId, upload);
+    urls[key] = await saveDrinkPhoto(userId, upload);
   }
   return urls;
 }
@@ -146,10 +146,10 @@ async function insertCheckins(
   photoUrls: Record<string, string> = {}
 ) {
   for (const c of checkins) {
-    await db.beerEntry.create({
+    await db.drinkEntry.create({
       data: {
         userId,
-        beerName: c.beerName,
+        drinkName: c.beerName,
         drinkType: c.drinkType,
         venue: c.venue,
         lat: c.lat ?? null,
@@ -180,7 +180,7 @@ async function main() {
     return;
   }
   if (existing) {
-    const count = await db.beerEntry.count({ where: { userId: existing.id } });
+    const count = await db.drinkEntry.count({ where: { userId: existing.id } });
     if (count > 0) {
       console.log("[seed] Skipped — demo account already seeded.");
       return;

@@ -9,7 +9,7 @@ import {
 } from "@/lib/sessions";
 import { computeAchievements } from "@/lib/achievements";
 import { relativeDay } from "@/lib/dates";
-import { getFollowCounts } from "@/lib/actions/social";
+import { getFollowCounts } from "@/lib/controllers/socialController";
 import { ProfileHead, ProfileActions } from "@/components/beer/profile-client";
 import { AchievementGlyph } from "@/components/beer/achievement-icon";
 
@@ -21,7 +21,7 @@ export default async function ProfilePage() {
   // Independent reads — run in parallel (F2).
   const [entries, followCounts] = await Promise.all([
     getUserHistory(user.id),
-    getFollowCounts(user.id),
+    getFollowCounts({ profileId: user.id }),
   ]);
   const sessions = groupIntoSessions(entries);
   const weeks = activeWeeks(sessions, tz);
@@ -42,7 +42,7 @@ export default async function ProfilePage() {
 
   const recentSessions = sessions.slice(0, 3);
 
-  const memberSince = new Date(user.created_at).toLocaleDateString("en-GB", {
+  const memberSince = new Date(user.createdAt).toLocaleDateString("en-GB", {
     month: "long",
     year: "numeric",
   });
@@ -51,7 +51,7 @@ export default async function ProfilePage() {
     <>
       <ProfileHead
         username={user.username}
-        avatarUrl={user.avatar_url}
+        avatarUrl={user.avatarUrl}
         memberSince={memberSince}
         followers={followCounts.followers}
         following={followCounts.following}

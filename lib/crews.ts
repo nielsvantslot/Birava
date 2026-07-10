@@ -36,7 +36,7 @@ type CrewEntryRow = {
   createdAt: Date;
   venue: string | null;
   drinkType: string;
-  beerName: string | null;
+  drinkName: string | null;
   notes: string | null;
 };
 
@@ -104,7 +104,7 @@ export async function getCrewBoard(
   const earliest = new Date(
     Math.min(...members.map((m) => m.joinedAt.getTime()))
   );
-  const rows = await db.beerEntry.findMany({
+  const rows = await db.drinkEntry.findMany({
     where: {
       userId: { in: members.map((m) => m.userId) },
       createdAt: { gte: earliest },

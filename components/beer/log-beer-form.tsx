@@ -3,14 +3,14 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  logCheckin,
-  updateCheckin,
-  deleteCheckin,
-} from "@/lib/actions/beer";
+  addDrink,
+  editDrink,
+  deleteDrink,
+} from "@/lib/controllers/drinkController";
 import { triggerConfetti } from "@/lib/achievements";
 import { showToast } from "@/components/ui/toast-pill";
 import { BeerEntry, DRINK_TYPES } from "@/lib/types";
-import { beerPhotoSrc, cn } from "@/lib/utils";
+import { drinkPhotoSrc, cn } from "@/lib/utils";
 
 type Coords = { lat: number; lng: number };
 
@@ -67,7 +67,7 @@ export function CheckinForm({ editEntry }: { editEntry?: BeerEntry }) {
   // Photos are displayed through /api/photos/[entryId]; the raw
   // photo_url is a storage handle, never an <img> src.
   const [photoPreview, setPhotoPreview] = useState<string | null>(
-    editEntry?.photo_url ? beerPhotoSrc(editEntry.id) : null
+    editEntry?.photo_url ? drinkPhotoSrc(editEntry.id) : null
   );
   const [error, setError] = useState<string | null>(null);
   const [coords, setCoords] = useState<Coords | null>(
@@ -122,7 +122,7 @@ export function CheckinForm({ editEntry }: { editEntry?: BeerEntry }) {
   const handleDelete = () => {
     if (!editEntry) return;
     startTransition(async () => {
-      const result = await deleteCheckin(editEntry.id);
+      const result = await deleteDrink({ id: editEntry.id });
       if (result.error) {
         setError(result.error);
         return;
@@ -146,7 +146,7 @@ export function CheckinForm({ editEntry }: { editEntry?: BeerEntry }) {
       if (photoFile) {
         const formData = new FormData();
         formData.append("file", photoFile);
-        const res = await fetch("/api/uploads/beer-photo", {
+        const res = await fetch("/api/uploads/drink-photo", {
           method: "POST",
           body: formData,
         });
@@ -161,17 +161,17 @@ export function CheckinForm({ editEntry }: { editEntry?: BeerEntry }) {
       }
 
       const payload = {
-        drink_name: name.trim() || null,
-        drink_type: type,
+        drinkName: name.trim() || null,
+        drinkType: type,
         venue: venue.trim() || null,
         lat: coords?.lat ?? null,
         lng: coords?.lng ?? null,
         notes: editEntry?.notes ?? null,
-        photo_url: photoUrl,
+        photoUrl: photoUrl,
       };
 
       if (editEntry) {
-        const result = await updateCheckin(editEntry.id, payload);
+        const result = await editDrink({ id: editEntry.id, ...payload });
         if (result.error) {
           setError(result.error);
           return;
@@ -182,7 +182,7 @@ export function CheckinForm({ editEntry }: { editEntry?: BeerEntry }) {
         return;
       }
 
-      const result = await logCheckin(payload);
+      const result = await addDrink(payload);
       if (result.error) {
         setError(result.error);
         return;

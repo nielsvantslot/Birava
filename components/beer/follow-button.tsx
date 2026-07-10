@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { UserCheck, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { followUser, unfollowUser } from "@/lib/actions/social";
+import { followUser, unfollowUser } from "@/lib/controllers/socialController";
 
 interface FollowButtonProps {
   targetUserId: string;
@@ -27,9 +27,9 @@ export function FollowButton({
     startTransition(async () => {
       try {
         if (next) {
-          await followUser(targetUserId);
+          await followUser({ targetUserId });
         } else {
-          await unfollowUser(targetUserId);
+          await unfollowUser({ targetUserId });
         }
         // Refresh so the server-rendered follower/following counts update.
         router.refresh();

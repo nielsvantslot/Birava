@@ -24,7 +24,7 @@ export type DrinkSession = {
   types: string[];
   /**
    * Ids of check-ins that have a photo, chronological. Render via
-   * beerPhotoSrc(id) — photos are served through /api/photos/[entryId]
+   * drinkPhotoSrc(id) — photos are served through /api/photos/[entryId]
    * so blob storage (prod) and local disk (dev) both work.
    */
   photoIds: string[];

@@ -15,7 +15,7 @@ import { getProostStates } from "@/lib/proost";
 import { formatTime, relativeDayTime } from "@/lib/dates";
 import { SessionMap, MapPin } from "@/components/beer/session-map";
 import { SocialActs } from "@/components/beer/social-row";
-import { beerPhotoSrc } from "@/lib/utils";
+import { drinkPhotoSrc } from "@/lib/utils";
 
 type VenueGroup = { venue: string | null; checkins: BeerEntry[] };
 
@@ -52,7 +52,7 @@ export default async function SessionDetailPage({
   const { id } = await params;
   const tz = await getUserTimeZone();
 
-  const anchor = await db.beerEntry.findUnique({
+  const anchor = await db.drinkEntry.findUnique({
     where: { id },
     include: { user: { select: { username: true, avatarUrl: true } } },
   });
@@ -61,7 +61,7 @@ export default async function SessionDetailPage({
   // The session is computed, never stored: regroup this user's check-ins
   // around the anchor and pick the session that contains it.
   const windowMs = 48 * 60 * 60 * 1000;
-  const neighbours = await db.beerEntry.findMany({
+  const neighbours = await db.drinkEntry.findMany({
     where: {
       userId: anchor.userId,
       createdAt: {
@@ -87,7 +87,7 @@ export default async function SessionDetailPage({
   // independent — fetch both in parallel (F2).
   const [ownForLegend, proostMap] = await Promise.all([
     isSelf
-      ? db.beerEntry.findMany({
+      ? db.drinkEntry.findMany({
           where: { userId: user.id },
           select: { venue: true, createdAt: true },
         })
@@ -320,7 +320,7 @@ export default async function SessionDetailPage({
               <div key={id}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={beerPhotoSrc(id)}
+                  src={drinkPhotoSrc(id)}
                   alt={`Session photo ${i + 1}`}
                   loading="lazy"
                   decoding="async"

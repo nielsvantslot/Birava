@@ -6,7 +6,7 @@ import {
   sessionTitle,
 } from "@/lib/sessions";
 import { formatTime, relativeDayTime } from "@/lib/dates";
-import { beerPhotoSrc } from "@/lib/utils";
+import { drinkPhotoSrc } from "@/lib/utils";
 import { Minimap } from "@/components/beer/minimap";
 import { SocialActs } from "@/components/beer/social-row";
 import { CheckinExpander } from "@/components/beer/checkin-expander";
@@ -175,7 +175,7 @@ export function SessionCard({
         <div className={multiVenue || lone ? "card-photo" : "card-photo short"}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={beerPhotoSrc(heroPhotoId)}
+            src={drinkPhotoSrc(heroPhotoId)}
             alt={`${title} photo`}
             loading="lazy"
             decoding="async"

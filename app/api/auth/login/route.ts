@@ -1,37 +1,26 @@
-import { db } from "@/lib/db";
-import { verifyPassword } from "@/lib/auth/password";
 import { createUserSession } from "@/lib/auth/session";
-
-type LoginBody = {
-  email?: unknown;
-  password?: unknown;
-};
+import { JsonSerializer } from "@/lib/http/jsonSerializer";
+import { verifyCredentials } from "@/lib/queries/userQueries";
+import { LoginDTO } from "@/lib/dtos";
 
 export async function POST(request: Request) {
-  let body: LoginBody;
-  try {
-    body = await request.json();
-  } catch {
+  const input = await JsonSerializer.deserialize(request, LoginDTO);
+  if (!input) {
     return Response.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-  const password = typeof body.password === "string" ? body.password : "";
+  const email = input.email.trim().toLowerCase();
+  const password = input.password;
 
   if (!email || !password) {
     return Response.json({ error: "Email and password are required." }, { status: 400 });
   }
 
-  const user = await db.user.findUnique({ where: { email } });
-  if (!user) {
+  const userId = await verifyCredentials(email, password);
+  if (!userId) {
     return Response.json({ error: "Invalid email or password." }, { status: 401 });
   }
 
-  const valid = await verifyPassword(password, user.passwordHash);
-  if (!valid) {
-    return Response.json({ error: "Invalid email or password." }, { status: 401 });
-  }
-
-  await createUserSession(user.id);
+  await createUserSession(userId);
   return Response.json({ success: true });
 }

@@ -1,4 +1,4 @@
-import { Prisma, type BeerEntry as BeerEntryRow } from "@prisma/client";
+import { Prisma, type DrinkEntry as BeerEntryRow } from "@prisma/client";
 import type { BeerEntry } from "@/lib/types";
 
 type ProfileInclude = { username: string; avatarUrl: string | null } | null;
@@ -10,7 +10,7 @@ export function toBeerEntry(
     id: entry.id,
     user_id: entry.userId,
     group_id: entry.groupId,
-    beer_name: entry.beerName,
+    beer_name: entry.drinkName,
     brewery: entry.brewery,
     style: entry.style,
     drink_type: entry.drinkType,
@@ -37,9 +37,9 @@ export function toBeerEntry(
 
 /**
  * Minimal column set for the history-stats screens (stats, achievements,
- * profile) and the achievement diff in logCheckin. These consumers only
- * read what feeds groupIntoSessions / computeAchievements / activeWeeks —
- * never the Decimal columns (amount/lat/lng), whose per-row deserialization
+ * profile) and the achievement diff on logging. These consumers only read
+ * what feeds groupIntoSessions / computeAchievements / activeWeeks — never
+ * the Decimal columns (amount/lat/lng), whose per-row deserialization
  * dominates cost on long histories. Keep this in sync with toStatsEntry.
  */
 export const statsEntrySelect = {
@@ -48,23 +48,25 @@ export const statsEntrySelect = {
   createdAt: true,
   venue: true,
   drinkType: true,
-  beerName: true,
+  drinkName: true,
   notes: true,
-} satisfies Prisma.BeerEntrySelect;
+} satisfies Prisma.DrinkEntrySelect;
 
-type StatsEntryRow = Prisma.BeerEntryGetPayload<{ select: typeof statsEntrySelect }>;
+type StatsEntryRow = Prisma.DrinkEntryGetPayload<{
+  select: typeof statsEntrySelect;
+}>;
 
 /**
  * Map a projected row (statsEntrySelect) into a full snake_case BeerEntry.
  * Columns not selected are set to their inert defaults — the stats screens
- * never read them, and this keeps the DTO boundary (lib/mappers.ts) intact.
+ * never read them, and this keeps the DTO boundary intact.
  */
 export function toStatsEntry(entry: StatsEntryRow): BeerEntry {
   return {
     id: entry.id,
     user_id: entry.userId,
     group_id: null,
-    beer_name: entry.beerName,
+    beer_name: entry.drinkName,
     brewery: null,
     style: null,
     drink_type: entry.drinkType,
@@ -78,4 +80,3 @@ export function toStatsEntry(entry: StatsEntryRow): BeerEntry {
     created_at: entry.createdAt.toISOString(),
   };
 }
-

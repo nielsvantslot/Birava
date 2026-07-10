@@ -3,11 +3,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   turbopack: {},
-  cacheComponents: true,
   // Client router cache: reuse a visited route for 30s before refetching, so
   // tab switches render instantly from memory instead of a skeleton round-trip.
-  // This is the only true staleness window; pull-to-refresh / reload bypasses
-  // it, and write-time updateTag keeps the server cache event-fresh.
+  // Pull-to-refresh / reload bypasses it. (Server-cache Layer 2 was dropped
+  // with the Next 16 downgrade — see lib/reads.ts.)
   experimental: {
     staleTimes: { dynamic: 30, static: 300 },
   },
