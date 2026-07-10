@@ -1,7 +1,5 @@
 import Link from "next/link";
-import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth/session";
-import { getCrewBoard } from "@/lib/crews";
+import { getMyCrews } from "@/lib/controllers/groupController";
 import { CreateCrewForm, JoinCrewForm } from "@/components/beer/crews-forms";
 
 function ordinal(n: number): string {
@@ -14,28 +12,7 @@ function ordinal(n: number): string {
 }
 
 export default async function CrewsPage() {
-  const user = await getCurrentUser();
-  if (!user) return null;
-
-  const memberships = await db.groupMember.findMany({
-    where: { userId: user.id },
-    include: { group: { include: { members: { select: { userId: true } } } } },
-    orderBy: { joinedAt: "desc" },
-  });
-
-  const crews = await Promise.all(
-    memberships.map(async (m) => {
-      const { scores } = await getCrewBoard(m.groupId);
-      const rank = 1 + scores.findIndex((s) => s.userId === user.id);
-      return {
-        id: m.group.id,
-        name: m.group.name,
-        code: m.group.inviteCode,
-        members: m.group.members.length,
-        rank: rank > 0 ? rank : null,
-      };
-    })
-  );
+  const crews = await getMyCrews();
 
   return (
     <>
@@ -59,13 +36,13 @@ export default async function CrewsPage() {
               <div className="grow">
                 <b>{crew.name}</b>
                 <span>
-                  {crew.members} member{crew.members === 1 ? "" : "s"}
+                  {crew.memberCount} member{crew.memberCount === 1 ? "" : "s"}
                   {crew.rank
                     ? ` · you're ${ordinal(crew.rank)} since you joined`
                     : ""}
                 </span>
               </div>
-              <span className="code">{crew.code}</span>
+              <span className="code">{crew.inviteCode}</span>
             </Link>
           ))
         )}

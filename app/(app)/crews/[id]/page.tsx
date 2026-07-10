@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { getCrewBoard } from "@/lib/crews";
+import { getCrew } from "@/lib/controllers/groupController";
 import { sessionTitle } from "@/lib/sessions";
 import { formatDate, timeAgo } from "@/lib/dates";
 import { CrewLeaderboard } from "@/components/beer/crew-leaderboard";
@@ -20,14 +19,10 @@ export default async function CrewDetailPage({
   const { id } = await params;
   const tz = await getUserTimeZone();
 
-  const crew = await db.group.findUnique({
-    where: { id },
-    include: { members: { select: { userId: true } } },
-  });
+  const crew = await getCrew({ crewId: id });
   if (!crew) notFound();
-  if (!crew.members.some((m) => m.userId === user.id)) notFound();
 
-  const { scores, recentSessions } = await getCrewBoard(id);
+  const { scores, recentSessions } = crew;
   const you = scores.find((s) => s.userId === user.id);
   const usernameById = new Map(scores.map((s) => [s.userId, s.username]));
 
@@ -69,8 +64,8 @@ export default async function CrewDetailPage({
                 gap: 8,
               }}
             >
-              {crew.members.length} member
-              {crew.members.length === 1 ? "" : "s"} ·{" "}
+              {crew.memberCount} member
+              {crew.memberCount === 1 ? "" : "s"} ·{" "}
               <CopyCodeChip code={crew.inviteCode} />
             </p>
           </div>
@@ -95,7 +90,7 @@ export default async function CrewDetailPage({
             )}
           </div>
           <span className="ev-end">
-            since {formatDate(crew.createdAt, tz)}
+            since {formatDate(new Date(crew.createdAt), tz)}
           </span>
         </div>
       </div>

@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { toBeerEntry } from "@/lib/mappers";
 import {
   groupIntoSessions,
   activeWeeks,
@@ -10,6 +8,7 @@ import {
 } from "@/lib/sessions";
 import { computeAchievements } from "@/lib/achievements";
 import { relativeDay } from "@/lib/dates";
+import { getMyDrinkHistory } from "@/lib/controllers/drinkController";
 import { getFollowCounts } from "@/lib/controllers/socialController";
 import { ProfileHead, ProfileActions } from "@/components/beer/profile-client";
 import { AchievementGlyph } from "@/components/beer/achievement-icon";
@@ -19,12 +18,11 @@ export default async function ProfilePage() {
   if (!user) return null;
 
   const tz = await getUserTimeZone();
-  const rows = await db.drinkEntry.findMany({
-    where: { userId: user.id },
-    include: { user: { select: { username: true, avatarUrl: true } } },
-    orderBy: { createdAt: "asc" },
-  });
-  const entries = rows.map(toBeerEntry);
+  // Independent reads — run in parallel (F2).
+  const [entries, followCounts] = await Promise.all([
+    getMyDrinkHistory(),
+    getFollowCounts({ profileId: user.id }),
+  ]);
   const sessions = groupIntoSessions(entries);
   const weeks = activeWeeks(sessions, tz);
 
@@ -43,7 +41,6 @@ export default async function ProfilePage() {
     .slice(0, 3);
 
   const recentSessions = sessions.slice(0, 3);
-  const followCounts = await getFollowCounts({ profileId: user.id });
 
   const memberSince = new Date(user.createdAt).toLocaleDateString("en-GB", {
     month: "long",

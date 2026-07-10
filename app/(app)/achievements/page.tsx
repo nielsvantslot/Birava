@@ -1,7 +1,6 @@
-import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { toBeerEntry } from "@/lib/mappers";
+import { getMyDrinkHistory } from "@/lib/controllers/drinkController";
 import { groupIntoSessions, activeWeeks } from "@/lib/sessions";
 import { computeAchievements } from "@/lib/achievements";
 import { AchievementGlyph } from "@/components/beer/achievement-icon";
@@ -12,11 +11,7 @@ export default async function AchievementsPage() {
   if (!user) return null;
 
   const tz = await getUserTimeZone();
-  const rows = await db.drinkEntry.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: "asc" },
-  });
-  const entries = rows.map(toBeerEntry);
+  const entries = await getMyDrinkHistory();
   const sessions = groupIntoSessions(entries);
   const weeks = activeWeeks(sessions, tz);
   const achievements = computeAchievements(entries, tz);
