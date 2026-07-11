@@ -66,6 +66,14 @@ All date/day/week logic goes through `lib/dates.ts`, parameterized by the user's
 - `Proost` = kudos on a session, keyed `[entryId, userId]` where `entryId` is the session's anchor (first) check-in.
 - `BeerEntry.groupId` exists but crew-scoped logging is **not wired** — it is effectively always null; crew scoring instead filters by `GroupMember.joinedAt`.
 
+## Image pipeline (`lib/storage/`, `app/api/photos/[entryId]/route.ts`)
+
+Uploads are resized/re-encoded, never stored raw: `app/api/uploads/drink-photo/route.ts` runs each file through `normalizeUploadedPhoto` (HEIC → JPEG) then `processUploadedPhoto` (`lib/storage/processPhoto.ts`) — auto-rotates from EXIF, strips metadata (EXIF can carry GPS), caps the long edge at 1600px, re-encodes WebP, and derives a tiny base64 LQIP blur placeholder (`DrinkEntry.photoLqip`) from the same decode via `sharp().clone()`.
+
+- **Serving** (`/api/photos/[entryId]`) is auth-gated (checks the viewer can see the entry) and supports size variants via query params, each independently WebP-encoded on demand and cached `private, immutable, max-age=1yr` (the entry's `photoUrl` is itself the content key — an edit swaps in a new URL, no cache-busting needed): `?size=thumb` (400px, fixed — `checkin-grid.tsx` tiles) and `?w=<n>` (session-card hero photo — `n` must be one of `lib/photoSizes.ts`'s `HERO_WIDTHS`, mirrored into `next.config.ts`'s `images.deviceSizes`; anything else falls back to the full image rather than resizing to an arbitrary size). No param = full image (the lightbox).
+- **The hero photo uses a custom `next/image` loader** (`lib/imageLoader.ts`, wired via `next.config.ts`'s `images.loader`/`loaderFile`), not the built-in optimizer or `unoptimized`. The built-in `/_next/image` optimizer does a *server-to-server* fetch that doesn't carry the viewer's session cookie, so it 401s against our auth-gated route — a loader file makes the *browser* fetch directly (with cookies) while still getting a real responsive `srcSet`. `checkin-grid.tsx`'s thumbnail stays `unoptimized` (one fixed size, no responsive benefit needed).
+- **`scripts/backfill-photo-derivatives.ts`** reprocesses photos uploaded before this pipeline existed (`WHERE photoUrl IS NOT NULL AND photoLqip IS NULL`) through the same `processPhoto` logic. Runs automatically on every staging/production deploy (`vercel.json`'s build command, after `db:seed`) — idempotent (a backfilled row drops out of the query on its own), bounded to 25 rows/run so a large backlog drains over several deploys, and never fails the build over a bad row (logs and continues, always exits 0).
+
 ## Demo seed (`prisma/seed.ts`)
 
 A committed, idempotent seed builds the **Demobeer** showcase account (email `jairo12.jn@gmail.com`, password `Test123!`) with a full demo dataset (multi-venue photo session, lone check-in, all 4 drink types, a Local Legend venue, an active-weeks streak, a 3-member crew, followed users). Images live in `prisma/seed-assets/` and are uploaded through the storage abstraction, so they land in Vercel Blob on staging and on local disk in dev.
@@ -88,7 +96,7 @@ The app briefly ran on Next.js 16.2.9 (with `cacheComponents: true`) but was dow
 - If re-attempting a Next 16 upgrade later, check whether vercel/next.js#86178 (or its duplicates) has actually been fixed upstream before assuming `next build` will succeed — don't rediscover this from scratch.
 
 ## Known landmines (see `docs/audit/` for the full reports)
-- **Uploads write to `public/uploads/` on the local filesystem** (`lib/storage/local.ts`) — this breaks on Vercel's ephemeral/read-only FS. No magic-byte/size validation yet.
+- **Uploads write to `public/uploads/` on the local filesystem** (`lib/storage/local.ts`) — this breaks on Vercel's ephemeral/read-only FS; used in dev only, `lib/storage/blob.ts` handles staging/production. Size (20MB cap) and format validation (via `sharp` failing to decode) now exist in `processUploadedPhoto` — see "Image pipeline" above.
 - **`app/api/auth/forgot-password/route.ts`** returns the reset URL/token in the HTTP response (account-takeover risk) — gate before deploy.
 - **Open product calls** (flagged 2026-07-09, don't silently decide): active-weeks streak grace rule (currently: one rest week survives, 2+ consecutive end the run — `activeWeeks()` in `lib/sessions.ts`); Countries/Passport badges omitted for lack of country data ("Types tried" substituted); comments are a "soon" toast stub (proost is real).
 - Dev DB contains seeded demo users (`designtest`/`sarah_pours`/`niels_hop`, pw `designtest123`, plus `audit_user`) — Jairo's real account is `SlayerofBeers`; never modify it.

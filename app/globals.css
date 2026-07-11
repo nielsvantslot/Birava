@@ -480,9 +480,12 @@ input:focus-visible, .chip:focus-visible {
 
 /* ---- card hero photo: the fun, front and centre ---- */
 .card-photo { padding: 2px 16px 14px; }
-.card-photo > * { display: block; width: 100%; height: 288px; border-radius: 16px; overflow: hidden; }
+/* Separate frame (not .card-photo itself) so it can carry the definite
+   height + position:relative next/image's fill mode needs as a containing
+   block — .card-photo also carries padding, which would eat into that box. */
+.card-photo-frame { position: relative; display: block; width: 100%; height: 288px; border-radius: 16px; overflow: hidden; }
 .card-photo img { object-fit: cover; }
-.card-photo.short > * { height: 230px; }
+.card-photo.short .card-photo-frame { height: 230px; }
 
 /* ---- route chip: map demoted to a tappable summary that opens detail ---- */
 .routechip {

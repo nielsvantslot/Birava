@@ -38,6 +38,6 @@ export function generateInviteCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-export function drinkPhotoSrc(entryId: string) {
-  return `/api/photos/${entryId}`;
+export function drinkPhotoSrc(entryId: string, size?: "thumb") {
+  return size ? `/api/photos/${entryId}?size=${size}` : `/api/photos/${entryId}`;
 }
