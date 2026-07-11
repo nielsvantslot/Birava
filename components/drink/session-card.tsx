@@ -79,6 +79,7 @@ export function SessionCard({
   isSelf,
   legendVenue,
   proost,
+  commentCount,
   priority,
 }: {
   session: DrinkSession;
@@ -87,6 +88,7 @@ export function SessionCard({
   /** The viewer's Local Legend venue — shown only on own sessions that include it. */
   legendVenue: string | null;
   proost: { count: number; on: boolean };
+  commentCount: number;
   /** Set for the first card in the feed so its hero photo isn't lazy-loaded (LCP). */
   priority?: boolean;
 }) {
@@ -256,6 +258,7 @@ export function SessionCard({
         entryId={session.id}
         count={proost.count}
         on={proost.on}
+        commentCount={commentCount}
         shareText={shareText}
       />
     </div>

@@ -13,11 +13,12 @@ import {
   getSessionCheckins,
   getMyDrinkHistory,
 } from "@/lib/controllers/drinkController";
-import { getSessionProosts } from "@/lib/controllers/socialController";
+import { getSessionProosts, getSessionComments } from "@/lib/controllers/socialController";
 import { formatTime, relativeDayTime } from "@/lib/dates";
 import { SessionMap, MapPin } from "@/components/drink/session-map";
 import { SocialActs } from "@/components/drink/social-row";
 import { CheckinGrid } from "@/components/drink/checkin-grid";
+import { CommentsSection } from "@/components/drink/comments-section";
 
 type VenueGroup = { venue: string | null; checkins: DrinkEntry[] };
 
@@ -67,11 +68,12 @@ export default async function SessionDetailPage({
   const title = sessionTitle(session, tz);
   const venueGroups = groupByVenueRun(checkins);
 
-  // Local Legend needs the owner's own history; the proost state is
-  // independent — fetch both in parallel (F2).
-  const [ownForLegend, proostMap] = await Promise.all([
+  // Local Legend needs the owner's own history; the proost state and
+  // comment thread are independent — fetch all three in parallel (F2).
+  const [ownForLegend, proostMap, commentsMap] = await Promise.all([
     isSelf ? getMyDrinkHistory() : Promise.resolve(null),
     getSessionProosts({ entryIds: [session.id] }),
+    getSessionComments({ entryIds: [session.id] }),
   ]);
 
   let legendVenue: string | null = null;
@@ -102,6 +104,7 @@ export default async function SessionDetailPage({
   }
 
   const proost = proostMap.get(session.id) ?? { count: 0, on: false };
+  const comments = commentsMap.get(session.id) ?? [];
 
   const startMeta = relativeDayTime(new Date(session.start), tz);
   const endTime = formatTime(new Date(session.end), tz);
@@ -247,7 +250,18 @@ export default async function SessionDetailPage({
           entryId={session.id}
           count={proost.count}
           on={proost.on}
+          commentCount={comments.length}
           shareText={shareText}
+        />
+      </div>
+
+      {/* comments */}
+      <div className="section flush">
+        <CommentsSection
+          entryId={session.id}
+          tz={tz}
+          currentUserId={user.id}
+          initial={comments}
         />
       </div>
     </>
