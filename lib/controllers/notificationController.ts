@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/session";
 import { throwNotAuthenticated } from "@/lib/auth/authErrors";
-import { getNotifications, getUnreadCount } from "@/lib/queries/notificationQueries";
+import { getNotifications, getUnreadCount, hasAnyPushSubscription } from "@/lib/queries/notificationQueries";
 import { markAllRead } from "@/lib/commands/notificationCommands";
 import {
   savePushSubscription as savePushSubscriptionCommand,
@@ -30,6 +30,14 @@ export async function getMyUnreadNotificationCount(): Promise<number> {
   if (!user) return 0;
 
   return getUnreadCount(user.id);
+}
+
+/** Whether the current user has push enabled on any device. */
+export async function getMyHasPushSubscription(): Promise<boolean> {
+  const user = await getCurrentUser();
+  if (!user) return false;
+
+  return hasAnyPushSubscription(user.id);
 }
 
 export async function markNotificationsRead(): Promise<void> {

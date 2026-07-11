@@ -1,26 +1,26 @@
 import { db } from "@/lib/db";
-import { ToggleProostResultDTO } from "@/lib/dtos";
+import { ToggleCheerResultDTO } from "@/lib/dtos";
 import { queueNotifications } from "@/lib/notify";
 
-export async function toggleProost(
+export async function toggleCheer(
   userId: string,
   entryId: string,
   actor: { username: string; avatarUrl: string | null }
-): Promise<ToggleProostResultDTO> {
+): Promise<ToggleCheerResultDTO> {
   const key = { entryId_userId: { entryId, userId } };
-  const existing = await db.proost.findUnique({ where: key });
+  const existing = await db.cheer.findUnique({ where: key });
 
   try {
     if (existing) {
-      await db.proost.delete({ where: key });
+      await db.cheer.delete({ where: key });
     } else {
-      await db.proost.create({ data: { entryId, userId } });
+      await db.cheer.create({ data: { entryId, userId } });
     }
   } catch {
-    return { error: "Failed to proost" };
+    return { error: "Failed to cheer" };
   }
 
-  const count = await db.proost.count({ where: { entryId } });
+  const count = await db.cheer.count({ where: { entryId } });
 
   if (!existing) {
     const entry = await db.drinkEntry.findUnique({ where: { id: entryId }, select: { userId: true } });
@@ -28,7 +28,7 @@ export async function toggleProost(
       queueNotifications([
         {
           userId: entry.userId,
-          type: "PROOST",
+          type: "CHEER",
           actorId: userId,
           actorUsername: actor.username,
           actorAvatarUrl: actor.avatarUrl,

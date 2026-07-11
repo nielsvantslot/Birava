@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
 import { groupIntoSessions, getLocalLegendVenue } from "@/lib/sessions";
 import { getMyFeed } from "@/lib/controllers/drinkController";
-import { getSessionProosts, getCommentCounts } from "@/lib/controllers/socialController";
+import { getSessionCheers, getCommentCounts } from "@/lib/controllers/socialController";
 import { ScreenTabs } from "@/components/ui/screen-tabs";
 import { SessionCard } from "@/components/drink/session-card";
 
@@ -28,8 +28,8 @@ export default async function DashboardPage({
     all.filter((e) => e.user_id === user.id)
   );
   const entryIds = sessions.map((s) => s.id);
-  const [proosts, commentCounts] = await Promise.all([
-    getSessionProosts({ entryIds }),
+  const [cheers, commentCounts] = await Promise.all([
+    getSessionCheers({ entryIds }),
     getCommentCounts({ entryIds }),
   ]);
 
@@ -75,7 +75,7 @@ export default async function DashboardPage({
               tz={tz}
               isSelf={session.userId === user.id}
               legendVenue={session.id === newestOwnId ? legendVenue : null}
-              proost={proosts.get(session.id) ?? { count: 0, on: false }}
+              cheer={cheers.get(session.id) ?? { count: 0, on: false }}
               commentCount={commentCounts.get(session.id) ?? 0}
               priority={index === 0}
             />

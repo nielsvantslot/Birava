@@ -18,7 +18,7 @@ export type NotificationEvent = {
 
 /**
  * Writes notification rows + sends push, deferred via `after()` so the
- * triggering mutation (proost, follow, check-in, ...) isn't slowed down by it.
+ * triggering mutation (cheers, follow, check-in, ...) isn't slowed down by it.
  */
 export function queueNotifications(events: NotificationEvent[]) {
   const filtered = events.filter((e) => e.userId !== e.actorId);
