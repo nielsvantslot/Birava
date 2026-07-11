@@ -57,13 +57,13 @@ export function SocialActs({
         className={cn("act proost", state.on && "on")}
         onClick={handleProost}
         aria-pressed={state.on}
-        aria-label="Proost"
+        aria-label="Cheers"
       >
         <svg viewBox="0 0 24 24">
           <path d="M9 3h6M12 3v4"></path>
           <path d="M7 21c-2 0-3-1.6-3-3.5C4 13 7 11 12 11s8 2 8 6.5c0 1.9-1 3.5-3 3.5z"></path>
         </svg>
-        <span>{state.count}</span> proost
+        <span>{state.count}</span> cheers
       </button>
       <button
         className="act"

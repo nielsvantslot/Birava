@@ -42,7 +42,10 @@ export async function joinGroupByInvite(input: JoinGroupDTO): Promise<JoinGroupR
   const user = await getCurrentUser();
   if (!user) return NOT_AUTHENTICATED;
 
-  const result = await joinGroup(user.id, input);
+  const result = await joinGroup(user.id, input, {
+    username: user.username,
+    avatarUrl: user.avatarUrl,
+  });
   if (!result.error) revalidateGroupPaths();
   return result;
 }

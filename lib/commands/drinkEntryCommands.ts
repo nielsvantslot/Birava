@@ -1,8 +1,11 @@
 import { db } from "@/lib/db";
-import { earnedIds } from "@/lib/achievements";
+import { computeAchievements } from "@/lib/achievements";
+import { SESSION_GAP_MS } from "@/lib/sessions";
 import { getUserTimeZone } from "@/lib/timezone";
 import { toDrinkEntry } from "@/lib/mappers";
 import { removeDrinkPhotoByUrl } from "@/lib/storage";
+import { getFollowerIds } from "@/lib/queries/followQueries";
+import { queueNotifications, type NotificationEvent } from "@/lib/notify";
 import {
   ActionResultDTO,
   AddDrinkResultDTO,
@@ -13,7 +16,8 @@ import {
 
 export async function createDrinkEntry(
   userId: string,
-  input: CreateDrinkEntryDTO
+  input: CreateDrinkEntryDTO,
+  actor: { username: string; avatarUrl: string | null }
 ): Promise<AddDrinkResultDTO> {
   const tz = await getUserTimeZone();
   // Read history once; the "after" set is provably "before + the new row",
@@ -39,9 +43,69 @@ export async function createDrinkEntry(
   }
 
   const beforeEntries = before.map(toDrinkEntry);
-  const earnedBefore = earnedIds(beforeEntries, tz);
-  const earnedAfter = earnedIds([...beforeEntries, toDrinkEntry(created)], tz);
-  const achievementUnlocked = [...earnedAfter].some((id) => !earnedBefore.has(id));
+  const earnedBefore = new Set(
+    computeAchievements(beforeEntries, tz)
+      .filter((a) => a.earned)
+      .map((a) => a.id)
+  );
+  const newlyEarned = computeAchievements([...beforeEntries, toDrinkEntry(created)], tz).filter(
+    (a) => a.earned && !earnedBefore.has(a.id)
+  );
+  const achievementUnlocked = newlyEarned.length > 0;
+
+  const events: NotificationEvent[] = newlyEarned.map((a) => ({
+    userId,
+    type: "ACHIEVEMENT",
+    achievementLabel: a.label,
+  }));
+
+  // A new session starts when there's no prior check-in, or the last one is
+  // more than the 4-hour gap before this one — mirrors groupIntoSessions.
+  const lastPriorMs = before.length
+    ? Math.max(...before.map((e) => e.createdAt.getTime()))
+    : null;
+  const isSessionStart = lastPriorMs === null || created.createdAt.getTime() - lastPriorMs > SESSION_GAP_MS;
+
+  if (isSessionStart) {
+    const followerIds = await getFollowerIds(userId);
+    events.push(
+      ...followerIds.map((followerId) => ({
+        userId: followerId,
+        type: "SESSION_START" as const,
+        actorId: userId,
+        actorUsername: actor.username,
+        actorAvatarUrl: actor.avatarUrl,
+        entryId: created.id,
+      }))
+    );
+  }
+
+  const memberships = await db.groupMember.findMany({
+    where: { userId },
+    select: { groupId: true, group: { select: { name: true } } },
+  });
+  if (memberships.length > 0) {
+    const groupIds = memberships.map((m) => m.groupId);
+    const otherMembers = await db.groupMember.findMany({
+      where: { groupId: { in: groupIds }, userId: { not: userId } },
+      select: { userId: true, groupId: true },
+    });
+    const groupNames = new Map(memberships.map((m) => [m.groupId, m.group.name]));
+    events.push(
+      ...otherMembers.map((m) => ({
+        userId: m.userId,
+        type: "CREW_CHECKIN" as const,
+        actorId: userId,
+        actorUsername: actor.username,
+        actorAvatarUrl: actor.avatarUrl,
+        entryId: created.id,
+        groupId: m.groupId,
+        groupName: groupNames.get(m.groupId),
+      }))
+    );
+  }
+
+  queueNotifications(events);
 
   return { achievementUnlocked, id: created.id };
 }

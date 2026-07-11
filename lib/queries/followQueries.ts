@@ -17,6 +17,15 @@ export async function getFollowingIds(userId: string): Promise<string[]> {
   return follows.map((f) => f.followingId);
 }
 
+/** Ids of users who follow `userId` (the inverse of getFollowingIds). */
+export async function getFollowerIds(userId: string): Promise<string[]> {
+  const follows = await db.follow.findMany({
+    where: { followingId: userId },
+    select: { followerId: true },
+  });
+  return follows.map((f) => f.followerId);
+}
+
 export async function isFollowing(followerId: string, targetUserId: string): Promise<boolean> {
   const follow = await db.follow.findUnique({
     where: {
