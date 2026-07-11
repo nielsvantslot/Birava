@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { toggleProost } from "@/lib/controllers/socialController";
 import { showToast } from "@/components/ui/toast-pill";
 import { cn } from "@/lib/utils";
@@ -13,12 +14,14 @@ export function SocialActs({
   entryId,
   count,
   on,
+  commentCount,
   shareText,
 }: {
-  /** Session anchor check-in id the proost is keyed by. */
+  /** Session anchor check-in id the proost/comments are keyed by. */
   entryId: string;
   count: number;
   on: boolean;
+  commentCount: number;
   shareText: string;
 }) {
   const [state, setState] = useState({ count, on });
@@ -65,16 +68,17 @@ export function SocialActs({
         </svg>
         <span>{state.count}</span> proost
       </button>
-      <button
+      <Link
         className="act"
-        onClick={() => showToast("Comments — soon")}
+        href={`/sessions/${entryId}#comments`}
         aria-label="Comments"
+        scroll={false}
       >
         <svg viewBox="0 0 24 24">
           <path d="M4 5h16v11H9l-5 4z"></path>
         </svg>
-        Comment
-      </button>
+        <span>{commentCount}</span> comment{commentCount === 1 ? "" : "s"}
+      </Link>
       <button className="act share" onClick={handleShare} aria-label="Share session">
         <svg viewBox="0 0 24 24">
           <path d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"></path>

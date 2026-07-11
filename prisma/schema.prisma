@@ -23,6 +23,7 @@ model User {
   followedBy           Follow[]               @relation("FollowFollowing")
   sessions             Session[]
   proosts              Proost[]
+  comments             Comment[]
 }
 
 model Session {
@@ -79,6 +80,7 @@ model DrinkEntry {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   group     Group?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
   proosts   Proost[]
+  comments  Comment[]
 
   @@index([groupId])
   @@index([userId, createdAt])
@@ -94,6 +96,20 @@ model Proost {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([entryId, userId])
+}
+
+/// A comment on a session, keyed by the session's anchor check-in — the
+/// session id is its first check-in's id (same convention as Proost).
+model Comment {
+  id        String     @id @default(uuid()) @db.Uuid
+  entryId   String     @db.Uuid
+  userId    String     @db.Uuid
+  body      String
+  createdAt DateTime   @default(now()) @db.Timestamptz(6)
+  entry     DrinkEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([entryId, createdAt])
 }
 
 model Follow {
