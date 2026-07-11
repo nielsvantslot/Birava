@@ -17,6 +17,7 @@ const TITLES: Array<[prefix: string, title: string]> = [
   ["/log", "Log"],
   ["/sessions/", "Session"],
   ["/achievements", "Achievements"],
+  ["/notifications", "Notifications"],
   ["/crews/", "Crew"],
   ["/crews", "Crews"],
   ["/profile/", "Profile"],
@@ -25,14 +26,15 @@ const TITLES: Array<[prefix: string, title: string]> = [
 ];
 
 /** Detail screens show a back arrow instead of the avatar. */
-const BACK_PREFIXES = ["/sessions/", "/achievements", "/people", "/profile/"];
+const BACK_PREFIXES = ["/sessions/", "/achievements", "/notifications", "/people", "/profile/"];
 
 interface AppHeaderProps {
   username?: string;
   avatarUrl?: string | null;
+  unreadCount?: number;
 }
 
-export function AppHeader({ username, avatarUrl }: AppHeaderProps) {
+export function AppHeader({ username, avatarUrl, unreadCount = 0 }: AppHeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -88,6 +90,15 @@ export function AppHeader({ username, avatarUrl }: AppHeaderProps) {
       </div>
       <div className="title">{title}</div>
       <div className="right">
+        <Link className="hicon" href="/notifications" aria-label="Notifications">
+          <svg viewBox="0 0 24 24">
+            <path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.7 21a2 2 0 01-3.4 0"></path>
+          </svg>
+          {unreadCount > 0 && (
+            <span className="badge">{unreadCount > 9 ? "9+" : unreadCount}</span>
+          )}
+        </Link>
         <Link className="hicon" href="/log" aria-label="Log a drink">
           <svg viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="9.5"></circle>

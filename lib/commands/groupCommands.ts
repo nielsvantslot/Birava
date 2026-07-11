@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { generateInviteCode } from "@/lib/utils";
+import { queueNotifications } from "@/lib/notify";
 import {
   ActionResultDTO,
   CreateGroupDTO,
@@ -32,18 +33,39 @@ export async function createGroup(
 
 export async function joinGroup(
   userId: string,
-  input: JoinGroupDTO
+  input: JoinGroupDTO,
+  actor: { username: string; avatarUrl: string | null }
 ): Promise<JoinGroupResultDTO> {
   const group = await db.group.findUnique({
     where: { inviteCode: input.inviteCode.trim().toUpperCase() },
   });
   if (!group) return { error: "That code doesn't match any crew." };
 
+  const existingMembers = await db.groupMember.findMany({
+    where: { groupId: group.id },
+    select: { userId: true },
+  });
+  const alreadyMember = existingMembers.some((m) => m.userId === userId);
+
   await db.groupMember.upsert({
     where: { groupId_userId: { groupId: group.id, userId } },
     update: {},
     create: { groupId: group.id, userId },
   });
+
+  if (!alreadyMember) {
+    queueNotifications(
+      existingMembers.map((m) => ({
+        userId: m.userId,
+        type: "CREW_JOIN" as const,
+        actorId: userId,
+        actorUsername: actor.username,
+        actorAvatarUrl: actor.avatarUrl,
+        groupId: group.id,
+        groupName: group.name,
+      }))
+    );
+  }
 
   return { groupName: group.name };
 }

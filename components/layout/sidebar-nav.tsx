@@ -16,12 +16,13 @@ import {
 interface SidebarNavProps {
   username?: string;
   avatarUrl?: string | null;
+  unreadCount?: number;
 }
 
-export function SidebarNav({ username, avatarUrl }: SidebarNavProps) {
+export function SidebarNav({ username, avatarUrl, unreadCount = 0 }: SidebarNavProps) {
   return (
-    <Suspense fallback={<SidebarInner pathname="" username={username} avatarUrl={avatarUrl} />}>
-      <SidebarInnerWithPathname username={username} avatarUrl={avatarUrl} />
+    <Suspense fallback={<SidebarInner pathname="" username={username} avatarUrl={avatarUrl} unreadCount={unreadCount} />}>
+      <SidebarInnerWithPathname username={username} avatarUrl={avatarUrl} unreadCount={unreadCount} />
     </Suspense>
   );
 }
@@ -35,6 +36,7 @@ function SidebarInner({
   pathname,
   username,
   avatarUrl,
+  unreadCount = 0,
 }: SidebarNavProps & { pathname: string }) {
   const router = useRouter();
 
@@ -56,6 +58,21 @@ function SidebarInner({
       </Link>
 
       <nav className="sidebar-nav">
+        <Link
+          href="/notifications"
+          className={cn(
+            pathname === "/notifications" || pathname.startsWith("/notifications/") ? "active" : undefined
+          )}
+        >
+          <svg viewBox="0 0 24 24">
+            <path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.7 21a2 2 0 01-3.4 0"></path>
+          </svg>
+          {unreadCount > 0 && (
+            <span className="badge">{unreadCount > 9 ? "9+" : unreadCount}</span>
+          )}
+          <span className="label">Notifications</span>
+        </Link>
         {NAV_ITEMS.map(({ href, label, icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           const isProfile = href === "/profile";

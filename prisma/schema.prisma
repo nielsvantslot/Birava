@@ -23,6 +23,8 @@ model User {
   followedBy           Follow[]               @relation("FollowFollowing")
   sessions             Session[]
   proosts              Proost[]
+  notifications        Notification[]
+  pushSubscriptions    PushSubscription[]
   comments             Comment[]
 }
 
@@ -125,4 +127,46 @@ model Follow {
   @@id([followerId, followingId])
   @@index([followerId])
   @@index([followingId])
+}
+
+enum NotificationType {
+  PROOST
+  FOLLOW
+  CREW_JOIN
+  CREW_CHECKIN
+  ACHIEVEMENT
+  SESSION_START
+}
+
+/// An in-app + push notification event. Actor/group display text is frozen
+/// at write time (not joined live) so the feed reads correctly even after
+/// the actor renames or deletes their account.
+model Notification {
+  id               String           @id @default(uuid()) @db.Uuid
+  userId           String           @db.Uuid
+  type             NotificationType
+  actorId          String?          @db.Uuid
+  actorUsername    String?
+  actorAvatarUrl   String?
+  entryId          String?          @db.Uuid
+  groupId          String?          @db.Uuid
+  groupName        String?
+  achievementLabel String?
+  readAt           DateTime?
+  createdAt        DateTime         @default(now()) @db.Timestamptz(6)
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

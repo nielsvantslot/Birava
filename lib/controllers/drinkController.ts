@@ -40,7 +40,10 @@ export async function addDrink(input: CreateDrinkEntryDTO): Promise<AddDrinkResu
   const user = await getCurrentUser();
   if (!user) return NOT_AUTHENTICATED;
 
-  const result = await createDrinkEntry(user.id, input);
+  const result = await createDrinkEntry(user.id, input, {
+    username: user.username,
+    avatarUrl: user.avatarUrl,
+  });
   if (!result.error) revalidateDrinkPaths(user.id);
   return result;
 }

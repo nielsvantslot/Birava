@@ -49,7 +49,10 @@ export async function followUser(input: FollowUserDTO): Promise<void> {
   const user = await getCurrentUser();
   if (!user) throwNotAuthenticated();
 
-  await followUserCommand(user.id, input);
+  await followUserCommand(user.id, input, {
+    username: user.username,
+    avatarUrl: user.avatarUrl,
+  });
 
   revalidatePath("/dashboard");
   revalidatePath("/people");
@@ -112,7 +115,10 @@ export async function toggleProost(input: ToggleProostDTO): Promise<ToggleProost
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
-  const result = await toggleProostCommand(user.id, input.entryId);
+  const result = await toggleProostCommand(user.id, input.entryId, {
+    username: user.username,
+    avatarUrl: user.avatarUrl,
+  });
   if (!result.error) {
     revalidatePath("/dashboard");
     revalidatePath("/sessions", "layout");
