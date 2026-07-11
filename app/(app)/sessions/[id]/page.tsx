@@ -13,7 +13,7 @@ import {
   getSessionCheckins,
   getMyDrinkHistory,
 } from "@/lib/controllers/drinkController";
-import { getSessionProosts, getSessionComments } from "@/lib/controllers/socialController";
+import { getSessionCheers, getSessionComments } from "@/lib/controllers/socialController";
 import { formatTime, relativeDayTime } from "@/lib/dates";
 import { SessionMap, MapPin } from "@/components/drink/session-map";
 import { SocialActs } from "@/components/drink/social-row";
@@ -68,11 +68,11 @@ export default async function SessionDetailPage({
   const title = sessionTitle(session, tz);
   const venueGroups = groupByVenueRun(checkins);
 
-  // Local Legend needs the owner's own history; the proost state and
+  // Local Legend needs the owner's own history; the cheer state and
   // comment thread are independent — fetch all three in parallel (F2).
-  const [ownForLegend, proostMap, commentsMap] = await Promise.all([
+  const [ownForLegend, cheerMap, commentsMap] = await Promise.all([
     isSelf ? getMyDrinkHistory() : Promise.resolve(null),
-    getSessionProosts({ entryIds: [session.id] }),
+    getSessionCheers({ entryIds: [session.id] }),
     getSessionComments({ entryIds: [session.id] }),
   ]);
 
@@ -103,7 +103,7 @@ export default async function SessionDetailPage({
     });
   }
 
-  const proost = proostMap.get(session.id) ?? { count: 0, on: false };
+  const cheer = cheerMap.get(session.id) ?? { count: 0, on: false };
   const comments = commentsMap.get(session.id) ?? [];
 
   const startMeta = relativeDayTime(new Date(session.start), tz);
@@ -248,8 +248,8 @@ export default async function SessionDetailPage({
       <div className="section flush">
         <SocialActs
           entryId={session.id}
-          count={proost.count}
-          on={proost.on}
+          count={cheer.count}
+          on={cheer.on}
           commentCount={comments.length}
           shareText={shareText}
         />

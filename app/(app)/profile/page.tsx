@@ -64,6 +64,8 @@ export default async function ProfilePage() {
         }}
       />
 
+      <PushSubscribeToggle />
+
       <div className="section">
         <div className="h-row">
           <h3>Achievements</h3>
@@ -134,7 +136,6 @@ export default async function ProfilePage() {
         </div>
       )}
 
-      <PushSubscribeToggle />
       <ProfileActions />
     </>
   );

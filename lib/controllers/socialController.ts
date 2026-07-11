@@ -7,7 +7,7 @@ import {
   followUser as followUserCommand,
   unfollowUser as unfollowUserCommand,
 } from "@/lib/commands/followCommands";
-import { toggleProost as toggleProostCommand } from "@/lib/commands/proostCommands";
+import { toggleCheer as toggleCheerCommand } from "@/lib/commands/cheerCommands";
 import {
   createComment as createCommentCommand,
   deleteComment as deleteCommentCommand,
@@ -16,9 +16,9 @@ import { getFollowCounts as getFollowCountsQuery, getFollowingIds, isFollowing }
 import { getSocialFeed as getSocialFeedQuery } from "@/lib/queries/drinkEntryQueries";
 import { searchUsers as searchUsersQuery } from "@/lib/queries/userQueries";
 import {
-  getProostStates,
-  type ProostState,
-} from "@/lib/queries/proostQueries";
+  getCheerStates,
+  type CheerState,
+} from "@/lib/queries/cheerQueries";
 import {
   getCommentCounts as getCommentCountsQuery,
   getSessionComments as getSessionCommentsQuery,
@@ -35,12 +35,12 @@ import {
   FollowUserDTO,
   GetCommentCountsDTO,
   GetSessionCommentsDTO,
-  GetSessionProostsDTO,
+  GetSessionCheersDTO,
   GetSocialFeedDTO,
   IsFollowingQueryDTO,
   SearchUsersDTO,
-  ToggleProostDTO,
-  ToggleProostResultDTO,
+  ToggleCheerDTO,
+  ToggleCheerResultDTO,
   UnfollowUserDTO,
   UserSummaryDTO,
 } from "@/lib/dtos";
@@ -111,11 +111,11 @@ export async function isFollowingUser(input: IsFollowingQueryDTO): Promise<boole
   return isFollowing(user.id, input.targetUserId);
 }
 
-export async function toggleProost(input: ToggleProostDTO): Promise<ToggleProostResultDTO> {
+export async function toggleCheer(input: ToggleCheerDTO): Promise<ToggleCheerResultDTO> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
-  const result = await toggleProostCommand(user.id, input.entryId, {
+  const result = await toggleCheerCommand(user.id, input.entryId, {
     username: user.username,
     avatarUrl: user.avatarUrl,
   });
@@ -126,14 +126,14 @@ export async function toggleProost(input: ToggleProostDTO): Promise<ToggleProost
   return result;
 }
 
-/** Proost counts + the viewer's own state for a set of session anchor ids. */
-export async function getSessionProosts(
-  input: GetSessionProostsDTO
-): Promise<Map<string, ProostState>> {
+/** Cheer counts + the viewer's own state for a set of session anchor ids. */
+export async function getSessionCheers(
+  input: GetSessionCheersDTO
+): Promise<Map<string, CheerState>> {
   const user = await getCurrentUser();
   if (!user) return new Map();
 
-  return getProostStates(input.entryIds, user.id);
+  return getCheerStates(input.entryIds, user.id);
 }
 
 export async function createComment(input: CreateCommentDTO): Promise<CreateCommentResultDTO> {

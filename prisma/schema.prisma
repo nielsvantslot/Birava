@@ -22,7 +22,7 @@ model User {
   follows              Follow[]               @relation("FollowFollower")
   followedBy           Follow[]               @relation("FollowFollowing")
   sessions             Session[]
-  proosts              Proost[]
+  cheers               Cheer[]
   notifications        Notification[]
   pushSubscriptions    PushSubscription[]
   comments             Comment[]
@@ -84,16 +84,16 @@ model DrinkEntry {
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   group     Group?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
-  proosts   Proost[]
+  cheers    Cheer[]
   comments  Comment[]
 
   @@index([groupId])
   @@index([userId, createdAt])
 }
 
-/// A "proost" (kudos) on a session, keyed by the session's anchor
+/// A "cheers" (kudos) on a session, keyed by the session's anchor
 /// check-in — the session id is its first check-in's id.
-model Proost {
+model Cheer {
   entryId   String   @db.Uuid
   userId    String   @db.Uuid
   createdAt DateTime @default(now()) @db.Timestamptz(6)
@@ -104,7 +104,7 @@ model Proost {
 }
 
 /// A comment on a session, keyed by the session's anchor check-in — the
-/// session id is its first check-in's id (same convention as Proost).
+/// session id is its first check-in's id (same convention as Cheer).
 model Comment {
   id        String     @id @default(uuid()) @db.Uuid
   entryId   String     @db.Uuid
@@ -130,7 +130,7 @@ model Follow {
 }
 
 enum NotificationType {
-  PROOST
+  CHEER
   FOLLOW
   CREW_JOIN
   CREW_CHECKIN
