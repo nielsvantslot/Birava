@@ -18,3 +18,9 @@ export async function getNotifications(
 export async function getUnreadCount(userId: string): Promise<number> {
   return db.notification.count({ where: { userId, readAt: null } });
 }
+
+/** Whether the user has push enabled on any device — used to nudge them toward the profile toggle if not. */
+export async function hasAnyPushSubscription(userId: string): Promise<boolean> {
+  const count = await db.pushSubscription.count({ where: { userId } });
+  return count > 0;
+}

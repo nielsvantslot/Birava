@@ -2,12 +2,12 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { toggleProost } from "@/lib/controllers/socialController";
+import { toggleCheer } from "@/lib/controllers/socialController";
 import { showToast } from "@/components/ui/toast-pill";
 import { cn } from "@/lib/utils";
 
 /**
- * The session card's social affordances: proost with a live count,
+ * The session card's social affordances: cheers with a live count,
  * comment, share. Icon buttons, no emoji.
  */
 export function SocialActs({
@@ -17,7 +17,7 @@ export function SocialActs({
   commentCount,
   shareText,
 }: {
-  /** Session anchor check-in id the proost/comments are keyed by. */
+  /** Session anchor check-in id the cheers/comments are keyed by. */
   entryId: string;
   count: number;
   on: boolean;
@@ -27,11 +27,11 @@ export function SocialActs({
   const [state, setState] = useState({ count, on });
   const [, startTransition] = useTransition();
 
-  const handleProost = () => {
+  const handleCheer = () => {
     // Optimistic — settle with the server's answer
     setState((s) => ({ on: !s.on, count: s.count + (s.on ? -1 : 1) }));
     startTransition(async () => {
-      const result = await toggleProost({ entryId });
+      const result = await toggleCheer({ entryId });
       if (result.error) {
         setState({ count, on });
         showToast(result.error);
@@ -57,8 +57,8 @@ export function SocialActs({
   return (
     <div className="social acts">
       <button
-        className={cn("act proost", state.on && "on")}
-        onClick={handleProost}
+        className={cn("act cheer", state.on && "on")}
+        onClick={handleCheer}
         aria-pressed={state.on}
         aria-label="Cheers"
       >

@@ -78,7 +78,7 @@ export function SessionCard({
   tz,
   isSelf,
   legendVenue,
-  proost,
+  cheer,
   commentCount,
   priority,
 }: {
@@ -87,7 +87,7 @@ export function SessionCard({
   isSelf: boolean;
   /** The viewer's Local Legend venue — shown only on own sessions that include it. */
   legendVenue: string | null;
-  proost: { count: number; on: boolean };
+  cheer: { count: number; on: boolean };
   commentCount: number;
   /** Set for the first card in the feed so its hero photo isn't lazy-loaded (LCP). */
   priority?: boolean;
@@ -256,8 +256,8 @@ export function SessionCard({
 
       <SocialActs
         entryId={session.id}
-        count={proost.count}
-        on={proost.on}
+        count={cheer.count}
+        on={cheer.on}
         commentCount={commentCount}
         shareText={shareText}
       />

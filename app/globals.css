@@ -218,6 +218,27 @@ input:focus-visible, .chip:focus-visible {
 .callout .mark { color: var(--honey); flex: none; padding-top: 1px; }
 .callout b { display: block; font-size: 14.5px; font-weight: 700; line-height: 1.35; margin-bottom: 2px; }
 .callout p { font-size: 13px; color: var(--ink-dim); line-height: 1.45; }
+.callout.warn .mark { color: var(--destructive); }
+
+/* ---- settings row with a switch (push notifications, etc.) ---- */
+.switch-row { display: flex; align-items: center; gap: 13px; padding: 4px 0; }
+.switch-row .rowmark { flex: none; }
+.switch-row .grow { flex: 1; min-width: 0; }
+.switch-row .grow b { display: block; font-size: 15px; font-weight: 700; }
+.switch-row .grow p { font-size: 13px; color: var(--ink-dim); margin-top: 2px; line-height: 1.4; }
+.switch {
+  flex: none; width: 46px; height: 27px; border-radius: 999px; border: none;
+  background: var(--surface-2); position: relative; cursor: pointer; padding: 0;
+  transition: background 0.15s ease;
+}
+.switch::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 21px; height: 21px;
+  border-radius: 50%; background: var(--surface); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease;
+}
+.switch.on { background: var(--accent); }
+.switch.on::after { transform: translateX(19px); }
+.switch:disabled { opacity: 0.5; cursor: default; }
 
 /* Photo: full-bleed-ish */
 .act-photo { display: block; width: 100%; max-height: 320px; object-fit: cover; }
@@ -487,8 +508,8 @@ input:focus-visible, .chip:focus-visible {
   cursor: pointer; padding: 0; margin-right: 22px; min-height: 44px; text-decoration: none;
 }
 .social .act svg { width: 19px; height: 19px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.social .act.proost.on { color: var(--accent); }
-.social .act.proost.on svg { fill: var(--accent); stroke: var(--accent); }
+.social .act.cheer.on { color: var(--accent); }
+.social .act.cheer.on svg { fill: var(--accent); stroke: var(--accent); }
 .social .act.share { margin-left: auto; margin-right: 0; }
 .social .act span { font-variant-numeric: tabular-nums; }
 

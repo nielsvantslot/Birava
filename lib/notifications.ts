@@ -16,7 +16,7 @@ export function describeNotification(
   const actor = content.actorUsername ?? "Someone";
 
   switch (type) {
-    case "PROOST":
+    case "CHEER":
       return { message: `${actor} cheered your session`, href: `/sessions/${content.entryId}` };
     case "FOLLOW":
       return { message: `${actor} started following you`, href: `/profile/${actor}` };
