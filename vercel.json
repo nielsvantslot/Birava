@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run prisma:generate && npm run db:migrate && npm run db:seed && npm run build",
+  "buildCommand": "npm run prisma:generate && npm run db:migrate && npm run db:seed && npm run backfill:photos && npm run build",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "nextjs",
@@ -9,7 +9,7 @@
     "deploymentEnabled": {
       "main": true,
       "staging": true,
-      "*": false
+      "**": false
     }
   }
 }

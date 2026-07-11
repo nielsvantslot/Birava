@@ -23,6 +23,9 @@ model User {
   followedBy           Follow[]               @relation("FollowFollowing")
   sessions             Session[]
   proosts              Proost[]
+  notifications        Notification[]
+  pushSubscriptions    PushSubscription[]
+  comments             Comment[]
 }
 
 model Session {
@@ -75,10 +78,14 @@ model DrinkEntry {
   lng       Decimal? @db.Decimal(9, 6)
   notes     String?
   photoUrl  String?
+  /// Tiny base64 blurred placeholder generated at upload time, rendered via
+  /// next/image's placeholder="blur" while the real photo streams in.
+  photoLqip String?
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   group     Group?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
   proosts   Proost[]
+  comments  Comment[]
 
   @@index([groupId])
   @@index([userId, createdAt])
@@ -96,6 +103,20 @@ model Proost {
   @@id([entryId, userId])
 }
 
+/// A comment on a session, keyed by the session's anchor check-in — the
+/// session id is its first check-in's id (same convention as Proost).
+model Comment {
+  id        String     @id @default(uuid()) @db.Uuid
+  entryId   String     @db.Uuid
+  userId    String     @db.Uuid
+  body      String
+  createdAt DateTime   @default(now()) @db.Timestamptz(6)
+  entry     DrinkEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([entryId, createdAt])
+}
+
 model Follow {
   followerId  String   @db.Uuid
   followingId String   @db.Uuid
@@ -106,4 +127,46 @@ model Follow {
   @@id([followerId, followingId])
   @@index([followerId])
   @@index([followingId])
+}
+
+enum NotificationType {
+  PROOST
+  FOLLOW
+  CREW_JOIN
+  CREW_CHECKIN
+  ACHIEVEMENT
+  SESSION_START
+}
+
+/// An in-app + push notification event. Actor/group display text is frozen
+/// at write time (not joined live) so the feed reads correctly even after
+/// the actor renames or deletes their account.
+model Notification {
+  id               String           @id @default(uuid()) @db.Uuid
+  userId           String           @db.Uuid
+  type             NotificationType
+  actorId          String?          @db.Uuid
+  actorUsername    String?
+  actorAvatarUrl   String?
+  entryId          String?          @db.Uuid
+  groupId          String?          @db.Uuid
+  groupName        String?
+  achievementLabel String?
+  readAt           DateTime?
+  createdAt        DateTime         @default(now()) @db.Timestamptz(6)
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

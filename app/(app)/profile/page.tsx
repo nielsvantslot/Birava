@@ -12,6 +12,7 @@ import { getMyDrinkHistory } from "@/lib/controllers/drinkController";
 import { getFollowCounts } from "@/lib/controllers/socialController";
 import { ProfileHead, ProfileActions } from "@/components/drink/profile-client";
 import { AchievementGlyph } from "@/components/drink/achievement-icon";
+import { PushSubscribeToggle } from "@/components/notifications/push-subscribe-toggle";
 
 export default async function ProfilePage() {
   const user = await getCurrentUser();
@@ -133,6 +134,7 @@ export default async function ProfilePage() {
         </div>
       )}
 
+      <PushSubscribeToggle />
       <ProfileActions />
     </>
   );

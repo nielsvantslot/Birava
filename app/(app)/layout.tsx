@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getMyUnreadNotificationCount } from "@/lib/controllers/notificationController";
 import { AppHeader } from "@/components/layout/app-header";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
@@ -54,14 +55,16 @@ async function AppHeaderLoader() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  return <AppHeader username={user.username} avatarUrl={user.avatarUrl} />;
+  const unreadCount = await getMyUnreadNotificationCount();
+  return <AppHeader username={user.username} avatarUrl={user.avatarUrl} unreadCount={unreadCount} />;
 }
 
 async function SidebarNavLoader() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  return <SidebarNav username={user.username} avatarUrl={user.avatarUrl} />;
+  const unreadCount = await getMyUnreadNotificationCount();
+  return <SidebarNav username={user.username} avatarUrl={user.avatarUrl} unreadCount={unreadCount} />;
 }
 
 async function RightRailLoader() {

@@ -28,6 +28,7 @@ export type DrinkEntry = {
   lng: number | null;
   notes: string | null;
   photo_url: string | null;
+  photo_lqip: string | null;
   created_at: string;
   profiles?: Profile;
 };

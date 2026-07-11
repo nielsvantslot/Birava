@@ -117,6 +117,20 @@ html {
 .hicon svg { width: 23px; height: 23px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .hicon.avatar-btn { background: var(--surface-2); color: var(--ink-dim); overflow: hidden; }
 .hicon.avatar-btn img { width: 100%; height: 100%; object-fit: cover; }
+.hicon { position: relative; }
+.hicon .badge {
+  position: absolute; top: 2px; right: 2px; min-width: 16px; height: 16px;
+  padding: 0 4px; border-radius: 999px; background: var(--accent); color: var(--bg);
+  font-size: 10px; font-weight: 700; line-height: 16px; text-align: center;
+}
+.sidebar-nav a { position: relative; }
+.sidebar-nav a .badge {
+  position: absolute; top: 6px; left: 26px; min-width: 16px; height: 16px;
+  padding: 0 4px; border-radius: 999px; background: var(--accent); color: var(--bg);
+  font-size: 10px; font-weight: 700; line-height: 16px; text-align: center;
+}
+.row.unread b { color: var(--ink); }
+.row.unread .rowmark { color: var(--accent); }
 
 /* ---- tab strip with underline indicator ---- */
 .tabs {
@@ -470,7 +484,7 @@ input:focus-visible, .chip:focus-visible {
 .social .act {
   display: inline-flex; align-items: center; gap: 7px; background: none; border: none;
   font: inherit; font-size: 13.5px; font-weight: 600; color: var(--ink-dim);
-  cursor: pointer; padding: 0; margin-right: 22px; min-height: 44px;
+  cursor: pointer; padding: 0; margin-right: 22px; min-height: 44px; text-decoration: none;
 }
 .social .act svg { width: 19px; height: 19px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .social .act.proost.on { color: var(--accent); }
@@ -478,11 +492,39 @@ input:focus-visible, .chip:focus-visible {
 .social .act.share { margin-left: auto; margin-right: 0; }
 .social .act span { font-variant-numeric: tabular-nums; }
 
+/* ---- comments ---- */
+.comment-list { padding: 0 16px; }
+.comment-row { display: flex; gap: 11px; padding: 12px 0; }
+.comment-row + .comment-row { border-top: 1px solid var(--line); }
+.comment-row .avatar { width: 34px; height: 34px; font-size: 12px; }
+.comment-meta { display: flex; align-items: baseline; gap: 7px; }
+.comment-meta b { font-size: 13.5px; font-weight: 700; }
+.comment-meta span { font-size: 12px; color: var(--ink-dim); }
+.comment-body { font-size: 14px; line-height: 1.4; margin-top: 2px; word-break: break-word; }
+.comment-delete {
+  background: none; border: none; color: var(--ink-dim); font-size: 18px;
+  line-height: 1; cursor: pointer; padding: 4px; flex: none; align-self: flex-start;
+}
+.comment-form { display: flex; gap: 8px; padding: 12px 16px 16px; }
+.comment-form input {
+  flex: 1; background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 999px; padding: 11px 16px; font: inherit; font-size: 14px; color: var(--ink);
+}
+.comment-form input::placeholder { color: var(--ink-dim); }
+.comment-form button {
+  background: var(--accent); color: var(--accent-ink); border: none; border-radius: 999px;
+  font: inherit; font-size: 14px; font-weight: 700; padding: 0 18px; cursor: pointer;
+}
+.comment-form button:disabled { opacity: 0.5; cursor: default; }
+
 /* ---- card hero photo: the fun, front and centre ---- */
 .card-photo { padding: 2px 16px 14px; }
-.card-photo > * { display: block; width: 100%; height: 288px; border-radius: 16px; overflow: hidden; }
+/* Separate frame (not .card-photo itself) so it can carry the definite
+   height + position:relative next/image's fill mode needs as a containing
+   block — .card-photo also carries padding, which would eat into that box. */
+.card-photo-frame { position: relative; display: block; width: 100%; height: 288px; border-radius: 16px; overflow: hidden; }
 .card-photo img { object-fit: cover; }
-.card-photo.short > * { height: 230px; }
+.card-photo.short .card-photo-frame { height: 230px; }
 
 /* ---- route chip: map demoted to a tappable summary that opens detail ---- */
 .routechip {
