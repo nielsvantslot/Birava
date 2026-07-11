@@ -77,6 +77,7 @@ export default async function DashboardPage({
               legendVenue={session.id === newestOwnId ? legendVenue : null}
               proost={proosts.get(session.id) ?? { count: 0, on: false }}
               commentCount={commentCounts.get(session.id) ?? 0}
+              priority={index === 0}
             />
             {index === 0 && (
               <div className="hint">

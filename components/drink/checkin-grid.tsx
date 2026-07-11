@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 import { drinkPhotoSrc } from "@/lib/utils";
 
 export type CheckinTile = {
@@ -14,6 +15,8 @@ export type CheckinTile = {
   /** Full "drink · venue · time" line — shown in the lightbox. */
   caption: string;
   hasPhoto: boolean;
+  /** Tiny base64 blur placeholder, if the photo has one. */
+  lqip: string | null;
   /** Edit link, only for the session owner. */
   editHref: string | null;
 };
@@ -58,12 +61,14 @@ export function CheckinGrid({ items }: { items: CheckinTile[] }) {
           >
             <span className="grid-item-badge">{item.order}</span>
             {item.hasPhoto && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={drinkPhotoSrc(item.id)}
+              <Image
+                src={drinkPhotoSrc(item.id, "thumb")}
                 alt={item.caption}
-                loading="lazy"
-                decoding="async"
+                fill
+                unoptimized
+                style={{ objectFit: "cover" }}
+                placeholder={item.lqip ? "blur" : undefined}
+                blurDataURL={item.lqip ?? undefined}
               />
             )}
             <span className="grid-item-caption">

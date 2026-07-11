@@ -15,6 +15,7 @@ export class DrinkEntryDTO {
   declare lng: number | null; // Prisma Decimal -> number
   declare notes: string | null;
   declare photoUrl: string | null;
+  declare photoLqip: string | null;
   declare createdAt: string; // Prisma Date -> ISO string
   declare user?: EntryAuthorDTO;
 }

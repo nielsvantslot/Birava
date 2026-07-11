@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { DrinkEntry } from "@/lib/types";
 import {
   DrinkSession,
@@ -79,6 +80,7 @@ export function SessionCard({
   legendVenue,
   proost,
   commentCount,
+  priority,
 }: {
   session: DrinkSession;
   tz: string;
@@ -87,6 +89,8 @@ export function SessionCard({
   legendVenue: string | null;
   proost: { count: number; on: boolean };
   commentCount: number;
+  /** Set for the first card in the feed so its hero photo isn't lazy-loaded (LCP). */
+  priority?: boolean;
 }) {
   const checkins = session.checkins;
   const lone = checkins.length === 1;
@@ -94,6 +98,9 @@ export function SessionCard({
   const minutes = sessionMinutes(session);
   const title = sessionTitle(session, tz);
   const heroPhotoId = session.photoIds[0] ?? null;
+  const heroLqip = heroPhotoId
+    ? checkins.find((c) => c.id === heroPhotoId)?.photo_lqip ?? null
+    : null;
   const routePoints = checkins
     .filter((c) => c.lat != null && c.lng != null)
     .map((c) => ({ lat: c.lat as number, lng: c.lng as number }));
@@ -175,13 +182,18 @@ export function SessionCard({
 
       {heroPhotoId && (
         <div className={multiVenue || lone ? "card-photo" : "card-photo short"}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={drinkPhotoSrc(heroPhotoId)}
-            alt={`${title} photo`}
-            loading="lazy"
-            decoding="async"
-          />
+          <div className="card-photo-frame">
+            <Image
+              src={drinkPhotoSrc(heroPhotoId)}
+              alt={`${title} photo`}
+              fill
+              sizes="(min-width: 768px) 640px, calc(100vw - 32px)"
+              style={{ objectFit: "cover" }}
+              priority={priority}
+              placeholder={heroLqip ? "blur" : undefined}
+              blurDataURL={heroLqip ?? undefined}
+            />
+          </div>
         </div>
       )}
 

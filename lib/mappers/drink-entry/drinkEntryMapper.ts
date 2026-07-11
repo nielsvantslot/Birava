@@ -18,6 +18,7 @@ export class DrinkEntryMapper {
       lng: entry.lng === null ? null : Number(entry.lng),
       notes: entry.notes,
       photoUrl: entry.photoUrl,
+      photoLqip: entry.photoLqip,
       createdAt: entry.createdAt.toISOString(),
       ...(entry.user ? { user: entry.user } : {}),
     };
