@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth/requireUser";
 import { removeDrinkPhotoByUrl, saveDrinkPhoto } from "@/lib/storage";
 import { normalizeUploadedPhoto } from "@/lib/storage/heic";
+import { InvalidPhotoError, processUploadedPhoto } from "@/lib/storage/processPhoto";
 
 type DeleteBody = {
   photoUrl?: unknown;
@@ -13,15 +14,19 @@ export const POST = requireUser<RouteContext<"/api/uploads/drink-photo">>(async 
     return Response.json({ error: "No file provided." }, { status: 400 });
   }
 
-  let normalized: File;
+  let processed: Awaited<ReturnType<typeof processUploadedPhoto>>;
   try {
-    normalized = await normalizeUploadedPhoto(file);
-  } catch {
-    return Response.json({ error: "Couldn't read that photo. Try a different file." }, { status: 400 });
+    const normalized = await normalizeUploadedPhoto(file);
+    processed = await processUploadedPhoto(normalized);
+  } catch (error) {
+    const message = error instanceof InvalidPhotoError
+      ? error.message
+      : "Couldn't read that photo. Try a different file.";
+    return Response.json({ error: message }, { status: 400 });
   }
 
-  const publicUrl = await saveDrinkPhoto(user.id, normalized);
-  return Response.json({ publicUrl });
+  const publicUrl = await saveDrinkPhoto(user.id, processed.file);
+  return Response.json({ publicUrl, lqip: processed.lqip });
 });
 
 export const DELETE = requireUser<RouteContext<"/api/uploads/drink-photo">>(async (request, user) => {

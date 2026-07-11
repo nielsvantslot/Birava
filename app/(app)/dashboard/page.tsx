@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
 import { groupIntoSessions, getLocalLegendVenue } from "@/lib/sessions";
 import { getMyFeed } from "@/lib/controllers/drinkController";
-import { getSessionProosts } from "@/lib/controllers/socialController";
+import { getSessionProosts, getCommentCounts } from "@/lib/controllers/socialController";
 import { ScreenTabs } from "@/components/ui/screen-tabs";
 import { SessionCard } from "@/components/drink/session-card";
 
@@ -27,9 +27,11 @@ export default async function DashboardPage({
   const legendVenue = getLocalLegendVenue(
     all.filter((e) => e.user_id === user.id)
   );
-  const proosts = await getSessionProosts({
-    entryIds: sessions.map((s) => s.id),
-  });
+  const entryIds = sessions.map((s) => s.id);
+  const [proosts, commentCounts] = await Promise.all([
+    getSessionProosts({ entryIds }),
+    getCommentCounts({ entryIds }),
+  ]);
 
   // The Local Legend callout appears once, on the newest own session
   const newestOwnId = sessions.find((s) => s.userId === user.id)?.id;
@@ -74,6 +76,8 @@ export default async function DashboardPage({
               isSelf={session.userId === user.id}
               legendVenue={session.id === newestOwnId ? legendVenue : null}
               proost={proosts.get(session.id) ?? { count: 0, on: false }}
+              commentCount={commentCounts.get(session.id) ?? 0}
+              priority={index === 0}
             />
             {index === 0 && (
               <div className="hint">

@@ -8,6 +8,10 @@ import {
   unfollowUser as unfollowUserCommand,
 } from "@/lib/commands/followCommands";
 import { toggleProost as toggleProostCommand } from "@/lib/commands/proostCommands";
+import {
+  createComment as createCommentCommand,
+  deleteComment as deleteCommentCommand,
+} from "@/lib/commands/commentCommands";
 import { getFollowCounts as getFollowCountsQuery, getFollowingIds, isFollowing } from "@/lib/queries/followQueries";
 import { getSocialFeed as getSocialFeedQuery } from "@/lib/queries/drinkEntryQueries";
 import { searchUsers as searchUsersQuery } from "@/lib/queries/userQueries";
@@ -16,10 +20,21 @@ import {
   type ProostState,
 } from "@/lib/queries/proostQueries";
 import {
+  getCommentCounts as getCommentCountsQuery,
+  getSessionComments as getSessionCommentsQuery,
+} from "@/lib/queries/commentQueries";
+import {
+  CommentDTO,
+  CreateCommentDTO,
+  CreateCommentResultDTO,
+  DeleteCommentDTO,
+  DeleteCommentResultDTO,
   DrinkEntryWithAuthorDTO,
   FollowCountsDTO,
   FollowCountsQueryDTO,
   FollowUserDTO,
+  GetCommentCountsDTO,
+  GetSessionCommentsDTO,
   GetSessionProostsDTO,
   GetSocialFeedDTO,
   IsFollowingQueryDTO,
@@ -119,4 +134,48 @@ export async function getSessionProosts(
   if (!user) return new Map();
 
   return getProostStates(input.entryIds, user.id);
+}
+
+export async function createComment(input: CreateCommentDTO): Promise<CreateCommentResultDTO> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const result = await createCommentCommand(user.id, input.entryId, input.body);
+  if (!result.error) {
+    revalidatePath("/dashboard");
+    revalidatePath("/sessions", "layout");
+  }
+  return result;
+}
+
+export async function deleteComment(input: DeleteCommentDTO): Promise<DeleteCommentResultDTO> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const result = await deleteCommentCommand(user.id, input.commentId);
+  if (!result.error) {
+    revalidatePath("/dashboard");
+    revalidatePath("/sessions", "layout");
+  }
+  return result;
+}
+
+/** Comment counts for a set of session anchor ids — used by feed cards. */
+export async function getCommentCounts(
+  input: GetCommentCountsDTO
+): Promise<Map<string, number>> {
+  const user = await getCurrentUser();
+  if (!user) return new Map();
+
+  return getCommentCountsQuery(input.entryIds);
+}
+
+/** Full comment threads for a set of session anchor ids. */
+export async function getSessionComments(
+  input: GetSessionCommentsDTO
+): Promise<Map<string, CommentDTO[]>> {
+  const user = await getCurrentUser();
+  if (!user) return new Map();
+
+  return getSessionCommentsQuery(input.entryIds);
 }
