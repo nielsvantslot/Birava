@@ -21,6 +21,7 @@ export function toDrinkEntry(
     lng: entry.lng === null ? null : Number(entry.lng),
     notes: entry.notes,
     photo_url: entry.photoUrl,
+    photo_lqip: entry.photoLqip,
     created_at: entry.createdAt.toISOString(),
     ...(entry.user
       ? {

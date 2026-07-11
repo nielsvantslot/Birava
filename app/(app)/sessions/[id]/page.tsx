@@ -235,6 +235,7 @@ export default async function SessionDetailPage({
               .join(" · "),
             caption: checkinCaption(c, tz),
             hasPhoto: !!c.photo_url,
+            lqip: c.photo_lqip,
             editHref: isSelf ? `/log?edit=${c.id}` : null,
           }))}
         />

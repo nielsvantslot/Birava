@@ -32,6 +32,7 @@ export async function createDrinkEntry(
         lng: input.lng,
         notes: input.notes,
         photoUrl: input.photoUrl,
+        photoLqip: input.photoLqip,
       },
     });
   } catch {
@@ -67,6 +68,7 @@ export async function updateDrinkEntry(
         lng: input.lng,
         notes: input.notes,
         photoUrl: input.photoUrl,
+        photoLqip: input.photoLqip,
       },
     });
   } catch {

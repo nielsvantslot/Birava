@@ -167,6 +167,8 @@ export function CheckinForm({ editEntry }: { editEntry?: DrinkEntry }) {
       // clear it when the preview was removed.
       let photoUrl: string | null =
         !photoFile && photoPreview ? (editEntry?.photo_url ?? null) : null;
+      let photoLqip: string | null =
+        !photoFile && photoPreview ? (editEntry?.photo_lqip ?? null) : null;
 
       if (photoFile) {
         const formData = new FormData();
@@ -176,13 +178,14 @@ export function CheckinForm({ editEntry }: { editEntry?: DrinkEntry }) {
           body: formData,
         });
         const result = (await res.json().catch(() => null)) as
-          | { error?: string; publicUrl?: string }
+          | { error?: string; publicUrl?: string; lqip?: string }
           | null;
         if (!res.ok || !result?.publicUrl) {
           setError(result?.error ?? "Failed to upload photo.");
           return;
         }
         photoUrl = result.publicUrl;
+        photoLqip = result.lqip ?? null;
       }
 
       const payload = {
@@ -193,6 +196,7 @@ export function CheckinForm({ editEntry }: { editEntry?: DrinkEntry }) {
         lng: coords?.lng ?? null,
         notes: editEntry?.notes ?? null,
         photoUrl: photoUrl,
+        photoLqip: photoLqip,
       };
 
       if (editEntry) {

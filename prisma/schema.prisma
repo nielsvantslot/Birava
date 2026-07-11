@@ -75,6 +75,9 @@ model DrinkEntry {
   lng       Decimal? @db.Decimal(9, 6)
   notes     String?
   photoUrl  String?
+  /// Tiny base64 blurred placeholder generated at upload time, rendered via
+  /// next/image's placeholder="blur" while the real photo streams in.
+  photoLqip String?
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   group     Group?   @relation(fields: [groupId], references: [id], onDelete: SetNull)

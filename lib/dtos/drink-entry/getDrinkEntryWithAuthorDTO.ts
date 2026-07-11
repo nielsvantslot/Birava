@@ -11,6 +11,7 @@ export class DrinkEntryWithAuthorDTO {
   declare amount: number;
   declare notes: string | null;
   declare photoUrl: string | null;
+  declare photoLqip: string | null;
   declare createdAt: string;
   declare user: EntryAuthorDTO;
 }

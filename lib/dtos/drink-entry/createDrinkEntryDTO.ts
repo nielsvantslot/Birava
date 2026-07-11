@@ -6,4 +6,5 @@ export class CreateDrinkEntryDTO {
   declare lng: number | null;
   declare notes: string | null;
   declare photoUrl: string | null;
+  declare photoLqip: string | null;
 }
