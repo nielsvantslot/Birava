@@ -75,14 +75,18 @@ export function PushSubscribeToggle() {
     };
 
     try {
-      const registration = await withTimeout(navigator.serviceWorker.getRegistration(), SUBSCRIBE_TIMEOUT_MS);
-      if (!registration) {
-        showToast("Push isn't available in this build — try the deployed app.");
-        return;
-      }
+      // iOS Safari only honors Notification.requestPermission() while the call
+      // is still inside the click's synchronous user-activation window — any
+      // await before it (even a fast one) silently drops the permission prompt,
+      // and every subscribe() call after that hangs until our timeout fires.
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
         setStatus("denied");
+        return;
+      }
+      const registration = await withTimeout(navigator.serviceWorker.getRegistration(), SUBSCRIBE_TIMEOUT_MS);
+      if (!registration) {
+        showToast("Push isn't available in this build — try the deployed app.");
         return;
       }
       const subscribePromise = registration.pushManager.subscribe({
