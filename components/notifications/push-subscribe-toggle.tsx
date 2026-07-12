@@ -84,11 +84,11 @@ export function PushSubscribeToggle() {
         setStatus("denied");
         return;
       }
-      const registration = await withTimeout(navigator.serviceWorker.getRegistration(), SUBSCRIBE_TIMEOUT_MS);
-      if (!registration) {
-        showToast("Push isn't available in this build — try the deployed app.");
-        return;
-      }
+      // getRegistration() can resolve to undefined if the service worker hasn't
+      // finished installing yet — e.g. right after a fresh "Add to Home Screen"
+      // launch on iOS, where this races the app's own register() call. `ready`
+      // waits for an active worker instead of snapshotting mid-install.
+      const registration = await withTimeout(navigator.serviceWorker.ready, SUBSCRIBE_TIMEOUT_MS);
       const subscribePromise = registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!) as BufferSource,
@@ -121,8 +121,8 @@ export function PushSubscribeToggle() {
     };
 
     try {
-      const registration = await withTimeout(navigator.serviceWorker.getRegistration(), SUBSCRIBE_TIMEOUT_MS);
-      const subscription = await registration?.pushManager.getSubscription();
+      const registration = await withTimeout(navigator.serviceWorker.ready, SUBSCRIBE_TIMEOUT_MS);
+      const subscription = await registration.pushManager.getSubscription();
       if (!subscription) {
         completeSuccess();
         return;
