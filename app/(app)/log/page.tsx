@@ -8,6 +8,7 @@ import {
 import { DrinkEntry } from "@/lib/types";
 import { relativeDay } from "@/lib/dates";
 import { CheckinForm } from "@/components/drink/log-drink-form";
+import { drinkPhotoService } from "@/lib/photoUpload";
 
 function recentMeta(entry: DrinkEntry, tz: string): string {
   return [
@@ -48,7 +49,12 @@ export default async function LogPage({
             ? "Fix the details, keep the memory."
             : "Thirty seconds. Then back to drinking it."}
         </p>
-        <CheckinForm key={editEntry?.id ?? "new"} editEntry={editEntry} />
+        <CheckinForm
+          key={editEntry?.id ?? "new"}
+          editEntry={editEntry}
+          userId={user.id}
+          supportsDirectUpload={drinkPhotoService.supportsDirectUpload}
+        />
       </div>
 
       <div className="section">

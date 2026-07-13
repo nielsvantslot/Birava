@@ -3,7 +3,7 @@ import { computeAchievements } from "@/lib/achievements";
 import { SESSION_GAP_MS } from "@/lib/sessions";
 import { getUserTimeZone } from "@/lib/timezone";
 import { toDrinkEntry } from "@/lib/mappers";
-import { removeDrinkPhotoByUrl } from "@/lib/storage";
+import { drinkPhotoService } from "@/lib/photoUpload";
 import { getFollowerIds } from "@/lib/queries/followQueries";
 import { queueNotifications, type NotificationEvent } from "@/lib/notify";
 import {
@@ -140,7 +140,7 @@ export async function updateDrinkEntry(
   }
 
   if (existing.photoUrl && existing.photoUrl !== input.photoUrl) {
-    await removeDrinkPhotoByUrl(existing.photoUrl);
+    await drinkPhotoService.remove(existing.photoUrl, userId);
   }
 
   return {};
@@ -162,7 +162,7 @@ export async function deleteDrinkEntry(
   }
 
   if (entry?.photoUrl) {
-    await removeDrinkPhotoByUrl(entry.photoUrl);
+    await drinkPhotoService.remove(entry.photoUrl, userId);
   }
 
   return {};

@@ -1,8 +1,8 @@
 /**
  * Reprocesses existing check-in photos through the same resize/EXIF-strip/
- * WebP/LQIP pipeline new uploads already use (lib/storage/processPhoto.ts),
- * so photos uploaded before that pipeline existed converge to the same
- * format as new ones.
+ * WebP/LQIP pipeline new uploads already use (modules/photo-upload/), so
+ * photos uploaded before that pipeline existed converge to the same format
+ * as new ones.
  *
  * Runs automatically on every staging/production deploy (vercel.json). Safe
  * to run on every deploy indefinitely:
@@ -15,9 +15,7 @@
  *    logged and skipped; the process always exits 0.
  */
 import { PrismaClient } from "@prisma/client";
-import { readDrinkPhoto, saveDrinkPhoto, removeDrinkPhotoByUrl } from "../lib/storage";
-import { streamToBuffer } from "../lib/storage/streamToBuffer";
-import { reencodeStoredPhoto } from "../lib/storage/processPhoto";
+import { drinkPhotoService } from "../lib/photoUpload";
 
 const db = new PrismaClient();
 
@@ -26,24 +24,26 @@ const BATCH_SIZE = 25;
 type BackfillOutcome = "backfilled" | "skipped";
 
 async function backfillRow(entry: { id: string; userId: string; photoUrl: string }): Promise<BackfillOutcome> {
-  const original = await readDrinkPhoto(entry.photoUrl);
+  // Check existence separately from reprocessStored() so a missing blob (an
+  // expected, non-error case) doesn't get lumped in with real decode
+  // failures below — those should propagate to main()'s catch and count as
+  // "failed" with the actual error logged, not silently counted as "skipped".
+  const original = await drinkPhotoService.read(entry.photoUrl);
   if (!original) {
     console.warn(`[backfill] ${entry.id}: stored photo not found, skipping`);
     return "skipped";
   }
 
-  const inputBuffer = await streamToBuffer(original.stream);
-  const { file, lqip } = await reencodeStoredPhoto(inputBuffer);
-  const newUrl = await saveDrinkPhoto(entry.userId, file);
+  const reprocessed = await drinkPhotoService.reprocessStored(entry.photoUrl, entry.userId);
 
   // Update the row before deleting the old blob — if this fails, the row
   // still points at a valid (old) photo instead of a deleted one.
   await db.drinkEntry.update({
     where: { id: entry.id },
-    data: { photoUrl: newUrl, photoLqip: lqip },
+    data: { photoUrl: reprocessed.url, photoLqip: reprocessed.lqip },
   });
 
-  await removeDrinkPhotoByUrl(entry.photoUrl);
+  await drinkPhotoService.remove(entry.photoUrl, entry.userId);
   return "backfilled";
 }
 
