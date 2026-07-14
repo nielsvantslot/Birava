@@ -46,7 +46,8 @@ The app is the **Birava 2.0** redesign (spec: `BIRAVA-2.0-HANDOFF.md` in the cla
 - **Vocabulary (exact):** log (verb) / check-in / session / crew / leaderboard (only the ranking *inside* a crew). Copy says "drink", not "beer" (marketing may say beer). Wrong-code error is exactly "That code doesn't match any crew." Sentence case; no emoji anywhere in UI copy.
 - **Accent discipline is a correctness bug if wrong:** `--accent` = actions + the current user's own data only; other people render in `--ink`. `--honey` = achievements only.
 - **Celebrate variety, never volume:** no drink-count achievements, no avg/day/hour anywhere, crew leaderboards score **since each member joined** (`lib/crews.ts`), streak = **active weeks** with rest-week/recovery framing. Ratings are stripped app-wide (the `rating` column exists but is unused — don't resurface it without a product call). Never show a streak at the moment of logging.
-- **PARKED (never build):** pace/avg-per-hour metrics, or any "you're drinking fast" nudge — the app does not editorialize the user's drinking.
+  - **Exception (2026-07-14, deliberate product call):** a **user-initiated session share card** may show that session's raw drink count (alongside variety, duration, venues, map). This is opt-in sharing, not ambient volume framing — the no-volume rule still holds everywhere else in the UI.
+- **PARKED (never build):** pace/avg-per-hour metrics, or any "you're drinking fast" nudge — the app does not editorialize the user's drinking. (Still parked even on the share card — the 2026-07-14 count exception does **not** extend to pace.)
 
 ## Data flow: Prisma rows → snake_case DTOs
 

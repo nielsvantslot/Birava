@@ -111,6 +111,15 @@ export function sessionMinutes(session: DrinkSession): number {
   );
 }
 
+/** Human duration for a span of minutes: "3h 20m", "45m", "2h". */
+export function formatSessionDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
 /**
  * Serif card title. Multi check-in sessions get a time-of-day name from
  * the session's local start; a session of one is titled by its drink.
