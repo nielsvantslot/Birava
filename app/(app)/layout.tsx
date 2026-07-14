@@ -8,6 +8,8 @@ import { SidebarNav } from "@/components/layout/sidebar-nav";
 import { RightRail } from "@/components/layout/right-rail";
 import { ToastPill } from "@/components/ui/toast-pill";
 import { TimezoneSync } from "@/components/timezone-sync";
+import { PendingCheckinsSync } from "@/components/drink/pending-checkins-sync";
+import { drinkPhotoService } from "@/lib/photoUpload";
 
 export default function AppLayout({
   children,
@@ -47,8 +49,18 @@ export default function AppLayout({
       </Suspense>
       <ToastPill />
       <TimezoneSync />
+      <Suspense fallback={null}>
+        <PendingCheckinsSyncLoader />
+      </Suspense>
     </div>
   );
+}
+
+async function PendingCheckinsSyncLoader() {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  return <PendingCheckinsSync userId={user.id} supportsDirectUpload={drinkPhotoService.supportsDirectUpload} />;
 }
 
 async function AppHeaderLoader() {

@@ -8,6 +8,7 @@ import {
 import { DrinkEntry } from "@/lib/types";
 import { relativeDay } from "@/lib/dates";
 import { CheckinForm } from "@/components/drink/log-drink-form";
+import { PendingCheckinsPanel } from "@/components/drink/pending-checkins-panel";
 import { drinkPhotoService } from "@/lib/photoUpload";
 
 function recentMeta(entry: DrinkEntry, tz: string): string {
@@ -56,6 +57,8 @@ export default async function LogPage({
           supportsDirectUpload={drinkPhotoService.supportsDirectUpload}
         />
       </div>
+
+      <PendingCheckinsPanel userId={user.id} supportsDirectUpload={drinkPhotoService.supportsDirectUpload} />
 
       <div className="section">
         <div className="h-row">
