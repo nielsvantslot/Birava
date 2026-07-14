@@ -19,7 +19,7 @@ import { PrismaClient } from "@prisma/client";
 import { readFile } from "fs/promises";
 import path from "path";
 import { hashPassword } from "../lib/auth/password";
-import { saveDrinkPhoto } from "../lib/storage";
+import { drinkPhotoService } from "../lib/photoUpload";
 
 const db = new PrismaClient();
 
@@ -129,7 +129,7 @@ async function uploadPhotos(userId: string) {
       path.join(process.cwd(), "prisma", "seed-assets", file)
     );
     const upload = new File([new Uint8Array(bytes)], file, { type: "image/jpeg" });
-    urls[key] = await saveDrinkPhoto(userId, upload);
+    urls[key] = (await drinkPhotoService.store(upload, userId)).url;
   }
   return urls;
 }

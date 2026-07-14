@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { PhotoUploadPreparer, PhotoUploader } from "@/modules/photo-upload/client";
 import {
   addDrink,
   editDrink,
@@ -11,6 +12,7 @@ import { triggerConfetti } from "@/lib/achievements";
 import { showToast } from "@/components/ui/toast-pill";
 import { DrinkEntry, DRINK_TYPES } from "@/lib/types";
 import { drinkPhotoSrc, cn } from "@/lib/utils";
+import { DRINK_PHOTO_MAX_DIMENSION, DRINK_PHOTO_MAX_UPLOAD_BYTES, drinkPhotoKeyPrefix } from "@/lib/photoUploadConfig";
 
 type Coords = { lat: number; lng: number };
 
@@ -28,12 +30,23 @@ function getPosition(): Promise<Coords> {
   });
 }
 
-const HEIC_EXTENSIONS = [".heic", ".heif"];
-const HEIC_MIME_TYPES = ["image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence"];
+// JPEG canvas-encode quality (0-1) is a client-only concern — the server's
+// WebP quality (0-100, lib/photoUpload.ts) is a different encoder/scale, not
+// the same number, so it isn't shared here.
+const PHOTO_COMPRESS_CONFIG = { maxDimension: DRINK_PHOTO_MAX_DIMENSION, quality: 0.85 };
 
-function isHeicFile(file: File): boolean {
-  const name = file.name.toLowerCase();
-  return HEIC_EXTENSIONS.some((ext) => name.endsWith(ext)) || HEIC_MIME_TYPES.includes(file.type);
+function photoUploadEndpoints(userId: string, supportsDirectUpload: boolean) {
+  // Production/staging upload straight to Blob (see lib/photoUpload.ts); local
+  // dev has no direct-upload-capable adapter, so it stays on the simple
+  // multipart route.
+  return supportsDirectUpload
+    ? {
+        mode: "direct" as const,
+        tokenUrl: "/api/uploads/drink-photo/blob-token",
+        finalizeUrl: "/api/uploads/drink-photo/finalize",
+        keyPrefix: drinkPhotoKeyPrefix(userId),
+      }
+    : { mode: "server" as const, uploadUrl: "/api/uploads/drink-photo" };
 }
 
 async function reverseGeocode(coords: Coords): Promise<string | null> {
@@ -62,7 +75,15 @@ async function reverseGeocode(coords: Coords): Promise<string | null> {
  * Deliberately small: name, type, optional photo, venue. Geolocation
  * prefills the venue silently and never blocks logging.
  */
-export function CheckinForm({ editEntry }: { editEntry?: DrinkEntry }) {
+export function CheckinForm({
+  editEntry,
+  userId,
+  supportsDirectUpload,
+}: {
+  editEntry?: DrinkEntry;
+  userId: string;
+  supportsDirectUpload: boolean;
+}) {
   const router = useRouter();
   const editing = !!editEntry;
   const [isPending, startTransition] = useTransition();
@@ -117,25 +138,10 @@ export function CheckinForm({ editEntry }: { editEntry?: DrinkEntry }) {
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setPhotoFile(file);
 
-    // The original file still uploads as-is and gets converted server-side
-    // (lib/storage/heic.ts) — this is only so the preview isn't blank, since
-    // Chrome/Firefox/Edge can't render HEIC (iPhone's default photo format)
-    // in an <img> tag at all.
-    if (!isHeicFile(file)) {
-      setPhotoPreview(URL.createObjectURL(file));
-      return;
-    }
-
-    try {
-      const convert = (await import("heic-convert/browser")).default;
-      const buffer = new Uint8Array(await file.arrayBuffer());
-      const jpeg = await convert({ buffer, format: "JPEG", quality: 0.9 });
-      setPhotoPreview(URL.createObjectURL(new Blob([Uint8Array.from(jpeg)], { type: "image/jpeg" })));
-    } catch {
-      setPhotoPreview(null);
-    }
+    const { file: prepared, previewUrl } = await PhotoUploadPreparer.prepare(file, PHOTO_COMPRESS_CONFIG, supportsDirectUpload);
+    setPhotoFile(prepared);
+    setPhotoPreview(previewUrl);
   };
 
   const handleRemovePhoto = () => {
@@ -163,68 +169,69 @@ export function CheckinForm({ editEntry }: { editEntry?: DrinkEntry }) {
     setError(null);
 
     startTransition(async () => {
-      // Keep the existing storage handle when the photo is untouched;
-      // clear it when the preview was removed.
-      let photoUrl: string | null =
-        !photoFile && photoPreview ? (editEntry?.photo_url ?? null) : null;
-      let photoLqip: string | null =
-        !photoFile && photoPreview ? (editEntry?.photo_lqip ?? null) : null;
+      try {
+        // Keep the existing storage handle when the photo is untouched;
+        // clear it when the preview was removed.
+        let photoUrl: string | null =
+          !photoFile && photoPreview ? (editEntry?.photo_url ?? null) : null;
+        let photoLqip: string | null =
+          !photoFile && photoPreview ? (editEntry?.photo_lqip ?? null) : null;
 
-      if (photoFile) {
-        const formData = new FormData();
-        formData.append("file", photoFile);
-        const res = await fetch("/api/uploads/drink-photo", {
-          method: "POST",
-          body: formData,
-        });
-        const result = (await res.json().catch(() => null)) as
-          | { error?: string; publicUrl?: string; lqip?: string }
-          | null;
-        if (!res.ok || !result?.publicUrl) {
-          setError(result?.error ?? "Failed to upload photo.");
+        if (photoFile) {
+          if (photoFile.size > DRINK_PHOTO_MAX_UPLOAD_BYTES) {
+            setError("Photo is too large. Please use a smaller photo.");
+            return;
+          }
+
+          const uploadResult = await PhotoUploader.upload(photoFile, photoUploadEndpoints(userId, supportsDirectUpload));
+          if ("error" in uploadResult) {
+            setError(uploadResult.error);
+            return;
+          }
+          photoUrl = uploadResult.url;
+          photoLqip = uploadResult.lqip;
+        }
+
+        const payload = {
+          drinkName: name.trim() || null,
+          drinkType: type,
+          venue: venue.trim() || null,
+          lat: coords?.lat ?? null,
+          lng: coords?.lng ?? null,
+          notes: editEntry?.notes ?? null,
+          photoUrl: photoUrl,
+          photoLqip: photoLqip,
+        };
+
+        if (editEntry) {
+          const result = await editDrink({ id: editEntry.id, ...payload });
+          if (result.error) {
+            setError(result.error);
+            return;
+          }
+          showToast("Check-in updated");
+          router.push(`/sessions/${editEntry.id}`);
+          router.refresh();
           return;
         }
-        photoUrl = result.publicUrl;
-        photoLqip = result.lqip ?? null;
-      }
 
-      const payload = {
-        drinkName: name.trim() || null,
-        drinkType: type,
-        venue: venue.trim() || null,
-        lat: coords?.lat ?? null,
-        lng: coords?.lng ?? null,
-        notes: editEntry?.notes ?? null,
-        photoUrl: photoUrl,
-        photoLqip: photoLqip,
-      };
-
-      if (editEntry) {
-        const result = await editDrink({ id: editEntry.id, ...payload });
+        const result = await addDrink(payload);
         if (result.error) {
           setError(result.error);
           return;
         }
-        showToast("Check-in updated");
-        router.push(`/sessions/${editEntry.id}`);
+
+        if (result.achievementUnlocked) triggerConfetti();
+        showToast("Logged — added to tonight's session");
+
+        setName("");
+        setVenue("");
+        handleRemovePhoto();
+        router.push(`/sessions/${result.id}`);
         router.refresh();
-        return;
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-
-      const result = await addDrink(payload);
-      if (result.error) {
-        setError(result.error);
-        return;
-      }
-
-      if (result.achievementUnlocked) triggerConfetti();
-      showToast("Logged — added to tonight's session");
-
-      setName("");
-      setVenue("");
-      handleRemovePhoto();
-      router.push(`/sessions/${result.id}`);
-      router.refresh();
     });
   };
 
