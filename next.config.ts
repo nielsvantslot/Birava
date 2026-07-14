@@ -27,6 +27,22 @@ const nextConfig: NextConfig = {
   watchOptions: {
     pollIntervalMs: 1000,
   },
+  webpack: (config) => {
+    // Local dev's photo storage (LocalDiskStorageAdapter) writes uploaded
+    // check-in photos into public/uploads/ — inside the watched project
+    // tree, so every upload was triggering a Fast Refresh. That's
+    // disruptive on its own, and in the E2E suite it actively cancels
+    // in-flight navigations (observed: a 200 response immediately followed
+    // by net::ERR_ABORTED the instant "[Fast Refresh] rebuilding" fires),
+    // which cascaded into seemingly unrelated test failures well after the
+    // upload itself. Next's own `watchOptions` config (above) doesn't expose
+    // `ignored` — this goes straight at webpack's.
+    config.watchOptions = {
+      ...config.watchOptions,
+      ignored: ["**/public/uploads/**"],
+    };
+    return config;
+  },
 };
 
 export default nextConfig;
