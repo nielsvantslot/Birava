@@ -45,7 +45,55 @@ services:
       timeout: 3s
       retries: 10
 
+  # Isolated database for integration tests — `docker compose --profile test
+  # up -d db-test`. Deliberately no named volume: always empty on a fresh
+  # `up`, so tests never see dev's seeded/real data.
+  db-test:
+    image: postgres:16-alpine
+    container_name: birava-postgres-test
+    profiles: ["test"]
+    environment:
+      POSTGRES_DB: birava_test
+      POSTGRES_USER: birava
+      POSTGRES_PASSWORD: birava
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U birava -d birava_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # E2E runner — `docker compose --profile test run --rm playwright npm run
+  # test:e2e`. Deliberately not birava-app: that's node:20-alpine, and
+  # Playwright doesn't publish official Alpine (musl) browser builds.
+  # Microsoft's own image is Debian-based with browsers preinstalled, and
+  # gets its own node_modules volume since Alpine/Debian native binaries
+  # (e.g. sharp) aren't interchangeable with birava-app's.
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.61.1-jammy
+    container_name: birava-playwright
+    profiles: ["test"]
+    working_dir: /app
+    depends_on:
+      db-test:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://birava:birava@db-test:5432/birava_test?schema=public
+      NEXT_PUBLIC_APP_URL: http://localhost:3001
+    command: >
+      sh -c "npm install &&
+      npx prisma migrate deploy &&
+      npm run test:e2e"
+    volumes:
+      - ./:/app
+      - birava-playwright-node-modules:/app/node_modules
+      - birava-playwright-next-cache:/app/.next
+
 volumes:
   birava-postgres-data:
   birava-node-modules:
   birava-next-cache:
+  birava-playwright-node-modules:
+  birava-playwright-next-cache:
