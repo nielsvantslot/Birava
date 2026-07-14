@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import sharp from "sharp";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getSessionCheckins } from "@/lib/controllers/drinkController";
 import {
@@ -8,8 +9,8 @@ import {
   sessionTitle,
 } from "@/lib/sessions";
 import { getUserTimeZone } from "@/lib/timezone";
-import { readDrinkPhoto } from "@/lib/storage";
-import { streamToBuffer } from "@/lib/storage/streamToBuffer";
+import { drinkPhotoService } from "@/lib/photoUpload";
+import { StreamBufferConverter } from "@/modules/photo-upload/StreamBufferConverter";
 
 // Prisma (getCurrentUser / history) and the storage layer need Node, not edge.
 export const runtime = "nodejs";
@@ -64,10 +65,14 @@ export async function GET(
   const heroCheckin = session.checkins.find((c) => c.photo_url);
   if (heroCheckin?.photo_url) {
     try {
-      const photo = await readDrinkPhoto(heroCheckin.photo_url);
+      const photo = await drinkPhotoService.read(heroCheckin.photo_url);
       if (photo) {
-        const buf = await streamToBuffer(photo.stream);
-        heroDataUri = `data:${photo.contentType};base64,${buf.toString("base64")}`;
+        const buf = await StreamBufferConverter.toBuffer(photo.stream);
+        // Satori (next/og's renderer) can't decode WebP — every stored check-in
+        // photo is WebP (lib/photoUpload.ts) — so re-encode to JPEG just for
+        // this embed rather than switching the whole pipeline's storage format.
+        const jpeg = await sharp(buf).jpeg({ quality: 85 }).toBuffer();
+        heroDataUri = `data:image/jpeg;base64,${jpeg.toString("base64")}`;
       }
     } catch {
       /* no hero photo — card still renders with stats only */
