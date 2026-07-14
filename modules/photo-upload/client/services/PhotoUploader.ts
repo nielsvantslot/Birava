@@ -9,11 +9,12 @@ type UploadResponseBody = Partial<UploadResultDto> & Partial<ErrorResponseDto>;
 export class PhotoUploader {
   static async upload(
     file: File,
-    endpoints: DirectUploadEndpoints | ServerUploadEndpoints
+    endpoints: DirectUploadEndpoints | ServerUploadEndpoints,
+    signal?: AbortSignal
   ): Promise<PhotoUploadResultDto> {
     return endpoints.mode === "direct"
-      ? PhotoUploader.uploadDirect(file, endpoints)
-      : PhotoUploader.uploadViaServer(file, endpoints);
+      ? PhotoUploader.uploadDirect(file, endpoints, signal)
+      : PhotoUploader.uploadViaServer(file, endpoints, signal);
   }
 
   /**
@@ -23,7 +24,11 @@ export class PhotoUploader {
    * pipeline. Use wherever the service was configured with a `directUpload`
    * coordinator (e.g. production/staging with the Vercel Blob adapter).
    */
-  private static async uploadDirect(file: File, endpoints: DirectUploadEndpoints): Promise<PhotoUploadResultDto> {
+  private static async uploadDirect(
+    file: File,
+    endpoints: DirectUploadEndpoints,
+    signal?: AbortSignal
+  ): Promise<PhotoUploadResultDto> {
     const transport = endpoints.transport ?? new VercelBlobDirectUploadTransport();
     try {
       // The finalize step reconstructs a File from the raw bytes later, with
@@ -32,12 +37,13 @@ export class PhotoUploader {
       // keeps that detection working when a HEIC file skips client conversion.
       const ext = /\.([a-z0-9]+)$/i.exec(file.name)?.[1] ?? "jpg";
       const pathname = `${endpoints.keyPrefix}/${crypto.randomUUID()}.${ext}`;
-      const { url: rawUrl } = await transport.putDirect(pathname, file, endpoints.tokenUrl);
+      const { url: rawUrl } = await transport.putDirect(pathname, file, endpoints.tokenUrl, signal);
 
       const res = await fetch(endpoints.finalizeUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: rawUrl }),
+        signal,
       });
       const result = await PhotoUploader.parseJson(res);
       if (!res.ok || !result?.url) return { error: result?.error ?? "Failed to process photo." };
@@ -48,13 +54,17 @@ export class PhotoUploader {
   }
 
   /** Uploads through the server in a single multipart request. Use where direct uploads aren't available (e.g. local dev disk storage). */
-  private static async uploadViaServer(file: File, endpoints: ServerUploadEndpoints): Promise<PhotoUploadResultDto> {
+  private static async uploadViaServer(
+    file: File,
+    endpoints: ServerUploadEndpoints,
+    signal?: AbortSignal
+  ): Promise<PhotoUploadResultDto> {
     const formData = new FormData();
     formData.append("file", file);
 
     let res: Response;
     try {
-      res = await fetch(endpoints.uploadUrl, { method: "POST", body: formData });
+      res = await fetch(endpoints.uploadUrl, { method: "POST", body: formData, signal });
     } catch {
       return { error: "Couldn't upload photo — check your connection and try again." };
     }

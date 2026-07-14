@@ -15,3 +15,19 @@ export const DRINK_PHOTO_MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 export function drinkPhotoKeyPrefix(userId: string): string {
   return `entries-photos/${userId}`;
 }
+
+/**
+ * Picks the upload endpoints a `PhotoUploader.upload` call needs for check-in
+ * photos — shared between the log form (uploading fresh) and the offline
+ * sync flush (uploading a queued photo later), so both agree on routes.
+ */
+export function drinkPhotoUploadEndpoints(userId: string, supportsDirectUpload: boolean) {
+  return supportsDirectUpload
+    ? {
+        mode: "direct" as const,
+        tokenUrl: "/api/uploads/drink-photo/blob-token",
+        finalizeUrl: "/api/uploads/drink-photo/finalize",
+        keyPrefix: drinkPhotoKeyPrefix(userId),
+      }
+    : { mode: "server" as const, uploadUrl: "/api/uploads/drink-photo" };
+}

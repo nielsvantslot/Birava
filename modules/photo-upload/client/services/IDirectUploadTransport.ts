@@ -6,5 +6,5 @@
  * requiring edits inside `PhotoUploader` itself.
  */
 export interface IDirectUploadTransport {
-  putDirect(pathname: string, file: File, tokenUrl: string): Promise<{ url: string }>;
+  putDirect(pathname: string, file: File, tokenUrl: string, signal?: AbortSignal): Promise<{ url: string }>;
 }

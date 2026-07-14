@@ -23,6 +23,21 @@ export class PhotoUploadRouteFactory {
         return Response.json({ error: "No file provided." } satisfies ErrorResponseDto, { status: 400 });
       }
 
+      // The caller (e.g. a cancelled/replaced photo pick) may have already
+      // disconnected by the time the (possibly large) body finished
+      // buffering above — Next doesn't tie this handler's execution to the
+      // request's lifetime on its own, so without this check the file still
+      // gets processed and written, orphaned, with nothing the client could
+      // ever reference to clean it up. This narrows that window but can't
+      // close it entirely — a disconnect isn't always observable this early
+      // (verified: a same-request abort on a fast local upload can still slip
+      // past this single check and finish writing before the platform notices
+      // the client is gone). Good enough to catch the common case; not a
+      // guarantee.
+      if (request.signal.aborted) {
+        return Response.json({ error: "Upload cancelled." } satisfies ErrorResponseDto, { status: 499 });
+      }
+
       try {
         const result = await service.processAndStore(file, user.id);
         return Response.json(result);
@@ -88,6 +103,10 @@ export class PhotoUploadRouteFactory {
       const body = (await request.json().catch(() => null)) as Partial<FinalizeUploadRequestDto> | null;
       const rawUrl = typeof body?.url === "string" ? body.url : "";
       if (!rawUrl) return Response.json({ error: "Invalid upload." } satisfies ErrorResponseDto, { status: 400 });
+
+      if (request.signal.aborted) {
+        return Response.json({ error: "Upload cancelled." } satisfies ErrorResponseDto, { status: 499 });
+      }
 
       try {
         const result = await service.finalizeDirectUpload(rawUrl, user.id);
