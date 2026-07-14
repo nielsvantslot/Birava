@@ -41,7 +41,7 @@ export function SocialActs({
     });
   };
 
-  const handleShare = async () => {
+  const shareTextOnly = async () => {
     if (navigator.share) {
       try {
         await navigator.share({ text: shareText });
@@ -52,6 +52,26 @@ export function SocialActs({
     }
     await navigator.clipboard.writeText(shareText);
     showToast("Copied to clipboard");
+  };
+
+  const handleShare = async () => {
+    // Best-effort: share the rendered recap card image. The route serves the
+    // image only for the viewer's OWN session (404 otherwise), so on someone
+    // else's card this quietly falls back to the text share.
+    try {
+      const res = await fetch(`/api/sessions/${entryId}/share-image`);
+      if (res.ok) {
+        const blob = await res.blob();
+        const file = new File([blob], "birava-session.png", { type: "image/png" });
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ files: [file], text: shareText });
+          return;
+        }
+      }
+    } catch {
+      /* fall through to the text share below */
+    }
+    await shareTextOnly();
   };
 
   return (

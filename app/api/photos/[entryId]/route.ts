@@ -1,8 +1,8 @@
 import crypto from "crypto";
 import sharp from "sharp";
 import { requireUser } from "@/lib/auth/requireUser";
-import { readDrinkPhoto } from "@/lib/storage";
-import { streamToBuffer } from "@/lib/storage/streamToBuffer";
+import { drinkPhotoService } from "@/lib/photoUpload";
+import { StreamBufferConverter } from "@/modules/photo-upload/StreamBufferConverter";
 import { getViewableDrinkPhotoUrl } from "@/lib/queries/drinkEntryQueries";
 import { HERO_WIDTHS, THUMB_WIDTH } from "@/lib/photoSizes";
 
@@ -54,7 +54,7 @@ export const GET = requireUser<RouteContext<"/api/photos/[entryId]">>(
       });
     }
 
-    const photo = await readDrinkPhoto(photoUrl);
+    const photo = await drinkPhotoService.read(photoUrl);
     if (!photo) return new Response("Not found", { status: 404 });
 
     if (!resize) {
@@ -67,7 +67,7 @@ export const GET = requireUser<RouteContext<"/api/photos/[entryId]">>(
       });
     }
 
-    const resizedBuffer = await sharp(await streamToBuffer(photo.stream))
+    const resizedBuffer = await sharp(await StreamBufferConverter.toBuffer(photo.stream))
       .resize({ width: resize.width, withoutEnlargement: true })
       .webp({ quality: RESIZE_QUALITY })
       .toBuffer();
