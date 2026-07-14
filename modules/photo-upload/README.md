@@ -178,6 +178,17 @@ server side was wired to a different provider's `IDirectUploadCoordinator`.
 
 ## Notes
 
+- `PhotoUploader.upload(file, endpoints, signal?)` takes an optional
+  `AbortSignal` — pass one if the caller might cancel (the user replaces or
+  removes the photo before it finishes). It's honored end-to-end (the plain
+  upload route, the direct-to-Blob PUT, and the token/finalize requests), and
+  `createUploadRoute`/`createFinalizeRoute` both bail out early with a 499 if
+  `request.signal.aborted` by the time they'd otherwise start processing —
+  but this narrows, not eliminates, the chance of an orphaned stored file: a
+  disconnect isn't always observable that early (a fast enough upload can
+  finish writing before the platform notices the client is gone). Treat it as
+  best-effort, not a guarantee — a caller that cares about zero orphans still
+  needs a periodic cleanup sweep for anything unreferenced.
 - `keyPrefix` must be identical wherever it's referenced (service config, and
   the client's `DirectUploadEndpoints.keyPrefix`) — it's both the storage
   layout and the ownership check on delete/finalize.

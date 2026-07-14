@@ -6,9 +6,9 @@ import type { IDirectUploadTransport } from "./IDirectUploadTransport";
  * using a different transport isn't forced to have that package installed.
  */
 export class VercelBlobDirectUploadTransport implements IDirectUploadTransport {
-  async putDirect(pathname: string, file: File, tokenUrl: string): Promise<{ url: string }> {
+  async putDirect(pathname: string, file: File, tokenUrl: string, signal?: AbortSignal): Promise<{ url: string }> {
     const { upload } = await import("@vercel/blob/client");
-    const blob = await upload(pathname, file, { access: "private", handleUploadUrl: tokenUrl });
+    const blob = await upload(pathname, file, { access: "private", handleUploadUrl: tokenUrl, abortSignal: signal });
     return { url: blob.url };
   }
 }
