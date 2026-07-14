@@ -4,18 +4,14 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { PhotoUploadPreparer, PhotoUploader } from "@/modules/photo-upload/client";
 import type { PhotoUploadResultDto } from "@/modules/photo-upload/client";
-import {
-  addDrink,
-  editDrink,
-  deleteDrink,
-} from "@/lib/controllers/drinkController";
-import { triggerConfetti } from "@/lib/achievements";
+import { editDrink, deleteDrink } from "@/lib/controllers/drinkController";
 import { showToast } from "@/components/ui/toast-pill";
 import { DrinkEntry, DRINK_TYPES } from "@/lib/types";
 import { drinkPhotoSrc, cn } from "@/lib/utils";
 import { DRINK_PHOTO_MAX_DIMENSION, DRINK_PHOTO_MAX_UPLOAD_BYTES, drinkPhotoUploadEndpoints } from "@/lib/photoUploadConfig";
 import { addPendingCheckin } from "@/lib/offline/pendingCheckins";
 import type { PendingCheckinPhoto } from "@/lib/offline/pendingCheckins";
+import { flushPendingCheckins } from "@/lib/offline/syncPendingCheckins";
 
 type Coords = { lat: number; lng: number };
 
@@ -37,10 +33,6 @@ function getPosition(): Promise<Coords> {
 // WebP quality (0-100, lib/photoUpload.ts) is a different encoder/scale, not
 // the same number, so it isn't shared here.
 const PHOTO_COMPRESS_CONFIG = { maxDimension: DRINK_PHOTO_MAX_DIMENSION, quality: 0.85 };
-
-function isOffline(): boolean {
-  return typeof navigator !== "undefined" && "onLine" in navigator && !navigator.onLine;
-}
 
 async function reverseGeocode(coords: Coords): Promise<string | null> {
   try {
@@ -98,15 +90,19 @@ export function CheckinForm({
       : null
   );
   const [locating, setLocating] = useState(false);
-  const [photoUploadState, setPhotoUploadState] = useState<"idle" | "uploading" | "ready" | "failed">(
-    editEntry?.photo_url ? "ready" : "idle"
-  );
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Tracks a photo upload kicked off the moment it was picked (see
   // handlePhotoChange), so handleSubmit can reuse it instead of starting a
   // fresh one — most of the time it's already resolved by the time the user
-  // finishes typing the drink name/venue and hits submit.
-  const pendingUploadRef = useRef<{ file: File; promise: Promise<PhotoUploadResultDto>; controller: AbortController } | null>(null);
+  // finishes typing the drink name/venue and hits submit. `result` is filled
+  // in once the promise settles so the create path can check synchronously
+  // (no awaiting, no network-speed-dependent wait) whether it's ready to use.
+  const pendingUploadRef = useRef<{
+    file: File;
+    promise: Promise<PhotoUploadResultDto>;
+    controller: AbortController;
+    result: PhotoUploadResultDto | null;
+  } | null>(null);
 
   const captureLocation = async (announce: boolean) => {
     setLocating(true);
@@ -139,9 +135,9 @@ export function CheckinForm({
   // Aborts whatever pre-upload is in flight (see handlePhotoChange).
   // `deleteIfAlreadyUploaded` controls what happens if the abort lost the
   // race and the upload had already finished: true cleans up the now-orphaned
-  // blob (the user is discarding this photo entirely — replacing or removing
-  // it), false just stops tracking it without touching storage (the URL is
-  // about to be legitimately used — see resetFormAfterSubmit).
+  // blob (the user is discarding this photo entirely, or handleSubmit ended up
+  // not using it — see below), false just stops tracking it without touching
+  // storage (the URL is about to be legitimately used).
   const discardPendingUpload = (deleteIfAlreadyUploaded: boolean) => {
     const previous = pendingUploadRef.current;
     pendingUploadRef.current = null;
@@ -171,20 +167,20 @@ export function CheckinForm({
     setPhotoPreview(previewUrl);
 
     // Most users submit with the exact photo they just picked — start the
-    // upload now instead of waiting for submit, so it's usually already done
-    // by the time they finish the rest of the form.
-    setPhotoUploadState("uploading");
+    // upload silently in the background now instead of waiting for submit,
+    // so it's usually already done by the time they finish the rest of the
+    // form. handleSubmit falls back to a fresh attempt if this didn't pan
+    // out, so there's nothing the user needs to see happen here.
     const controller = new AbortController();
     const promise = PhotoUploader.upload(prepared, drinkPhotoUploadEndpoints(userId, supportsDirectUpload), controller.signal);
-    pendingUploadRef.current = { file: prepared, promise, controller };
+    const entry = { file: prepared, promise, controller, result: null as PhotoUploadResultDto | null };
+    pendingUploadRef.current = entry;
     promise.then((result) => {
-      if (pendingUploadRef.current?.file !== prepared) return; // superseded meanwhile
-      setPhotoUploadState("error" in result ? "failed" : "ready");
+      if (pendingUploadRef.current === entry) entry.result = result;
     });
   };
 
   const clearPhotoUi = () => {
-    setPhotoUploadState("idle");
     setPhotoFile(null);
     setPhotoPreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -215,134 +211,123 @@ export function CheckinForm({
 
     startTransition(async () => {
       try {
-        // Keep the existing storage handle when the photo is untouched;
-        // clear it when the preview was removed.
-        let photoUrl: string | null =
-          !photoFile && photoPreview ? (editEntry?.photo_url ?? null) : null;
-        let photoLqip: string | null =
-          !photoFile && photoPreview ? (editEntry?.photo_lqip ?? null) : null;
-
-        if (photoFile) {
-          if (photoFile.size > DRINK_PHOTO_MAX_UPLOAD_BYTES) {
-            setError("Photo is too large. Please use a smaller photo.");
-            return;
-          }
-
-          // Editing always uploads normally — offline handling below is
-          // create-only. Creating skips straight past a doomed request when
-          // we already know we're offline, so the raw file goes to the queue
-          // untouched instead of waiting out a network timeout first.
-          if (editEntry || !isOffline()) {
-            // Reuse the pre-upload only if it actually succeeded — a promise
-            // that already resolved to {error} would just replay the same
-            // cached failure instead of giving a fresh attempt a chance.
-            const preUploaded =
-              pendingUploadRef.current?.file === photoFile ? await pendingUploadRef.current.promise : null;
-            const uploadResult =
-              preUploaded && !("error" in preUploaded)
-                ? preUploaded
-                : await PhotoUploader.upload(photoFile, drinkPhotoUploadEndpoints(userId, supportsDirectUpload));
-
-            if ("error" in uploadResult) {
-              if (editEntry || !isOffline()) {
-                setError(uploadResult.error);
-                return;
-              }
-              // Went offline mid-upload — photoUrl/photoLqip stay null, and
-              // the raw file carries through to the offline queue below.
-            } else {
-              photoUrl = uploadResult.url;
-              photoLqip = uploadResult.lqip;
-            }
-          }
-        }
-
-        const payload = {
-          drinkName: name.trim() || null,
-          drinkType: type,
-          venue: venue.trim() || null,
-          lat: coords?.lat ?? null,
-          lng: coords?.lng ?? null,
-          notes: editEntry?.notes ?? null,
-          photoUrl: photoUrl,
-          photoLqip: photoLqip,
-        };
-
         if (editEntry) {
-          const result = await editDrink({ id: editEntry.id, ...payload });
-          if (result.error) {
-            setError(result.error);
-            return;
-          }
-          showToast("Check-in updated");
-          router.push(`/sessions/${editEntry.id}`);
-          router.refresh();
+          await submitEdit(editEntry);
           return;
         }
-
-        if (!isOffline()) {
-          try {
-            const result = await addDrink(payload);
-            if (result.error) {
-              setError(result.error);
-              return;
-            }
-
-            if (result.achievementUnlocked) triggerConfetti();
-            showToast("Logged — added to tonight's session");
-            resetFormAfterSubmit();
-            router.push(`/sessions/${result.id}`);
-            router.refresh();
-            return;
-          } catch {
-            if (!isOffline()) {
-              setError("Something went wrong. Please try again.");
-              return;
-            }
-            // Went offline mid-submit — fall through to the offline queue.
-          }
-        }
-
-        // Offline — either known upfront or discovered above. Queue
-        // durably (IndexedDB survives closing/backgrounding the app) instead
-        // of losing the check-in.
-        const photoForQueue: PendingCheckinPhoto = photoUrl
-          ? { kind: "uploaded", url: photoUrl, lqip: photoLqip }
-          : photoFile
-            ? { kind: "raw", arrayBuffer: await photoFile.arrayBuffer(), type: photoFile.type || "image/jpeg", name: photoFile.name }
-            : { kind: "none" };
-
-        await addPendingCheckin({
-          id: crypto.randomUUID(),
-          createdAt: Date.now(),
-          payload: {
-            drinkName: payload.drinkName,
-            drinkType: payload.drinkType,
-            venue: payload.venue,
-            lat: payload.lat,
-            lng: payload.lng,
-            notes: payload.notes,
-          },
-          photo: photoForQueue,
-        });
-
-        showToast("Saved — will sync when you're back online");
-        resetFormAfterSubmit();
+        await submitCreate();
       } catch {
         setError("Something went wrong. Please try again.");
       }
     });
   };
 
-  function resetFormAfterSubmit() {
+  // Editing is unchanged: uploads normally (blocking, with a real error on
+  // failure) and navigates to the session on success. Not in scope for the
+  // durability/pre-upload-reuse work below — see submitCreate.
+  const submitEdit = async (entry: DrinkEntry) => {
+    let photoUrl: string | null = !photoFile && photoPreview ? (entry.photo_url ?? null) : null;
+    let photoLqip: string | null = !photoFile && photoPreview ? (entry.photo_lqip ?? null) : null;
+
+    if (photoFile) {
+      if (photoFile.size > DRINK_PHOTO_MAX_UPLOAD_BYTES) {
+        setError("Photo is too large. Please use a smaller photo.");
+        return;
+      }
+
+      const uploadResult =
+        pendingUploadRef.current?.file === photoFile
+          ? await pendingUploadRef.current.promise
+          : await PhotoUploader.upload(photoFile, drinkPhotoUploadEndpoints(userId, supportsDirectUpload));
+
+      if ("error" in uploadResult) {
+        setError(uploadResult.error);
+        return;
+      }
+      photoUrl = uploadResult.url;
+      photoLqip = uploadResult.lqip;
+    }
+
+    const result = await editDrink({
+      id: entry.id,
+      drinkName: name.trim() || null,
+      drinkType: type,
+      venue: venue.trim() || null,
+      lat: coords?.lat ?? null,
+      lng: coords?.lng ?? null,
+      notes: entry.notes ?? null,
+      photoUrl,
+      photoLqip,
+    });
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    showToast("Check-in updated");
+    router.push(`/sessions/${entry.id}`);
+    router.refresh();
+  };
+
+  // Creating is queue-first: durable the instant the user hits submit,
+  // regardless of connection speed, and never blocks on the network — a slow
+  // request can no longer lose the check-in by the tab closing mid-flight,
+  // and nothing here holds the user on this page or redirects them anywhere,
+  // so they're free to navigate away immediately. The actual save (photo
+  // upload + addDrink) happens in flushPendingCheckins, fired in the
+  // background right after queueing — on a fast connection that's over in a
+  // moment; on a slow/dropped one, it just stays queued for
+  // PendingCheckinsSync to pick up whenever connectivity (and the app) comes
+  // back.
+  const submitCreate = async () => {
+    let photoForQueue: PendingCheckinPhoto;
+    if (!photoFile) {
+      photoForQueue = { kind: "none" };
+    } else if (photoFile.size > DRINK_PHOTO_MAX_UPLOAD_BYTES) {
+      setError("Photo is too large. Please use a smaller photo.");
+      return;
+    } else {
+      // Use the pre-upload only if it actually already resolved successfully
+      // — checked synchronously (no awaiting) so a slow/incomplete pre-upload
+      // can never hold up queueing. Anything else (still in flight, or it
+      // resolved with an error) falls back to the raw bytes, which
+      // flushPendingCheckins will upload fresh when it syncs this entry.
+      const cached = pendingUploadRef.current?.file === photoFile ? pendingUploadRef.current.result : null;
+      if (cached && !("error" in cached)) {
+        photoForQueue = { kind: "uploaded", url: cached.url, lqip: cached.lqip };
+        discardPendingUpload(false); // consumed — don't delete it
+      } else {
+        photoForQueue = {
+          kind: "raw",
+          arrayBuffer: await photoFile.arrayBuffer(),
+          type: photoFile.type || "image/jpeg",
+          name: photoFile.name,
+        };
+        // Not consumed — if the pre-upload finishes later anyway, it's an
+        // orphan the moment it resolves with a URL.
+        discardPendingUpload(true);
+      }
+    }
+
+    await addPendingCheckin({
+      id: crypto.randomUUID(),
+      createdAt: Date.now(),
+      payload: {
+        drinkName: name.trim() || null,
+        drinkType: type,
+        venue: venue.trim() || null,
+        lat: coords?.lat ?? null,
+        lng: coords?.lng ?? null,
+        notes: null,
+      },
+      photo: photoForQueue,
+    });
+
+    showToast("Logged — added to tonight's session");
     setName("");
     setVenue("");
-    // The photo (if any) was just legitimately consumed — saved to the new
-    // check-in or carried into the offline queue — so only stop tracking the
-    // pre-upload, don't delete it the way handleRemovePhoto would.
-    discardPendingUpload(false);
     clearPhotoUi();
-  }
+    flushPendingCheckins(userId, supportsDirectUpload, { silent: true }).catch(() => {});
+  };
 
   return (
     <form onSubmit={handleSubmit}>
@@ -402,22 +387,6 @@ export function CheckinForm({
             >
               Remove
             </button>
-            {photoUploadState === "uploading" && (
-              <span
-                className="chip"
-                style={{ position: "absolute", bottom: 10, left: 10 }}
-              >
-                Uploading…
-              </span>
-            )}
-            {photoUploadState === "failed" && (
-              <span
-                className="chip"
-                style={{ position: "absolute", bottom: 10, left: 10, color: "var(--destructive)" }}
-              >
-                Couldn&apos;t pre-upload — will retry on submit
-              </span>
-            )}
           </div>
         ) : (
           <button
