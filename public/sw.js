@@ -1,15 +1,22 @@
-const CACHE_NAME = "birava-v2";
+const CACHE_NAME = "birava-v3";
 const STATIC_ASSETS = [
-  "/manifest.json",
+  "/manifest.webmanifest",
   "/icons/icon-192x192.png",
   "/icons/icon-512x512.png",
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
-  );
   self.skipWaiting();
+  // Cache each asset independently: cache.addAll() is all-or-nothing, so a
+  // single 404 rejects install and the worker never activates — which on a
+  // fresh iOS "Add to Home Screen" leaves serviceWorker.ready hanging forever
+  // and push subscription stuck. allSettled keeps install (and push) alive
+  // even if an asset is missing.
+  event.waitUntil(
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => Promise.allSettled(STATIC_ASSETS.map((asset) => cache.add(asset))))
+  );
 });
 
 self.addEventListener("activate", (event) => {
@@ -63,7 +70,7 @@ self.addEventListener("fetch", (event) => {
           response.ok &&
           (url.pathname.startsWith("/_next/static") ||
             url.pathname.startsWith("/icons") ||
-            url.pathname === "/manifest.json")
+            url.pathname === "/manifest.webmanifest")
         ) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
