@@ -4,7 +4,7 @@ on:
   pull_request:
 
 jobs:
-  build-and-migrate:
+  test-and-build:
     runs-on: ubuntu-latest
 
     services:
@@ -24,7 +24,8 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://birava:birava@localhost:5432/birava?schema=public
-      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3001
+      PORT: "3001"
 
     steps:
       - uses: actions/checkout@v4
@@ -36,8 +37,23 @@ jobs:
 
       - run: npm ci
 
+      # Fastest, no DB needed — fail fast before anything else.
+      - name: Unit tests
+        run: npm run test:unit
+
       - name: Run migrations against a fresh database
         run: npm run db:migrate
 
+      # The service Postgres above is already a fresh, isolated container
+      # for this run — no separate test database needed in CI.
+      - name: Integration tests
+        run: npx vitest run --project integration
+
       - name: Build
         run: npm run build
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E tests
+        run: npm run test:e2e
