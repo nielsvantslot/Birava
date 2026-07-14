@@ -98,9 +98,6 @@ export function CheckinForm({
       : null
   );
   const [locating, setLocating] = useState(false);
-  const [photoUploadState, setPhotoUploadState] = useState<"idle" | "uploading" | "ready" | "failed">(
-    editEntry?.photo_url ? "ready" : "idle"
-  );
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Tracks a photo upload kicked off the moment it was picked (see
   // handlePhotoChange), so handleSubmit can reuse it instead of starting a
@@ -171,20 +168,16 @@ export function CheckinForm({
     setPhotoPreview(previewUrl);
 
     // Most users submit with the exact photo they just picked — start the
-    // upload now instead of waiting for submit, so it's usually already done
-    // by the time they finish the rest of the form.
-    setPhotoUploadState("uploading");
+    // upload silently in the background now instead of waiting for submit,
+    // so it's usually already done by the time they finish the rest of the
+    // form. handleSubmit falls back to a fresh attempt if this didn't pan
+    // out, so there's nothing the user needs to see happen here.
     const controller = new AbortController();
     const promise = PhotoUploader.upload(prepared, drinkPhotoUploadEndpoints(userId, supportsDirectUpload), controller.signal);
     pendingUploadRef.current = { file: prepared, promise, controller };
-    promise.then((result) => {
-      if (pendingUploadRef.current?.file !== prepared) return; // superseded meanwhile
-      setPhotoUploadState("error" in result ? "failed" : "ready");
-    });
   };
 
   const clearPhotoUi = () => {
-    setPhotoUploadState("idle");
     setPhotoFile(null);
     setPhotoPreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -402,22 +395,6 @@ export function CheckinForm({
             >
               Remove
             </button>
-            {photoUploadState === "uploading" && (
-              <span
-                className="chip"
-                style={{ position: "absolute", bottom: 10, left: 10 }}
-              >
-                Uploading…
-              </span>
-            )}
-            {photoUploadState === "failed" && (
-              <span
-                className="chip"
-                style={{ position: "absolute", bottom: 10, left: 10, color: "var(--destructive)" }}
-              >
-                Couldn&apos;t pre-upload — will retry on submit
-              </span>
-            )}
           </div>
         ) : (
           <button
