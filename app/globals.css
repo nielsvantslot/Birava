@@ -210,6 +210,12 @@ input:focus-visible, .chip:focus-visible {
 .act-title { font-family: var(--serif); font-size: 23px; font-weight: 600; letter-spacing: 0; padding: 2px 16px 12px; }
 .act-stats { padding: 0 16px 16px; }
 
+.act-title-row { display: flex; align-items: center; gap: 6px; padding: 2px 16px 12px; }
+.act-title-row .act-title { padding: 0; }
+.act-title-edit { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; color: var(--ink-dim); background: none; border: none; border-radius: 6px; cursor: pointer; }
+.act-title-edit:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.act-title-input { font-family: var(--serif); font-size: 23px; font-weight: 600; letter-spacing: 0; flex: 1; min-width: 0; background: none; border: none; border-bottom: 1.5px solid var(--accent); color: var(--foreground); padding: 0 0 2px; outline: none; }
+
 /* Achievement callout — quiet inline block */
 .callout {
   display: flex; gap: 13px; align-items: flex-start;

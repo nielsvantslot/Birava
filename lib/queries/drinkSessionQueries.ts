@@ -21,6 +21,7 @@ function toDrinkSession(row: SessionRowWithRelations): DrinkSession {
       avatarUrl: row.user.avatarUrl,
       start: row.startedAt.toISOString(),
       end: row.endedAt.toISOString(),
+      name: row.name,
     },
     row.entries.map(toDrinkEntry)
   );

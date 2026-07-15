@@ -26,6 +26,13 @@ export type DrinkSession = {
   avatarUrl: string | null;
   start: string; // ISO
   end: string; // ISO
+  /**
+   * Owner-set custom title, overriding sessionTitle()'s default derivation.
+   * Only ever set on a real, stored DrinkSession row — always null for the
+   * ephemeral sessions groupIntoSessions() builds for aggregate-only
+   * screens, since there's no row to persist a name against.
+   */
+  name: string | null;
   /** Ascending by time — the session's "splits". */
   checkins: DrinkEntry[];
   /** Distinct venues in first-visit order. */
@@ -75,6 +82,7 @@ export function assembleDrinkSession(
     avatarUrl: string | null;
     start: string;
     end: string;
+    name: string | null;
   },
   checkins: DrinkEntry[]
 ): DrinkSession {
@@ -92,6 +100,7 @@ function buildSession(checkins: DrinkEntry[]): DrinkSession {
     avatarUrl: first.profiles?.avatar_url ?? null,
     start: first.created_at,
     end: last.created_at,
+    name: null,
     checkins,
     ...deriveVenuesTypesPhotos(checkins),
   };
@@ -166,10 +175,13 @@ export function formatPace(totalSeconds: number): string {
 }
 
 /**
- * Serif card title. Multi check-in sessions get a time-of-day name from
- * the session's local start; a session of one is titled by its drink.
+ * The title sessionTitle() falls back to once an owner-set custom name is
+ * cleared — multi check-in sessions get a time-of-day name from the
+ * session's local start, and a session of one is titled by its drink.
+ * Exposed separately so the rename UI can show this instantly on clearing
+ * the custom name, without a round trip to re-derive it.
  */
-export function sessionTitle(session: DrinkSession, tz: string): string {
+export function defaultSessionTitle(session: DrinkSession, tz: string): string {
   if (session.checkins.length === 1) {
     const only = session.checkins[0];
     return only.drink_name?.trim() || only.drink_type || "Check-in";
@@ -179,6 +191,11 @@ export function sessionTitle(session: DrinkSession, tz: string): string {
   if (hour < 12) return "Morning session";
   if (hour < 18) return "Afternoon session";
   return "Evening session";
+}
+
+/** Serif card title. An owner-set custom name always wins over defaultSessionTitle(). */
+export function sessionTitle(session: DrinkSession, tz: string): string {
+  return session.name || defaultSessionTitle(session, tz);
 }
 
 /**
