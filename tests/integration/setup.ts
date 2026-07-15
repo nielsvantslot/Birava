@@ -6,15 +6,23 @@
 // true` is required here: this process already has DATABASE_URL set (the
 // dev value, inherited from birava-app's own container environment), and
 // dotenv's default is to never clobber an already-set variable.
+//
+// CI has no `db-test` docker-compose service to resolve — it already gets an
+// isolated, ephemeral Postgres via the workflow's own DATABASE_URL (see
+// ci.yml), so .env.test must not clobber it there.
 import dotenv from "dotenv";
-dotenv.config({ path: ".env.test", override: true });
+const isCI = process.env.CI === "true";
+if (!isCI) {
+  dotenv.config({ path: ".env.test", override: true });
+}
 
 // Belt-and-suspenders: a truncating reset against the wrong database is a
 // silent-data-loss bug waiting to happen, and the override above has
 // exactly one job — if it didn't take effect for any reason (a future
 // refactor, a different invocation path, ...), fail loudly here rather than
-// truncating/writing to dev.
-if (!/\bbirava_test\b/.test(process.env.DATABASE_URL ?? "")) {
+// truncating/writing to dev. Doesn't apply in CI, which never loads
+// .env.test and already trusts its own workflow-provided DATABASE_URL.
+if (!isCI && !/\bbirava_test\b/.test(process.env.DATABASE_URL ?? "")) {
   throw new Error(
     `Integration tests must run against the isolated test database, but DATABASE_URL is: ${process.env.DATABASE_URL}`
   );

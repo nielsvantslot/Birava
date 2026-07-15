@@ -97,6 +97,75 @@ describe("createDrinkEntry session placement", () => {
     expect(survivor.startedAt.getTime()).toBe(aAfter.createdAt.getTime());
     expect(survivor.endedAt.getTime()).toBe(cAfter.createdAt.getTime());
   });
+
+  it("reassigns the losing session's Cheer/Comment/Notification links to the survivor instead of losing them", async () => {
+    // Regression test: Cheer/Comment are FK'd to DrinkSession with
+    // onDelete: Cascade — merging used to delete the losing DrinkSession row
+    // without moving its Cheer/Comment rows first, silently cascade-deleting
+    // them even though the check-ins they're about are still alive (now
+    // under the survivor's id).
+    const user = await fixtures.createUser();
+    const actor = { username: user.username, avatarUrl: user.avatarUrl };
+    const alice = await fixtures.createUser();
+    const bob = await fixtures.createUser();
+    const base = Date.now() - 2 * DAY;
+
+    const a = await createAt(user.id, actor, base);
+    const c = await createAt(user.id, actor, base + 8 * HOUR);
+    const survivorId = a.sessionId;
+    const loserId = c.sessionId;
+
+    // alice cheers + comments on the eventual loser; bob cheers on the
+    // eventual survivor too, so the merge also has to dedupe alice's cheer
+    // if she'd cheered both — here she's only cheered the loser, so hers
+    // should carry over untouched, and bob's on the survivor should be
+    // completely unaffected.
+    await db.cheer.create({ data: { sessionId: loserId, userId: alice.id } });
+    await db.cheer.create({ data: { sessionId: survivorId, userId: bob.id } });
+    await db.comment.create({ data: { sessionId: loserId, userId: alice.id, body: "nice one" } });
+    await db.notification.create({
+      data: { userId: bob.id, type: "SESSION_START", actorId: user.id, entryId: loserId },
+    });
+
+    await createAt(user.id, actor, base + 4 * HOUR); // bridges a and c
+
+    const [cheers, comments, notifications] = await Promise.all([
+      db.cheer.findMany({ where: { sessionId: { in: [survivorId, loserId] } } }),
+      db.comment.findMany({ where: { sessionId: { in: [survivorId, loserId] } } }),
+      db.notification.findMany({ where: { entryId: { in: [survivorId, loserId] } } }),
+    ]);
+
+    expect(cheers).toHaveLength(2);
+    expect(cheers.every((c) => c.sessionId === survivorId)).toBe(true);
+    expect(cheers.map((c) => c.userId).sort()).toEqual([alice.id, bob.id].sort());
+
+    expect(comments).toHaveLength(1);
+    expect(comments[0].sessionId).toBe(survivorId);
+
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0].entryId).toBe(survivorId);
+  });
+
+  it("dedupes a cheer when the same user cheered both sessions being merged", async () => {
+    const user = await fixtures.createUser();
+    const actor = { username: user.username, avatarUrl: user.avatarUrl };
+    const alice = await fixtures.createUser();
+    const base = Date.now() - 2 * DAY;
+
+    const a = await createAt(user.id, actor, base);
+    const c = await createAt(user.id, actor, base + 8 * HOUR);
+    const survivorId = a.sessionId;
+    const loserId = c.sessionId;
+
+    await db.cheer.create({ data: { sessionId: survivorId, userId: alice.id } });
+    await db.cheer.create({ data: { sessionId: loserId, userId: alice.id } });
+
+    await createAt(user.id, actor, base + 4 * HOUR); // bridges a and c
+
+    const cheers = await db.cheer.findMany({ where: { userId: alice.id } });
+    expect(cheers).toHaveLength(1);
+    expect(cheers[0].sessionId).toBe(survivorId);
+  });
 });
 
 describe("createDrinkEntry backdating trust window", () => {
@@ -168,5 +237,49 @@ describe("deleteDrinkEntry session recomputation", () => {
     const newSession = await db.drinkSession.findUniqueOrThrow({ where: { id: cAfter.sessionId } });
     expect(newSession.startedAt.getTime()).toBe(cAfter.createdAt.getTime());
     expect(newSession.endedAt.getTime()).toBe(cAfter.createdAt.getTime());
+  });
+
+  it("splits into three sessions when deleting exposes two separate >4h gaps at once", async () => {
+    const owner = await fixtures.createUser();
+    const base = Date.now() - 2 * DAY;
+
+    // a, b, c, d, e all <=4h from their neighbour — one session of 5 — but
+    // deleting c (the middle) exposes a>4h gaps on both sides of where it
+    // was, splitting into three: [a,b], [d], [e].
+    const a = await fixtures.createDrinkEntry(owner.id, { createdAt: new Date(base) });
+    const sharedSessionId = (await db.drinkEntry.findUniqueOrThrow({ where: { id: a.id } })).sessionId;
+    const b = await fixtures.createDrinkEntry(owner.id, {
+      createdAt: new Date(base + 3 * HOUR),
+      sessionId: sharedSessionId,
+    });
+    const c = await fixtures.createDrinkEntry(owner.id, {
+      createdAt: new Date(base + 6 * HOUR),
+      sessionId: sharedSessionId,
+    });
+    const d = await fixtures.createDrinkEntry(owner.id, {
+      createdAt: new Date(base + 9 * HOUR),
+      sessionId: sharedSessionId,
+    });
+    const e = await fixtures.createDrinkEntry(owner.id, {
+      createdAt: new Date(base + 16 * HOUR),
+      sessionId: sharedSessionId,
+    });
+
+    await deleteDrinkEntry(owner.id, { id: c.id });
+
+    const [aAfter, bAfter, dAfter, eAfter] = await Promise.all(
+      [a, b, d, e].map((entry) => db.drinkEntry.findUniqueOrThrow({ where: { id: entry.id } }))
+    );
+
+    expect(aAfter.sessionId).toBe(sharedSessionId);
+    expect(bAfter.sessionId).toBe(sharedSessionId);
+    expect(dAfter.sessionId).toBe(d.id);
+    expect(eAfter.sessionId).toBe(e.id);
+    expect(new Set([aAfter.sessionId, bAfter.sessionId, dAfter.sessionId, eAfter.sessionId]).size).toBe(3);
+
+    const sessions = await db.drinkSession.findMany({
+      where: { id: { in: [sharedSessionId, d.id, e.id] } },
+    });
+    expect(sessions).toHaveLength(3);
   });
 });

@@ -74,8 +74,3 @@ export async function getSessionsForUserIds(
     { tags: userIds.map(drinkHistoryTag), revalidate: 60 }
   )();
 }
-
-/** Every session for one user — stats/profile/achievements/crews need full history (streaks can't be paginated). */
-export async function getAllSessionsForUser(userId: string): Promise<DrinkSession[]> {
-  return getSessionsForUserIds([userId]);
-}
