@@ -1,5 +1,5 @@
+import { randomUUID } from "crypto";
 import { db } from "@/lib/db";
-import { createDrinkEntry } from "@/lib/commands/drinkEntryCommands";
 
 const HOUR = 60 * 60 * 1000;
 
@@ -10,7 +10,12 @@ const HOUR = 60 * 60 * 1000;
  * e2e account always sort after these, so pagination order here stays
  * deterministic regardless of what else has run first.
  *
- * `drinkName` doubles as the visible marker: a lone check-in's session title
+ * Writes DrinkSession/DrinkEntry rows directly instead of going through
+ * createDrinkEntry: that command calls getUserTimeZone(), which reads
+ * next/headers's cookies() — real only inside an actual Next.js request,
+ * which a Playwright test's own Node process never has.
+ *
+ * drinkName doubles as the visible marker: a lone check-in's session title
  * is its drinkName (see sessionTitle in lib/sessions.ts), so each seeded
  * session is locatable on the dashboard by its exact `${labelPrefix} ${i}`
  * text. Returns the names oldest-first — the last one is the newest.
@@ -21,29 +26,27 @@ export async function seedBackdatedSessions(
   labelPrefix: string
 ): Promise<string[]> {
   const user = await db.user.findUniqueOrThrow({ where: { email } });
-  const actor = { username: user.username, avatarUrl: user.avatarUrl };
   const names: string[] = [];
   const newest = Date.now() - 60 * 1000;
 
   for (let i = 0; i < count; i++) {
     const name = `${labelPrefix} ${i}`;
     names.push(name);
-    const result = await createDrinkEntry(
-      user.id,
-      {
+    const createdAt = new Date(newest - (count - 1 - i) * 6 * HOUR);
+    const sessionId = randomUUID();
+
+    await db.drinkSession.create({
+      data: { id: sessionId, userId: user.id, startedAt: createdAt, endedAt: createdAt },
+    });
+    await db.drinkEntry.create({
+      data: {
+        userId: user.id,
+        sessionId,
         drinkName: name,
         drinkType: "Beer",
-        venue: null,
-        lat: null,
-        lng: null,
-        notes: null,
-        photoUrl: null,
-        photoLqip: null,
-        createdAt: newest - (count - 1 - i) * 6 * HOUR,
+        createdAt,
       },
-      actor
-    );
-    if (result.error) throw new Error(`Failed to seed session ${i}: ${result.error}`);
+    });
   }
 
   return names;
