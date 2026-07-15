@@ -1,7 +1,5 @@
 import { expect, test } from "@playwright/test";
 import { LoginPage } from "./pages/LoginPage";
-import { LogDrinkPage } from "./pages/LogDrinkPage";
-import { TestUserFactory } from "./support/TestUserFactory";
 import { seedBackdatedSessions } from "./support/seedBackdatedSessions";
 
 // Matches drinkController.ts's FEED_SESSION_LIMIT — the dashboard's page size.
@@ -12,42 +10,31 @@ test("scrolling the dashboard feed loads a second page of older sessions", async
   request,
   baseURL,
 }) => {
-  const credentials = await new TestUserFactory(request, baseURL!).ensure();
+  // A dedicated, never-before-seen user rather than the suite's shared fixed
+  // e2e account: getSessionsForUserIds is unstable_cache'd, keyed by tag on
+  // the user id(s) queried. Reusing the shared account meant seeded rows
+  // could sit behind whatever was already cached for it from an earlier
+  // spec/warmup fetch, with no reliable way to force that specific cache
+  // entry fresh from outside a real request. A brand-new user has no prior
+  // cache entry to collide with, so the first read is guaranteed fresh.
+  const email = `e2e-pagination-${Date.now()}@birava.test`;
+  const password = "E2eTest123!";
+  const signup = await request.post(`${baseURL}/api/signup`, {
+    data: { username: `e2e_pagination_${Date.now()}`, email, password },
+  });
+  if (!signup.ok()) {
+    throw new Error(`Failed to create the pagination test user: ${signup.status()} ${await signup.text()}`);
+  }
 
   // One page's worth plus a few more, so some seeded sessions land on page 1
-  // and the rest only appear once the feed loads page 2. All backdated well
-  // into the past — the real check-in logged below is the newest.
-  const names = await seedBackdatedSessions(
-    credentials.email,
-    FEED_PAGE_SIZE + 3,
-    `E2E Scroll ${Date.now()}`
-  );
+  // and the rest only appear once the feed loads page 2.
+  const names = await seedBackdatedSessions(email, FEED_PAGE_SIZE + 3, `E2E Scroll ${Date.now()}`);
+  const newestName = names[names.length - 1]!;
   const secondPageName = names[0]!; // oldest of the batch — pushed onto page 2
 
   const loginPage = new LoginPage(page);
   await loginPage.goto();
-  await loginPage.login(credentials.email, credentials.password);
-
-  // getSessionsForUserIds is unstable_cache'd, keyed by tag on this user —
-  // busted only when a real addDrink/editDrink/deleteDrink revalidates it.
-  // seedBackdatedSessions writes rows directly (no such revalidation), so
-  // without this they'd sit behind whatever was already cached for this
-  // shared e2e account (e.g. from global-setup's own login-time fetch).
-  // Logging one real drink here both revalidates that cache and gives a
-  // reliably "newest" marker to assert against.
-  const newestName = `E2E Scroll Newest ${Date.now()}`;
-  const logPage = new LogDrinkPage(page);
-  await logPage.goto();
-  await logPage.fillDrinkName(newestName);
-  await logPage.submit();
-  await expect(logPage.toast()).toHaveText(/Logged/);
-
-  // Logging is queue-first (lib/offline/syncPendingCheckins.ts): the toast
-  // above fires the instant the check-in is queued, not once addDrink (and
-  // its revalidateTag) has actually run. Wait for the pending panel to
-  // clear so the real server round-trip — the one that busts the cache —
-  // has genuinely finished before checking the dashboard.
-  await expect(logPage.pendingPanel()).toBeHidden({ timeout: 30000 });
+  await loginPage.login(email, password);
 
   await page.goto("/dashboard?tab=you", { waitUntil: "networkidle" });
 

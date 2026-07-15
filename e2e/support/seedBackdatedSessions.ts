@@ -5,10 +5,9 @@ const HOUR = 60 * 60 * 1000;
 
 /**
  * Seeds `count` single-check-in sessions for the given user, 6h apart (past
- * the 4h session gap, so each lands in its own session) and ending 5h
- * before "now" — safely past the 4h gap itself, so a real check-in logged
- * afterward at the real "now" starts its own fresh session instead of
- * merging into the batch's newest one.
+ * the 4h session gap, so each lands in its own session) and ending just
+ * before "now" — the caller is expected to be a freshly created user (see
+ * session-pagination.spec.ts), so there's nothing else to stay clear of.
  *
  * Writes DrinkSession/DrinkEntry rows directly instead of going through
  * createDrinkEntry: that command calls getUserTimeZone(), which reads
@@ -27,7 +26,7 @@ export async function seedBackdatedSessions(
 ): Promise<string[]> {
   const user = await db.user.findUniqueOrThrow({ where: { email } });
   const names: string[] = [];
-  const newest = Date.now() - 5 * HOUR;
+  const newest = Date.now() - 60 * 1000;
 
   for (let i = 0; i < count; i++) {
     const name = `${labelPrefix} ${i}`;
