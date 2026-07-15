@@ -8,6 +8,16 @@ import { localParts, weekIndex } from "@/lib/dates";
  */
 export const SESSION_GAP_MS = 4 * 60 * 60 * 1000;
 
+/**
+ * How far into the past a check-in's createdAt may be backdated (offline
+ * sync recovering something logged hours ago) before the server stops
+ * trusting it and falls back to now(). Generous relative to any realistic
+ * offline queue, since createDrinkEntry is a "use server" action — any
+ * caller can set createdAt, not just the offline-sync flow — and
+ * achievements/streaks would otherwise be gameable by backdating freely.
+ */
+export const MAX_BACKDATE_MS = 7 * 24 * 60 * 60 * 1000;
+
 export type DrinkSession = {
   /** Id of the first check-in — the stable handle for /sessions/[id]. */
   id: string;
