@@ -492,6 +492,22 @@ input:focus-visible, .chip:focus-visible {
 .lightbox-nav.prev { left: 16px; }
 .lightbox-nav.next { right: 16px; }
 
+/* ---- share preview: swipe between recap image variants (Strava-style) ---- */
+.share-sheet figure { width: min(340px, 88vw); }
+.share-preview {
+  width: 100%; aspect-ratio: 9 / 16; object-fit: contain; border-radius: 16px;
+  background:
+    linear-gradient(45deg, #2a2a2a 25%, transparent 25%) -8px 0/16px 16px,
+    linear-gradient(-45deg, #2a2a2a 25%, transparent 25%) -8px 0/16px 16px,
+    linear-gradient(45deg, transparent 75%, #2a2a2a 75%) -8px 0/16px 16px,
+    linear-gradient(-45deg, transparent 75%, #2a2a2a 75%) -8px 0/16px 16px,
+    #1c1c1c;
+}
+.share-dots { display: flex; gap: 6px; }
+.share-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, 0.3); }
+.share-dot.on { background: #fff; }
+.share-cta { width: 100%; }
+
 /* ---- first-time hint strip on the bg gap ---- */
 .hint {
   padding: 13px 16px 15px; font-size: 13px; line-height: 1.5; color: var(--ink-dim);

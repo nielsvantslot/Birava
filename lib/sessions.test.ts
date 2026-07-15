@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeWeeks, formatSessionDuration, groupIntoSessions, sessionMinutes, sessionTitle, SESSION_GAP_MS } from "./sessions";
+import { activeWeeks, formatPace, formatSessionDuration, groupIntoSessions, sessionMinutes, sessionTitle, SESSION_GAP_MS } from "./sessions";
 import type { DrinkEntry } from "./types";
 
 let idCounter = 0;
@@ -90,6 +90,24 @@ describe("sessionMinutes / formatSessionDuration", () => {
     expect(formatSessionDuration(45)).toBe("45m");
     expect(formatSessionDuration(120)).toBe("2h");
     expect(formatSessionDuration(200)).toBe("3h 20m");
+  });
+});
+
+describe("formatPace", () => {
+  it("formats sub-minute paces in seconds instead of rounding down to 0m", () => {
+    expect(formatPace(45)).toBe("45s");
+    expect(formatPace(0)).toBe("0s");
+  });
+
+  it("formats minute-scale paces, keeping seconds when non-zero", () => {
+    expect(formatPace(60)).toBe("1m");
+    expect(formatPace(200)).toBe("3m 20s");
+  });
+
+  it("formats hour-scale paces without seconds", () => {
+    expect(formatPace(3600)).toBe("1h");
+    expect(formatPace(3900)).toBe("1h 5m");
+    expect(formatPace(3630)).toBe("1h");
   });
 });
 

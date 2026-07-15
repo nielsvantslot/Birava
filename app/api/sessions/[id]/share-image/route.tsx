@@ -4,8 +4,10 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getSessionCheckins } from "@/lib/controllers/drinkController";
 import {
   findSessionWithCheckin,
+  formatPace,
   formatSessionDuration,
   sessionMinutes,
+  sessionSeconds,
   sessionTitle,
 } from "@/lib/sessions";
 import { getUserTimeZone } from "@/lib/timezone";
@@ -28,10 +30,14 @@ const ACCENT = "#A9C641";
 const LINE = "rgba(242, 238, 228, 0.12)";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  // "transparent" drops the card background so the recap can be shared as a
+  // sticker overlay (e.g. iOS treats a transparent share image as an overlay
+  // on Instagram/Snapchat Stories, an opaque one as the full background).
+  const transparent = new URL(req.url).searchParams.get("variant") === "transparent";
 
   const user = await getCurrentUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
@@ -101,8 +107,13 @@ export async function GET(
 
   // Pace only makes sense across a real span with more than one drink —
   // a deliberate, share-card-only exception to the app's parked pace rule
-  // (see CLAUDE.md's "Celebrate variety, never volume").
-  const pace = minutes > 0 && drinks > 1 ? formatSessionDuration(Math.round(minutes / drinks)) : null;
+  // (see CLAUDE.md's "Celebrate variety, never volume"). Computed from
+  // seconds, not the already-rounded minute total, so a fast pace (e.g. a
+  // few check-ins logged in quick succession) doesn't round down to "0m".
+  const pace =
+    minutes > 0 && drinks > 1
+      ? formatPace(Math.round(sessionSeconds(session) / drinks))
+      : null;
 
   const stats: Array<{ value: string; label: string }> = [
     { value: String(drinks), label: drinks === 1 ? "drink" : "drinks" },
@@ -123,7 +134,7 @@ export async function GET(
           height: "100%",
           display: "flex",
           flexDirection: "column",
-          backgroundColor: BG,
+          backgroundColor: transparent ? "transparent" : BG,
           color: INK,
           padding: 72,
         }}

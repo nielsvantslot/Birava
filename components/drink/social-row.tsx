@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { toggleCheer } from "@/lib/controllers/socialController";
 import { showToast } from "@/components/ui/toast-pill";
 import { cn } from "@/lib/utils";
+import { ShareSheet } from "@/components/drink/share-sheet";
 
 /**
  * The session card's social affordances: cheers with a live count,
@@ -29,25 +30,7 @@ export function SocialActs({
 }) {
   const [state, setState] = useState({ count, on });
   const [, startTransition] = useTransition();
-  const [imageReady, setImageReady] = useState(!isOwner);
-  const [isSharing, setIsSharing] = useState(false);
-  // Pre-fetched on mount so handleShare never awaits before calling
-  // navigator.share() — iOS Safari drops the share sheet's user-activation
-  // the instant an await runs first, which silently no-ops the first tap
-  // (the same bug the pre-redesign 24h-recap card hit and fixed the same way).
-  const imageRef = useRef<Promise<File | null> | null>(null);
-
-  useEffect(() => {
-    if (!isOwner) return;
-    setImageReady(false);
-    const promise = fetch(`/api/sessions/${entryId}/share-image`)
-      .then((res) => (res.ok ? res.blob() : null))
-      .then((blob) => (blob ? new File([blob], "birava-session.png", { type: "image/png" }) : null))
-      .catch(() => null);
-    imageRef.current = promise;
-    // Ready either way — a failed fetch just falls back to a text share on tap.
-    promise.finally(() => setImageReady(true));
-  }, [entryId, isOwner]);
+  const [shareSheetOpen, setShareSheetOpen] = useState(false);
 
   const handleCheer = () => {
     // Optimistic — settle with the server's answer
@@ -83,38 +66,12 @@ export function SocialActs({
     await shareTextOnly(url);
   };
 
-  // Own session: share the pre-fetched recap card image (route + duration +
-  // drinks + pace), falling back to a text share if generation fails.
-  const handleShareOwn = async () => {
-    try {
-      const file = await (imageRef.current ??
-        fetch(`/api/sessions/${entryId}/share-image`).then((res) =>
-          res.ok ? res.blob() : null
-        ).then((blob) =>
-          blob ? new File([blob], "birava-session.png", { type: "image/png" }) : null
-        ));
-      if (file && navigator.canShare?.({ files: [file] })) {
-        // Files only, no text/title — Snapchat and some other iOS share
-        // targets silently drop the image attachment when text is combined
-        // with a file (the same bug the pre-redesign card hit and fixed the
-        // same way).
-        await navigator.share({ files: [file] });
-        return;
-      }
-    } catch {
-      /* fall through to the text share below */
-    }
-    await shareTextOnly();
-  };
-
-  const handleShare = async () => {
-    if (isSharing) return;
-    setIsSharing(true);
-    try {
-      await (isOwner ? handleShareOwn() : handleShareLink());
-    } finally {
-      setIsSharing(false);
-    }
+  // Own session: open the share preview (Strava-style — swipe between the
+  // card and sticker versions, then hand the picked one to the OS share
+  // sheet). Someone else's session skips straight to the link share.
+  const handleShare = () => {
+    if (isOwner) setShareSheetOpen(true);
+    else handleShareLink();
   };
 
   return (
@@ -142,18 +99,16 @@ export function SocialActs({
         </svg>
         <span>{commentCount}</span> comment{commentCount === 1 ? "" : "s"}
       </Link>
-      <button
-        className="act share"
-        onClick={handleShare}
-        aria-label="Share session"
-        disabled={isSharing || !imageReady}
-      >
+      <button className="act share" onClick={handleShare} aria-label="Share session">
         <svg viewBox="0 0 24 24">
           <path d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"></path>
           <path d="M12 3v13M8 7l4-4 4 4"></path>
         </svg>
-        {isSharing ? "Sharing…" : !imageReady ? "Preparing…" : "Share"}
+        Share
       </button>
+      {shareSheetOpen && (
+        <ShareSheet entryId={entryId} onClose={() => setShareSheetOpen(false)} />
+      )}
     </div>
   );
 }
