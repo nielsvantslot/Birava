@@ -511,6 +511,7 @@ input:focus-visible, .chip:focus-visible {
 .social .act.cheer.on { color: var(--accent); }
 .social .act.cheer.on svg { fill: var(--accent); stroke: var(--accent); }
 .social .act.share { margin-left: auto; margin-right: 0; }
+.social .act:disabled { opacity: 0.5; cursor: default; }
 .social .act span { font-variant-numeric: tabular-nums; }
 
 /* ---- comments ---- */
