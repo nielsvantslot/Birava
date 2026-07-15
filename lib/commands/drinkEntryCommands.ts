@@ -74,6 +74,45 @@ async function assignSessionForNewEntry(
     const loserId = next.sessionId;
     const loser = await tx.drinkSession.findUniqueOrThrow({ where: { id: loserId } });
     await tx.drinkEntry.updateMany({ where: { sessionId: loserId }, data: { sessionId: survivorId } });
+
+    // The loser's Cheer/Comment/Notification links aren't gone just because
+    // its DrinkSession row is about to be deleted below — Cheer/Comment are
+    // FK'd to DrinkSession with onDelete: Cascade, so without reassigning
+    // them first they'd be silently deleted along with it, even though the
+    // check-ins they're about are still very much alive (now under the
+    // survivor's id).
+    await tx.comment.updateMany({ where: { sessionId: loserId }, data: { sessionId: survivorId } });
+
+    const loserCheerUserIds = (
+      await tx.cheer.findMany({ where: { sessionId: loserId }, select: { userId: true } })
+    ).map((c) => c.userId);
+    if (loserCheerUserIds.length > 0) {
+      const survivorCheerUserIds = new Set(
+        (
+          await tx.cheer.findMany({ where: { sessionId: survivorId }, select: { userId: true } })
+        ).map((c) => c.userId)
+      );
+      // If the same user cheered both sessions, reassigning would collide on
+      // the (sessionId, userId) primary key — drop the loser's copy rather
+      // than double-count what's really the same cheer.
+      const colliding = loserCheerUserIds.filter((id) => survivorCheerUserIds.has(id));
+      const clear = loserCheerUserIds.filter((id) => !survivorCheerUserIds.has(id));
+      if (colliding.length > 0) {
+        await tx.cheer.deleteMany({ where: { sessionId: loserId, userId: { in: colliding } } });
+      }
+      if (clear.length > 0) {
+        await tx.cheer.updateMany({
+          where: { sessionId: loserId, userId: { in: clear } },
+          data: { sessionId: survivorId },
+        });
+      }
+    }
+
+    // Not an FK (frozen-at-write-time by design), so this can't violate a
+    // constraint either way — but leaving it pointed at a session that's
+    // about to stop existing would 404 an otherwise-valid notification link.
+    await tx.notification.updateMany({ where: { entryId: loserId }, data: { entryId: survivorId } });
+
     await tx.drinkSession.update({ where: { id: survivorId }, data: { endedAt: loser.endedAt } });
     await tx.drinkSession.delete({ where: { id: loserId } });
     return { sessionId: survivorId, isNewSession: false };
@@ -121,6 +160,14 @@ export async function createDrinkEntry(
   let isNewSession: boolean;
   try {
     const result = await db.$transaction(async (tx) => {
+      // Session assignment is read-then-write (find neighbours, then attach/
+      // merge/create) with no row locking of its own — two concurrent
+      // creates for the same user (double-submit, two tabs/devices) could
+      // each see the same "no session yet" state and each create their own,
+      // instead of one correctly attaching to the other. A transaction-scoped
+      // advisory lock keyed by userId serializes session mutations per user
+      // (auto-released at commit/rollback) without blocking other users.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
       const assignment = await assignSessionForNewEntry(tx, userId, entryId, createdAt);
       const entry = await tx.drinkEntry.create({
         data: {
@@ -316,6 +363,10 @@ export async function deleteDrinkEntry(
 
   try {
     await db.$transaction(async (tx) => {
+      // Same per-user serialization as createDrinkEntry's lock, and the same
+      // key, so a concurrent create/delete pair for one user also serializes
+      // against each other, not just delete-vs-delete.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
       await tx.drinkEntry.deleteMany({ where: { id: input.id, userId } });
       await reclusterSessionAfterDelete(tx, userId, entry.sessionId);
     });
