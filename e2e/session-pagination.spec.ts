@@ -42,6 +42,13 @@ test("scrolling the dashboard feed loads a second page of older sessions", async
   await logPage.submit();
   await expect(logPage.toast()).toHaveText(/Logged/);
 
+  // Logging is queue-first (lib/offline/syncPendingCheckins.ts): the toast
+  // above fires the instant the check-in is queued, not once addDrink (and
+  // its revalidateTag) has actually run. Wait for the pending panel to
+  // clear so the real server round-trip — the one that busts the cache —
+  // has genuinely finished before checking the dashboard.
+  await expect(logPage.pendingPanel()).toBeHidden({ timeout: 30000 });
+
   await page.goto("/dashboard?tab=you", { waitUntil: "networkidle" });
 
   await expect(page.locator(`text=${newestName}`)).toBeVisible();
