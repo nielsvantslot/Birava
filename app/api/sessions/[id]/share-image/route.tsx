@@ -37,14 +37,83 @@ function renderCard({
   visualUri,
   title,
   venueLine,
+  lone,
   stats,
 }: {
   transparent: boolean;
   visualUri: string | null;
   title: string;
   venueLine: string | null;
+  lone: boolean;
   stats: Array<{ value: string; label: string }>;
 }) {
+  // Satori (next/og's renderer) doesn't support React.Fragment as a
+  // transparent grouping wrapper — its layout engine needs every group to be
+  // an explicit flex div, or siblings render as if they'd lost their parent's
+  // flexDirection (text overlapping instead of stacking).
+  //
+  // `stretch` controls whether this block fills its parent's remaining space
+  // (true, when there's a visual above it — needed so the stats row's
+  // marginTop:"auto" has slack to push against and pins to the bottom) or
+  // sizes to its own content (false, when there's no visual — so the parent's
+  // justifyContent:"center" can center this block as a whole).
+  function renderTextBlock(stretch: boolean) {
+    return (
+    <div style={{ display: "flex", flexDirection: "column", width: "100%", ...(stretch ? { flex: 1 } : {}) }}>
+      <div
+        style={{
+          display: "flex",
+          marginTop: stretch ? 56 : 0,
+          fontSize: 64,
+          fontWeight: 700,
+          lineHeight: 1.1,
+        }}
+      >
+        {title}
+      </div>
+
+      {venueLine && (
+        <div style={{ display: "flex", marginTop: 20, fontSize: 34, color: INK_DIM }}>
+          {venueLine}
+        </div>
+      )}
+
+      {/* A lone check-in has no span to measure — say so instead of hiding the
+          duration/pace stats silently, so the card doesn't read as broken. */}
+      {lone && (
+        <div style={{ display: "flex", marginTop: 20, fontSize: 30, color: INK_DIM }}>
+          Single check-in
+        </div>
+      )}
+
+      {/* stats */}
+      <div
+        style={{
+          display: "flex",
+          marginTop: stretch ? "auto" : 56,
+          gap: 40,
+          borderTop: `2px solid ${LINE}`,
+          paddingTop: 48,
+        }}
+      >
+        {stats.map((s) => (
+          <div
+            key={s.label}
+            style={{ display: "flex", flexDirection: "column", flex: 1 }}
+          >
+            <div style={{ display: "flex", fontSize: 76, fontWeight: 800, color: ACCENT }}>
+              {s.value}
+            </div>
+            <div style={{ display: "flex", marginTop: 8, fontSize: 30, color: INK_DIM }}>
+              {s.label}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+    );
+  }
+
   return new ImageResponse(
     (
       <div
@@ -74,72 +143,46 @@ function renderCard({
           </div>
         </div>
 
-        {/* route map (opaque card) / route line only (transparent sticker) / hero photo fallback */}
-        {visualUri && (
+        {visualUri ? (
+          <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+            {/* route map (opaque card) / route line only (transparent sticker) / hero photo fallback */}
+            <div
+              style={{
+                display: "flex",
+                marginTop: 48,
+                width: "100%",
+                height: MAP_HEIGHT,
+                borderRadius: 32,
+                overflow: "hidden",
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={visualUri}
+                width={MAP_WIDTH}
+                height={MAP_HEIGHT}
+                style={{ objectFit: "cover", width: "100%", height: "100%" }}
+                alt=""
+              />
+            </div>
+            {renderTextBlock(true)}
+          </div>
+        ) : (
+          // No route and no photo (e.g. a lone check-in with no location, or
+          // location off entirely): there's no hero visual to anchor the
+          // layout, so center the title/stats in the frame instead of
+          // pinning them to the bottom and leaving a large empty gap above.
           <div
             style={{
               display: "flex",
-              marginTop: 48,
-              width: "100%",
-              height: MAP_HEIGHT,
-              borderRadius: 32,
-              overflow: "hidden",
+              flexDirection: "column",
+              flex: 1,
+              justifyContent: "center",
             }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={visualUri}
-              width={MAP_WIDTH}
-              height={MAP_HEIGHT}
-              style={{ objectFit: "cover", width: "100%", height: "100%" }}
-              alt=""
-            />
+            {renderTextBlock(false)}
           </div>
         )}
-
-        {/* title */}
-        <div
-          style={{
-            display: "flex",
-            marginTop: 56,
-            fontSize: 64,
-            fontWeight: 700,
-            lineHeight: 1.1,
-          }}
-        >
-          {title}
-        </div>
-
-        {venueLine && (
-          <div style={{ display: "flex", marginTop: 20, fontSize: 34, color: INK_DIM }}>
-            {venueLine}
-          </div>
-        )}
-
-        {/* stats */}
-        <div
-          style={{
-            display: "flex",
-            marginTop: "auto",
-            gap: 40,
-            borderTop: `2px solid ${LINE}`,
-            paddingTop: 48,
-          }}
-        >
-          {stats.map((s) => (
-            <div
-              key={s.label}
-              style={{ display: "flex", flexDirection: "column", flex: 1 }}
-            >
-              <div style={{ display: "flex", fontSize: 76, fontWeight: 800, color: ACCENT }}>
-                {s.value}
-              </div>
-              <div style={{ display: "flex", marginTop: 8, fontSize: 30, color: INK_DIM }}>
-                {s.label}
-              </div>
-            </div>
-          ))}
-        </div>
 
         {/* footer */}
         <div
@@ -240,21 +283,23 @@ export async function GET(
     }
   }
 
-  // Pace only makes sense across a real span with more than one drink —
-  // a deliberate, share-card-only exception to the app's parked pace rule
-  // (see CLAUDE.md's "Celebrate variety, never volume"). Computed from
-  // seconds, not the already-rounded minute total, so a fast pace (e.g. a
-  // few check-ins logged in quick succession) doesn't round down to "0m".
-  const pace =
-    minutes > 0 && drinks > 1
-      ? formatPace(Math.round(sessionSeconds(session) / drinks))
-      : null;
+  // A lone check-in has no span to measure at all — that's the only case
+  // duration/pace are dropped. A real multi-check-in session still gets
+  // both even if it happens to round to "0m" (checked in fast) — gating on
+  // minutes > 0 previously hid them for any quick-succession session, which
+  // read as the stats silently vanishing rather than "this was fast."
+  const lone = drinks === 1;
+
+  // Pace only makes sense with more than one drink — a deliberate,
+  // share-card-only exception to the app's parked pace rule (see CLAUDE.md's
+  // "Celebrate variety, never volume"). Computed from seconds, not the
+  // already-rounded minute total, so a fast pace doesn't round down to "0m".
+  const pace = !lone ? formatPace(Math.round(sessionSeconds(session) / drinks)) : null;
 
   const stats: Array<{ value: string; label: string }> = [
-    { value: String(drinks), label: drinks === 1 ? "drink" : "drinks" },
+    { value: String(drinks), label: lone ? "drink" : "drinks" },
   ];
-  // Duration only makes sense for a real session span — a lone check-in has none.
-  if (minutes > 0) {
+  if (!lone) {
     stats.push({ value: formatSessionDuration(minutes), label: "duration" });
   }
   if (pace) {
@@ -267,6 +312,7 @@ export async function GET(
       visualUri: mapDataUri ?? heroDataUri,
       title,
       venueLine,
+      lone,
       stats,
     }),
     renderCard({
@@ -274,6 +320,7 @@ export async function GET(
       visualUri: routeOnlyDataUri,
       title,
       venueLine,
+      lone,
       stats,
     }),
   ]);
