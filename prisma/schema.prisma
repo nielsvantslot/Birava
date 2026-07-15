@@ -8,29 +8,27 @@ datasource db {
 }
 
 model User {
-  id                   String                 @id @default(uuid()) @db.Uuid
-  email                String                 @unique
-  username             String                 @unique
-  passwordHash         String
-  avatarUrl            String?
-  passwordResetToken   String?
-  passwordResetExpires DateTime?
-  createdAt            DateTime               @default(now()) @db.Timestamptz(6)
-  drinkEntries         DrinkEntry[]
-  ownedGroups          Group[]                @relation("GroupOwner")
-  groupMemberships     GroupMember[]
-  follows              Follow[]               @relation("FollowFollower")
-  followedBy           Follow[]               @relation("FollowFollowing")
-  sessions             Session[]
-  cheers               Cheer[]
-  notifications        Notification[]
-  pushSubscriptions    PushSubscription[]
-  comments             Comment[]
+  id                String             @id @default(uuid()) @db.Uuid
+  email             String             @unique
+  username          String             @unique
+  passwordHash      String
+  avatarUrl         String?
+  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
+  drinkEntries      DrinkEntry[]
+  ownedGroups       Group[]            @relation("GroupOwner")
+  groupMemberships  GroupMember[]
+  follows           Follow[]           @relation("FollowFollower")
+  followedBy        Follow[]           @relation("FollowFollowing")
+  sessions          Session[]
+  cheers            Cheer[]
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
+  comments          Comment[]
 }
 
 model Session {
   id           String   @id @default(uuid()) @db.Uuid
-  userId       String @db.Uuid
+  userId       String   @db.Uuid
   sessionToken String   @unique
   expiresAt    DateTime @db.Timestamptz(6)
   createdAt    DateTime @default(now()) @db.Timestamptz(6)
@@ -40,50 +38,50 @@ model Session {
 }
 
 model Group {
-  id         String        @id @default(uuid()) @db.Uuid
-  name       String
-  inviteCode String        @unique
-  ownerId    String        @db.Uuid
-  createdAt  DateTime      @default(now()) @db.Timestamptz(6)
-  owner      User          @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  members    GroupMember[]
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String
+  inviteCode   String        @unique
+  ownerId      String        @db.Uuid
+  createdAt    DateTime      @default(now()) @db.Timestamptz(6)
+  owner        User          @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members      GroupMember[]
   drinkEntries DrinkEntry[]
 
   @@index([ownerId])
 }
 
 model GroupMember {
-  groupId   String   @db.Uuid
-  userId    String   @db.Uuid
-  joinedAt  DateTime @default(now()) @db.Timestamptz(6)
-  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupId  String   @db.Uuid
+  userId   String   @db.Uuid
+  joinedAt DateTime @default(now()) @db.Timestamptz(6)
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([groupId, userId])
   @@index([userId])
 }
 
 model DrinkEntry {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @db.Uuid
-  groupId   String?  @db.Uuid
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  groupId   String?   @db.Uuid
   drinkName String?
   brewery   String?
   style     String?
-  drinkType String   @default("Beer")
-  amount    Decimal  @default(1) @db.Decimal(10, 2)
+  drinkType String    @default("Beer")
+  amount    Decimal   @default(1) @db.Decimal(10, 2)
   rating    Int?
   venue     String?
-  lat       Decimal? @db.Decimal(9, 6)
-  lng       Decimal? @db.Decimal(9, 6)
+  lat       Decimal?  @db.Decimal(9, 6)
+  lng       Decimal?  @db.Decimal(9, 6)
   notes     String?
   photoUrl  String?
   /// Tiny base64 blurred placeholder generated at upload time, rendered via
   /// next/image's placeholder="blur" while the real photo streams in.
   photoLqip String?
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  group     Group?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group     Group?    @relation(fields: [groupId], references: [id], onDelete: SetNull)
   cheers    Cheer[]
   comments  Comment[]
 
@@ -94,11 +92,11 @@ model DrinkEntry {
 /// A "cheers" (kudos) on a session, keyed by the session's anchor
 /// check-in — the session id is its first check-in's id.
 model Cheer {
-  entryId   String   @db.Uuid
-  userId    String   @db.Uuid
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  entryId   String     @db.Uuid
+  userId    String     @db.Uuid
+  createdAt DateTime   @default(now()) @db.Timestamptz(6)
   entry     DrinkEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([entryId, userId])
 }

@@ -102,7 +102,6 @@ The app briefly ran on Next.js 16.2.9 (with `cacheComponents: true`) but was dow
 
 ## Known landmines (see `docs/audit/` for the full reports)
 - **Uploads write to `public/uploads/` on the local filesystem** (`modules/photo-upload/adapters/LocalDiskStorageAdapter.ts`, wired in `lib/photoUpload.ts`) — this breaks on Vercel's ephemeral/read-only FS; used in dev only, `VercelBlobStorageAdapter` handles staging/production. Size (20MB cap) and format validation (via `sharp` failing to decode) live in `SharpImageProcessor` — see "Image pipeline" above.
-- **`app/api/auth/forgot-password/route.ts`** returns the reset URL/token in the HTTP response (account-takeover risk) — gate before deploy.
 - **Open product calls** (flagged 2026-07-09, don't silently decide): active-weeks streak grace rule (currently: one rest week survives, 2+ consecutive end the run — `activeWeeks()` in `lib/sessions.ts`); Countries/Passport badges omitted for lack of country data ("Types tried" substituted); comments are a "soon" toast stub (proost is real).
 - Dev DB contains seeded demo users (`designtest`/`sarah_pours`/`niels_hop`, pw `designtest123`, plus `audit_user`) — Jairo's real account is `SlayerofBeers`; never modify it.
 
