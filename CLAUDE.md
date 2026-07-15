@@ -42,7 +42,11 @@ The repo was migrated off Supabase to direct Prisma. Auth is a hand-rolled sessi
 
 The app is the **Birava 2.0** redesign (spec: `BIRAVA-2.0-HANDOFF.md` in the claude.ai/design project; see HANDOFF.md). Non-negotiables:
 
-- **The session is the hero unit.** A check-in (one logged drink) is the input; check-ins auto-group into sessions by a **4-hour inactivity gap** (locked rule, `lib/sessions.ts`, `SESSION_GAP_MS`). Sessions are *computed, never stored* — a session's id is its first check-in's id (`/sessions/[id]` re-groups around that anchor). No manual start/end.
+- **The session is the hero unit.** A check-in (one logged drink) is the input; check-ins auto-group into sessions by a **4-hour inactivity gap** (locked rule, `lib/sessions.ts`, `SESSION_GAP_MS`). No manual start/end.
+  - Sessions are a **real stored entity** (`DrinkSession` model, `prisma/schema.prisma`) — not computed on every read. `lib/commands/drinkEntryCommands.ts` maintains it incrementally on every check-in create/delete: attach to the session before/after, **merge** two sessions a backdated check-in bridges, **split** a session when deleting a middle check-in exposes a >4h gap, or start a new one.
+  - A session's `id` is set once, to its anchor check-in's id at creation, and is **permanent** — it never changes even if a later backdated check-in becomes chronologically earlier. Existing `/sessions/[id]` links, share images, and `Comment`/`Cheer` rows (both FK'd to `DrinkSession`, not `DrinkEntry`) stay valid across merges/splits.
+  - Check-in creation accepts a client-supplied `createdAt` (offline-sync recovering something logged in the past), clamped server-side to a 7-day trust window (`MAX_BACKDATE_MS`) since it's attacker-reachable input, not just the sync flow's.
+  - `lib/sessions.ts`'s `groupIntoSessions()` (pure, in-memory) still exists and is still the right tool for aggregate-only screens (`/stats`, `/achievements`, streak/venue/type counts on profile) that never expose a `session.id` in a link — recomputing from already-fetched raw check-ins is free there. Any screen that renders a `/sessions/[id]` link or a Comment/Cheer key must go through `lib/queries/drinkSessionQueries.ts`'s DB-backed reads instead, since only the stored id is guaranteed correct post-backdating.
 - **Vocabulary (exact):** log (verb) / check-in / session / crew / leaderboard (only the ranking *inside* a crew). Copy says "drink", not "beer" (marketing may say beer). Wrong-code error is exactly "That code doesn't match any crew." Sentence case; no emoji anywhere in UI copy.
 - **Accent discipline is a correctness bug if wrong:** `--accent` = actions + the current user's own data only; other people render in `--ink`. `--honey` = achievements only.
 - **Celebrate variety, never volume:** no drink-count achievements, no avg/day/hour anywhere, crew leaderboards score **since each member joined** (`lib/crews.ts`), streak = **active weeks** with rest-week/recovery framing. Ratings are stripped app-wide (the `rating` column exists but is unused — don't resurface it without a product call). Never show a streak at the moment of logging.
@@ -63,10 +67,11 @@ Components never consume Prisma rows directly. The boundary is `lib/mappers.ts`:
 All date/day/week logic goes through `lib/dates.ts`, parameterized by the user's IANA time zone. `components/timezone-sync.tsx` writes the browser TZ to a `birava_tz` cookie (and refreshes once); server components read it via `getUserTimeZone()` (`lib/timezone.ts`). Session titles, "Today/Yesterday", the active-weeks streak, and week buckets all use this. Don't call `new Date().getHours()`/`toLocaleDateString()` without a TZ — that's the class of bug the 2.0 rebuild removed.
 
 ## Schema notes (`prisma/schema.prisma`)
-- `User` is the profile (no separate profiles table). Fields use `@map` to snake_case columns; `BeerEntry`/`Proost` columns are camelCase — check the migration SQL before writing raw queries.
-- `BeerEntry` = a check-in: `drinkType` (Beer/Wine/Cocktail/Other, `DRINK_TYPES` in `lib/types.ts`), optional `venue`, `lat`/`lng` (`Decimal(9,6)`), `notes`, `photoUrl`. `rating`/`style`/`brewery`/`amount` are legacy columns no longer written by the UI.
-- `Proost` = kudos on a session, keyed `[entryId, userId]` where `entryId` is the session's anchor (first) check-in.
-- `BeerEntry.groupId` exists but crew-scoped logging is **not wired** — it is effectively always null; crew scoring instead filters by `GroupMember.joinedAt`.
+- `User` is the profile (no separate profiles table). Fields use `@map` to snake_case columns; `DrinkEntry`/`DrinkSession`/`Cheer`/`Comment` columns are camelCase — check the migration SQL before writing raw queries.
+- `DrinkEntry` = a check-in: `drinkType` (Beer/Wine/Cocktail/Other, `DRINK_TYPES` in `lib/types.ts`), optional `venue`, `lat`/`lng` (`Decimal(9,6)`), `notes`, `photoUrl`, required `sessionId` (see "The session is the hero unit" above). `rating`/`style`/`brewery`/`amount` are legacy columns no longer written by the UI.
+- `DrinkSession` = a real session row (`id`, `userId`, `startedAt`, `endedAt`, `name`) — not the auth `Session` model (login sessions), a separate model entirely.
+- `Cheer`/`Comment` are keyed by `sessionId` (FK to `DrinkSession`), not by a check-in id.
+- `DrinkEntry.groupId` exists but crew-scoped logging is **not wired** — it is effectively always null; crew scoring instead filters by `GroupMember.joinedAt`.
 
 ## Image pipeline (`modules/photo-upload/`, `lib/photoUpload.ts`, `app/api/photos/[entryId]/route.ts`)
 

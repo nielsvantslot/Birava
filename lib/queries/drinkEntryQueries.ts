@@ -93,63 +93,6 @@ export async function getDrinkHistory(userId: string): Promise<DrinkEntry[]> {
   )();
 }
 
-/**
- * Merged feed (viewer + followed) for the dashboard, newest first, capped at
- * 150. Legacy `DrinkEntry` shape (with author) for the same session-engine
- * reason as getDrinkHistory.
- *
- * Cached per unique set of userIds, tagged with each contributing user's
- * drinkHistoryTag so it's busted the moment any of them logs/edits/deletes a
- * check-in (revalidateDrinkPaths already fires that tag today).
- */
-export async function getFeedDrinkHistory(
-  userIds: string[]
-): Promise<DrinkEntry[]> {
-  const cacheKey = [...userIds].sort().join(",");
-  return unstable_cache(
-    async () => {
-      const entries = await db.drinkEntry.findMany({
-        where: { userId: { in: userIds } },
-        include: { user: { select: { username: true, avatarUrl: true } } },
-        orderBy: { createdAt: "desc" },
-        take: 150,
-      });
-      return entries.map(toDrinkEntry);
-    },
-    ["feed-drink-history", cacheKey],
-    { tags: userIds.map(drinkHistoryTag), revalidate: 60 }
-  )();
-}
-
-const SESSION_WINDOW_MS = 48 * 60 * 60 * 1000;
-
-/**
- * The ±48h check-in window around an anchor's owner, from which the session
- * is recomputed (sessions are never stored). Legacy `DrinkEntry` shape.
- */
-export async function getSessionWindow(
-  anchorId: string
-): Promise<DrinkEntry[] | null> {
-  const anchor = await db.drinkEntry.findUnique({
-    where: { id: anchorId },
-    select: { userId: true, createdAt: true },
-  });
-  if (!anchor) return null;
-
-  const neighbours = await db.drinkEntry.findMany({
-    where: {
-      userId: anchor.userId,
-      createdAt: {
-        gte: new Date(anchor.createdAt.getTime() - SESSION_WINDOW_MS),
-        lte: new Date(anchor.createdAt.getTime() + SESSION_WINDOW_MS),
-      },
-    },
-    include: { user: { select: { username: true, avatarUrl: true } } },
-    orderBy: { createdAt: "asc" },
-  });
-  return neighbours.map(toDrinkEntry);
-}
-
 /** A single own check-in (for the edit form). Legacy `DrinkEntry` shape. */
 export async function getDrinkEntryForUser(
   userId: string,

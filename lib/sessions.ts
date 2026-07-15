@@ -128,18 +128,6 @@ export function groupIntoSessions(entries: DrinkEntry[]): DrinkSession[] {
   );
 }
 
-/** The session that contains a given check-in, or null. */
-export function findSessionWithCheckin(
-  entries: DrinkEntry[],
-  checkinId: string
-): DrinkSession | null {
-  return (
-    groupIntoSessions(entries).find((s) =>
-      s.checkins.some((c) => c.id === checkinId)
-    ) ?? null
-  );
-}
-
 function sessionSpanMs(session: DrinkSession): number {
   return new Date(session.end).getTime() - new Date(session.start).getTime();
 }

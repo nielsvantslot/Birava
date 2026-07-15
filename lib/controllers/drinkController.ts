@@ -6,7 +6,6 @@ import { NOT_AUTHENTICATED } from "@/lib/auth/authErrors";
 import { createDrinkEntry, updateDrinkEntry, deleteDrinkEntry } from "@/lib/commands/drinkEntryCommands";
 import {
   getDrinkHistory,
-  getFeedDrinkHistory,
   getDrinkEntryForUser,
   getRecentDrinkHistory,
   drinkHistoryTag,
@@ -93,17 +92,6 @@ export async function getDrinkHistoryForUser(
   input: GetDrinkHistoryForUserDTO
 ): Promise<DrinkEntry[]> {
   return getDrinkHistory(input.userId);
-}
-
-/** The dashboard feed: viewer alone ("You" tab) or viewer + everyone they follow. */
-export async function getMyFeed(input: GetMyFeedDTO): Promise<DrinkEntry[]> {
-  const user = await getCurrentUser();
-  if (!user) return [];
-
-  const userIds = input.onlyOwn
-    ? [user.id]
-    : [user.id, ...(await getFollowingIds(user.id))];
-  return getFeedDrinkHistory(userIds);
 }
 
 /** A single session by id — the session detail page + share-image route. */

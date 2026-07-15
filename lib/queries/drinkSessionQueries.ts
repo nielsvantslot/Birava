@@ -26,11 +26,7 @@ function toDrinkSession(row: SessionRowWithRelations): DrinkSession {
   );
 }
 
-/**
- * A single session by id — replaces the old ±48h-window-then-re-derive
- * approach (getSessionWindow + findSessionWithCheckin): sessions are real
- * rows now, so this is a direct lookup instead of a recomputation.
- */
+/** A single session by id — a direct lookup, since sessions are real rows. */
 export async function getSessionById(id: string): Promise<DrinkSession | null> {
   if (!SESSION_ID_PATTERN.test(id)) return null;
 
