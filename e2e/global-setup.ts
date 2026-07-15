@@ -1,11 +1,7 @@
-import path from "path";
 import type { FullConfig } from "@playwright/test";
 import { chromium, request } from "@playwright/test";
 import { LoginPage } from "./pages/LoginPage";
-import { LogDrinkPage } from "./pages/LogDrinkPage";
 import { TestUserFactory } from "./support/TestUserFactory";
-
-const TEST_PHOTO = path.join(__dirname, "fixtures", "test-photo.jpg");
 
 // next dev compiles each route on first visit — left to individual specs,
 // that cold-compile cost lands unpredictably (whichever test happens to
@@ -37,21 +33,7 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
     const loginPage = new LoginPage(page);
     await loginPage.goto();
     await loginPage.login(credentials.email, credentials.password);
-
-    // Visiting /log only compiles the page's client bundle — the photo
-    // upload API route (app/api/uploads/drink-photo/route.ts) is a separate
-    // compilation unit that Turbopack only touches on its first real POST.
-    // Without paying that cost here, whichever spec first attaches a photo
-    // races its request body against that route's first compile, which can
-    // fail outright ("Failed to parse body as FormData") rather than just
-    // being slow — this warmup upload absorbs it instead.
-    const logPage = new LogDrinkPage(page);
-    await logPage.goto();
-    await logPage.fillDrinkName(`E2E Warmup ${Date.now()}`);
-    await logPage.attachPhoto(TEST_PHOTO);
-    await logPage.submit();
-    await page.locator(".toast.show").waitFor({ state: "visible" });
-    await logPage.pendingPanel().waitFor({ state: "hidden", timeout: WARMUP_TIMEOUT_MS });
+    await page.goto("/log", { waitUntil: "networkidle" });
   } finally {
     await browser.close();
   }
