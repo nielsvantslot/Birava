@@ -35,11 +35,6 @@ export default function LogLoading() {
           </div>
         ))}
       </div>
-      <div className="section" style={{ minHeight: 160 }}>
-        <div className="h-row">
-          <h3>Recent</h3>
-        </div>
-      </div>
     </>
   );
 }

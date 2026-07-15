@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
@@ -13,21 +14,40 @@ import { getFollowCounts } from "@/lib/controllers/socialController";
 import { ProfileHead, ProfileActions } from "@/components/drink/profile-client";
 import { AchievementGlyph } from "@/components/drink/achievement-icon";
 import { PushSubscribeToggle } from "@/components/notifications/push-subscribe-toggle";
+import { Skeleton, SkeletonAvatarRow } from "@/components/ui/skeleton";
 
 export default async function ProfilePage() {
   const user = await getCurrentUser();
   if (!user) return null;
 
+  return (
+    <>
+      <Suspense fallback={<ProfileMainSkeleton />}>
+        <ProfileMain user={user} />
+      </Suspense>
+
+      {/* Recent sessions is a separate fetch from everything ProfileMain
+          needs — streams in on its own instead of gating (or being gated
+          by) the profile head/achievements. */}
+      <Suspense fallback={<RecentSessionsSkeleton />}>
+        <RecentSessionsLoader userId={user.id} />
+      </Suspense>
+
+      <ProfileActions />
+    </>
+  );
+}
+
+async function ProfileMain({
+  user,
+}: {
+  user: { id: string; username: string; avatarUrl: string | null; createdAt: string };
+}) {
   // Independent reads — run in parallel (F2).
-  const [tz, entries, followCounts, recentSessions] = await Promise.all([
+  const [tz, entries, followCounts] = await Promise.all([
     getUserTimeZone(),
     getMyDrinkHistory(),
     getFollowCounts({ profileId: user.id }),
-    // Fetched from the real DrinkSession rows, not re-derived from `entries`
-    // below — a session's id is permanent once created, so recomputing it
-    // from raw check-ins could disagree with the stored id after a
-    // backdated (offline-sync) check-in became chronologically first.
-    getRecentSessionsForUser({ userId: user.id, limit: 3 }),
   ]);
   const sessions = groupIntoSessions(entries);
   const weeks = activeWeeks(sessions, tz);
@@ -98,48 +118,91 @@ export default async function ProfilePage() {
           ))
         )}
       </div>
-
-      {recentSessions.length > 0 && (
-        <div className="section">
-          <div className="h-row">
-            <h3>Recent sessions</h3>
-            <Link href="/dashboard?tab=you">All</Link>
-          </div>
-          {recentSessions.map((session) => {
-            const meta = [
-              `${session.checkins.length} check-in${session.checkins.length === 1 ? "" : "s"}`,
-              session.venues.length
-                ? `${session.venues.length} venue${session.venues.length === 1 ? "" : "s"}`
-                : null,
-              relativeDay(new Date(session.start), tz).toLowerCase(),
-            ]
-              .filter(Boolean)
-              .join(" · ");
-            return (
-              <Link
-                key={session.id}
-                href={`/sessions/${session.id}`}
-                className="row"
-                style={{ textDecoration: "none", color: "inherit" }}
-              >
-                <div className="rowmark">
-                  <svg viewBox="0 0 24 24">
-                    <path d="M9 3h6M12 3v4"></path>
-                    <path d="M7 21c-2 0-3-1.6-3-3.5C4 13 7 11 12 11s8 2 8 6.5c0 1.9-1 3.5-3 3.5z"></path>
-                  </svg>
-                </div>
-                <div className="grow">
-                  <b>{sessionTitle(session, tz)}</b>
-                  <span>{meta}</span>
-                </div>
-                <span className="chev">›</span>
-              </Link>
-            );
-          })}
-        </div>
-      )}
-
-      <ProfileActions />
     </>
+  );
+}
+
+async function RecentSessionsLoader({ userId }: { userId: string }) {
+  // Independent reads — run in parallel (F2). Fetched from the real
+  // DrinkSession rows, not re-derived from raw check-ins — a session's id
+  // is permanent once created, so recomputing it from raw check-ins could
+  // disagree with the stored id after a backdated (offline-sync) check-in
+  // became chronologically first.
+  const [tz, recentSessions] = await Promise.all([
+    getUserTimeZone(),
+    getRecentSessionsForUser({ userId, limit: 3 }),
+  ]);
+  if (recentSessions.length === 0) return null;
+
+  return (
+    <div className="section">
+      <div className="h-row">
+        <h3>Recent sessions</h3>
+        <Link href="/dashboard?tab=you">All</Link>
+      </div>
+      {recentSessions.map((session) => {
+        const meta = [
+          `${session.checkins.length} check-in${session.checkins.length === 1 ? "" : "s"}`,
+          session.venues.length
+            ? `${session.venues.length} venue${session.venues.length === 1 ? "" : "s"}`
+            : null,
+          relativeDay(new Date(session.start), tz).toLowerCase(),
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        return (
+          <Link
+            key={session.id}
+            href={`/sessions/${session.id}`}
+            className="row"
+            style={{ textDecoration: "none", color: "inherit" }}
+          >
+            <div className="rowmark">
+              <svg viewBox="0 0 24 24">
+                <path d="M9 3h6M12 3v4"></path>
+                <path d="M7 21c-2 0-3-1.6-3-3.5C4 13 7 11 12 11s8 2 8 6.5c0 1.9-1 3.5-3 3.5z"></path>
+              </svg>
+            </div>
+            <div className="grow">
+              <b>{sessionTitle(session, tz)}</b>
+              <span>{meta}</span>
+            </div>
+            <span className="chev">›</span>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+function ProfileMainSkeleton() {
+  return (
+    <div className="space-y-6 py-4">
+      <div className="flex items-center gap-3 px-1">
+        <Skeleton className="h-16 w-16 rounded-full shrink-0" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-3.5 w-40" />
+        </div>
+      </div>
+      <div className="grid grid-cols-4 gap-3">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="space-y-1.5 text-center">
+            <Skeleton className="h-6 w-8 mx-auto" />
+            <Skeleton className="h-3 w-12 mx-auto" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RecentSessionsSkeleton() {
+  return (
+    <div className="space-y-2 py-2">
+      {[...Array(3)].map((_, i) => (
+        <SkeletonAvatarRow key={i} line1Width="w-36" line2Width="w-20" />
+      ))}
+    </div>
   );
 }

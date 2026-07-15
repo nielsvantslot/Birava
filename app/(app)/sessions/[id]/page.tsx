@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -8,18 +9,20 @@ import {
   getLocalLegendVenue,
   sessionMinutes,
   sessionTitle,
+  type DrinkSession,
 } from "@/lib/sessions";
 import {
   getSession,
   getMyDrinkHistory,
 } from "@/lib/controllers/drinkController";
-import { getSessionCheers, getSessionComments } from "@/lib/controllers/socialController";
+import { getSessionCheers, getSessionComments, getCommentCounts } from "@/lib/controllers/socialController";
 import { formatTime, relativeDayTime } from "@/lib/dates";
 import { SessionMap, MapPin } from "@/components/drink/session-map";
 import { SessionTitle } from "@/components/drink/session-title";
 import { SocialActs } from "@/components/drink/social-row";
 import { CheckinGrid } from "@/components/drink/checkin-grid";
 import { CommentsSection } from "@/components/drink/comments-section";
+import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 
 type VenueGroup = { venue: string | null; checkins: DrinkEntry[] };
 
@@ -51,6 +54,11 @@ export default async function SessionDetailPage({
 
   const { id } = await params;
 
+  // session+tz are a hard prerequisite — nothing can render before we know
+  // the session exists (notFound()) and have its checkins to show. Local
+  // Legend/map, cheers, and comments are each a separate, independent fetch
+  // that only one specific piece of UI needs, so each streams in behind its
+  // own Suspense instead of gating (or being gated by) the others.
   const [tz, session] = await Promise.all([
     getUserTimeZone(),
     getSession({ id }),
@@ -63,45 +71,6 @@ export default async function SessionDetailPage({
   const minutes = sessionMinutes(session);
   const title = sessionTitle(session, tz);
   const defaultTitle = defaultSessionTitle(session, tz);
-  const venueGroups = groupByVenueRun(checkins);
-
-  // Local Legend needs the owner's own history; the cheer state and
-  // comment thread are independent — fetch all three in parallel (F2).
-  const [ownForLegend, cheerMap, commentsMap] = await Promise.all([
-    isSelf ? getMyDrinkHistory() : Promise.resolve(null),
-    getSessionCheers({ sessionIds: [session.id] }),
-    getSessionComments({ sessionIds: [session.id] }),
-  ]);
-
-  let legendVenue: string | null = null;
-  if (ownForLegend) {
-    legendVenue = getLocalLegendVenue(ownForLegend);
-    if (legendVenue && !session.venues.includes(legendVenue)) {
-      legendVenue = null;
-    }
-  }
-
-  const routePoints = checkins
-    .filter((c) => c.lat != null && c.lng != null)
-    .map((c) => ({ lat: c.lat as number, lng: c.lng as number }));
-
-  // One numbered pin per venue, placed at its first located check-in
-  const pins: MapPin[] = [];
-  const pinned = new Set<string>();
-  for (const group of venueGroups) {
-    if (!group.venue || pinned.has(group.venue)) continue;
-    const located = group.checkins.find((c) => c.lat != null && c.lng != null);
-    if (!located) continue;
-    pinned.add(group.venue);
-    pins.push({
-      point: { lat: located.lat as number, lng: located.lng as number },
-      label: String(pins.length + 1),
-      legend: !!legendVenue && group.venue === legendVenue,
-    });
-  }
-
-  const cheer = cheerMap.get(session.id) ?? { count: 0, on: false };
-  const comments = commentsMap.get(session.id) ?? [];
 
   const startMeta = relativeDayTime(new Date(session.start), tz);
   const endTime = formatTime(new Date(session.end), tz);
@@ -172,43 +141,14 @@ export default async function SessionDetailPage({
         )}
       </div>
 
-      {/* route map */}
-      {routePoints.length > 0 && (
-        <div className="section flush">
-          <SessionMap points={routePoints} pins={pins.length ? pins : undefined} />
-        </div>
-      )}
+      {/* route map + Local Legend — both derive from the owner's full
+          history (to find the legend venue and to highlight its pin), a
+          separate fetch from everything else on the page. */}
+      <Suspense fallback={<MapSkeleton />}>
+        <MapAndLegendLoader session={session} isSelf={isSelf} />
+      </Suspense>
 
-      {/* Local Legend — explained achievement earned here */}
-      {legendVenue && (
-        <div className="section flush" style={{ padding: "16px 0" }}>
-          <div className="callout">
-            <div className="mark">
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 3l2.2 4.6 5 .7-3.6 3.6.9 5.1L12 14.6 7.5 17l.9-5.1L4.8 8.3l5-.7z"></path>
-              </svg>
-            </div>
-            <div>
-              <b>Local Legend — {legendVenue}</b>
-              <p>
-                You have more check-ins here than anyone else in the last 90
-                days. Hold the lead to keep the crown.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Check-ins (the splits), chronological */}
+      {/* Check-ins (the splits), chronological — needs only session+tz */}
       <div className="section flush" style={{ padding: "6px 0 14px" }}>
         <div
           className="h-row"
@@ -247,25 +187,174 @@ export default async function SessionDetailPage({
 
       {/* social */}
       <div className="section flush">
-        <SocialActs
-          sessionId={session.id}
-          count={cheer.count}
-          on={cheer.on}
-          commentCount={comments.length}
-          shareText={shareText}
-          isOwner={isSelf}
-        />
+        <Suspense fallback={<SocialSkeleton />}>
+          <SocialLoader sessionId={session.id} shareText={shareText} isOwner={isSelf} />
+        </Suspense>
       </div>
 
       {/* comments */}
       <div className="section flush">
-        <CommentsSection
-          sessionId={session.id}
-          tz={tz}
-          currentUserId={user.id}
-          initial={comments}
-        />
+        <Suspense fallback={<CommentsSkeleton />}>
+          <CommentsLoader sessionId={session.id} tz={tz} currentUserId={user.id} />
+        </Suspense>
       </div>
     </>
+  );
+}
+
+async function MapAndLegendLoader({
+  session,
+  isSelf,
+}: {
+  session: DrinkSession;
+  isSelf: boolean;
+}) {
+  const checkins = session.checkins;
+  const venueGroups = groupByVenueRun(checkins);
+
+  const ownForLegend = isSelf ? await getMyDrinkHistory() : null;
+  let legendVenue: string | null = null;
+  if (ownForLegend) {
+    legendVenue = getLocalLegendVenue(ownForLegend);
+    if (legendVenue && !session.venues.includes(legendVenue)) {
+      legendVenue = null;
+    }
+  }
+
+  const routePoints = checkins
+    .filter((c) => c.lat != null && c.lng != null)
+    .map((c) => ({ lat: c.lat as number, lng: c.lng as number }));
+
+  // One numbered pin per venue, placed at its first located check-in
+  const pins: MapPin[] = [];
+  const pinned = new Set<string>();
+  for (const group of venueGroups) {
+    if (!group.venue || pinned.has(group.venue)) continue;
+    const located = group.checkins.find((c) => c.lat != null && c.lng != null);
+    if (!located) continue;
+    pinned.add(group.venue);
+    pins.push({
+      point: { lat: located.lat as number, lng: located.lng as number },
+      label: String(pins.length + 1),
+      legend: !!legendVenue && group.venue === legendVenue,
+    });
+  }
+
+  return (
+    <>
+      {routePoints.length > 0 && (
+        <div className="section flush">
+          <SessionMap points={routePoints} pins={pins.length ? pins : undefined} />
+        </div>
+      )}
+
+      {legendVenue && (
+        <div className="section flush" style={{ padding: "16px 0" }}>
+          <div className="callout">
+            <div className="mark">
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 3l2.2 4.6 5 .7-3.6 3.6.9 5.1L12 14.6 7.5 17l.9-5.1L4.8 8.3l5-.7z"></path>
+              </svg>
+            </div>
+            <div>
+              <b>Local Legend — {legendVenue}</b>
+              <p>
+                You have more check-ins here than anyone else in the last 90
+                days. Hold the lead to keep the crown.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+async function SocialLoader({
+  sessionId,
+  shareText,
+  isOwner,
+}: {
+  sessionId: string;
+  shareText: string;
+  isOwner: boolean;
+}) {
+  // Independent reads — run in parallel (F2). Counts only, not the full
+  // thread — CommentsLoader (a separate Suspense boundary) fetches that
+  // independently, so this doesn't duplicate that query for just a length.
+  const [cheerMap, commentCounts] = await Promise.all([
+    getSessionCheers({ sessionIds: [sessionId] }),
+    getCommentCounts({ sessionIds: [sessionId] }),
+  ]);
+  const cheer = cheerMap.get(sessionId) ?? { count: 0, on: false };
+  const commentCount = commentCounts.get(sessionId) ?? 0;
+
+  return (
+    <SocialActs
+      sessionId={sessionId}
+      count={cheer.count}
+      on={cheer.on}
+      commentCount={commentCount}
+      shareText={shareText}
+      isOwner={isOwner}
+    />
+  );
+}
+
+async function CommentsLoader({
+  sessionId,
+  tz,
+  currentUserId,
+}: {
+  sessionId: string;
+  tz: string;
+  currentUserId: string;
+}) {
+  const commentsMap = await getSessionComments({ sessionIds: [sessionId] });
+  const comments = commentsMap.get(sessionId) ?? [];
+
+  return (
+    <CommentsSection
+      sessionId={sessionId}
+      tz={tz}
+      currentUserId={currentUserId}
+      initial={comments}
+    />
+  );
+}
+
+function MapSkeleton() {
+  return (
+    <div className="section flush" style={{ padding: "16px" }}>
+      <Skeleton className="h-48 w-full rounded-xl" />
+    </div>
+  );
+}
+
+function SocialSkeleton() {
+  return (
+    <div className="flex gap-4 py-2">
+      <Skeleton className="h-8 w-16 rounded-full" />
+      <Skeleton className="h-8 w-16 rounded-full" />
+      <Skeleton className="h-8 w-16 rounded-full" />
+    </div>
+  );
+}
+
+function CommentsSkeleton() {
+  return (
+    <SkeletonCard className="space-y-2">
+      <Skeleton className="h-4 w-24" />
+      <Skeleton className="h-10 w-full rounded-lg" />
+    </SkeletonCard>
   );
 }

@@ -1,13 +1,14 @@
-import {
-  Skeleton,
-  SkeletonCard,
-  SkeletonPageHeader,
-} from "@/components/ui/skeleton";
+import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 
 export default function StatsLoading() {
   return (
     <div className="space-y-6 py-4">
-      <SkeletonPageHeader titleWidth="w-40" subtitleWidth="w-28" />
+      {/* Tab strip */}
+      <div className="flex gap-6 px-1">
+        <Skeleton className="h-4 w-16" />
+        <Skeleton className="h-4 w-14" />
+        <Skeleton className="h-4 w-14" />
+      </div>
 
       {/* Last 24h recap */}
       <SkeletonCard className="space-y-3">

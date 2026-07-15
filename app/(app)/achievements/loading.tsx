@@ -1,10 +1,8 @@
-import { Skeleton, SkeletonCard, SkeletonPageHeader } from "@/components/ui/skeleton";
+import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 
 export default function AchievementsLoading() {
   return (
     <div className="space-y-6 py-4">
-      <SkeletonPageHeader titleWidth="w-44" subtitleWidth="w-32" />
-
       {/* Active-weeks streak */}
       <SkeletonCard className="space-y-3">
         <Skeleton className="h-5 w-40" />

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
@@ -30,14 +31,12 @@ export default async function LogPage({
   if (!user) return null;
 
   const { edit } = await searchParams;
-
-  // Independent reads — run in parallel (F2).
-  const [tz, editEntryOrNull, recent] = await Promise.all([
-    getUserTimeZone(),
-    edit ? getMyDrinkEntry({ id: edit }) : Promise.resolve(null),
-    getMyRecentDrinks({ limit: 4 }),
-  ]);
-  const editEntry: DrinkEntry | undefined = editEntryOrNull ?? undefined;
+  // Only the edit case has a real reason to wait before the form can render
+  // (it needs the entry to prefill) — a plain "new check-in" visit needs no
+  // server data at all. The Recent list below is a separate, independent
+  // fetch (RecentDrinksLoader) that streams in behind its own Suspense
+  // instead of gating the form on data it doesn't use.
+  const editEntry = edit ? ((await getMyDrinkEntry({ id: edit })) ?? undefined) : undefined;
 
   return (
     <>
@@ -60,37 +59,60 @@ export default async function LogPage({
 
       <PendingCheckinsPanel userId={user.id} supportsDirectUpload={drinkPhotoService.supportsDirectUpload} />
 
-      <div className="section">
-        <div className="h-row">
-          <h3>Recent</h3>
-        </div>
-        {recent.length === 0 ? (
-          <p style={{ fontSize: 14, color: "var(--ink-dim)" }}>
-            Nothing logged yet — your first drink goes right here.
-          </p>
-        ) : (
-          recent.map((entry) => (
-            <Link
-              key={entry.id}
-              href={`/log?edit=${entry.id}`}
-              className="row"
-              style={{ textDecoration: "none", color: "inherit" }}
-            >
-              <div className="rowmark">
-                <svg viewBox="0 0 24 24">
-                  <path d="M9 3h6M12 3v4"></path>
-                  <path d="M7 21c-2 0-3-1.6-3-3.5C4 13 7 11 12 11s8 2 8 6.5c0 1.9-1 3.5-3 3.5z"></path>
-                </svg>
-              </div>
-              <div className="grow">
-                <b>{entry.drink_name?.trim() || entry.drink_type}</b>
-                <span>{recentMeta(entry, tz)}</span>
-              </div>
-              <span className="chev">›</span>
-            </Link>
-          ))
-        )}
-      </div>
+      <Suspense fallback={<RecentDrinksSkeleton />}>
+        <RecentDrinksLoader />
+      </Suspense>
     </>
+  );
+}
+
+async function RecentDrinksLoader() {
+  const [tz, recent] = await Promise.all([
+    getUserTimeZone(),
+    getMyRecentDrinks({ limit: 4 }),
+  ]);
+
+  return (
+    <div className="section">
+      <div className="h-row">
+        <h3>Recent</h3>
+      </div>
+      {recent.length === 0 ? (
+        <p style={{ fontSize: 14, color: "var(--ink-dim)" }}>
+          Nothing logged yet — your first drink goes right here.
+        </p>
+      ) : (
+        recent.map((entry) => (
+          <Link
+            key={entry.id}
+            href={`/log?edit=${entry.id}`}
+            className="row"
+            style={{ textDecoration: "none", color: "inherit" }}
+          >
+            <div className="rowmark">
+              <svg viewBox="0 0 24 24">
+                <path d="M9 3h6M12 3v4"></path>
+                <path d="M7 21c-2 0-3-1.6-3-3.5C4 13 7 11 12 11s8 2 8 6.5c0 1.9-1 3.5-3 3.5z"></path>
+              </svg>
+            </div>
+            <div className="grow">
+              <b>{entry.drink_name?.trim() || entry.drink_type}</b>
+              <span>{recentMeta(entry, tz)}</span>
+            </div>
+            <span className="chev">›</span>
+          </Link>
+        ))
+      )}
+    </div>
+  );
+}
+
+function RecentDrinksSkeleton() {
+  return (
+    <div className="section" style={{ minHeight: 160 }}>
+      <div className="h-row">
+        <h3>Recent</h3>
+      </div>
+    </div>
   );
 }
