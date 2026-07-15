@@ -25,11 +25,20 @@ import { db } from "@/lib/db";
 import { PostgresDatabaseReset } from "./PostgresDatabaseReset";
 import { FakeCookieStore } from "./support/FakeCookieStore";
 
+// A *single* store per test, not a fresh one per cookies() call: controller
+// functions like getCurrentUser() read a cookie that createUserSession()
+// (loginAs(), below) set via an earlier cookies() call in the same test —
+// they need to see the same store, or the "log in" would be invisible.
+// vi.hoisted is required here since vi.mock's factory is hoisted above this
+// module's own top-level code, so it can't close over a plain `let` declared
+// below it (the factory would run before that declaration executed).
+const cookieState = vi.hoisted(() => ({ store: undefined as unknown as InstanceType<typeof FakeCookieStore> }));
+
 // Command/query functions call getCurrentUser()/getUserTimeZone(), which
 // read next/headers's cookies()/headers() — real only inside an actual
 // Next.js request, which none of these direct function-call tests have.
 vi.mock("next/headers", () => ({
-  cookies: async () => new FakeCookieStore(),
+  cookies: async () => cookieState.store,
   headers: async () => new Headers(),
 }));
 
@@ -58,6 +67,7 @@ vi.mock("next/cache", async (importOriginal) => ({
 const reset = new PostgresDatabaseReset(db);
 
 beforeEach(async () => {
+  cookieState.store = new FakeCookieStore();
   await reset.reset();
 });
 
