@@ -260,6 +260,7 @@ export function SessionCard({
         on={cheer.on}
         commentCount={commentCount}
         shareText={shareText}
+        isOwner={isSelf}
       />
     </div>
   );

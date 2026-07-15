@@ -11,6 +11,7 @@ import {
 import { getUserTimeZone } from "@/lib/timezone";
 import { drinkPhotoService } from "@/lib/photoUpload";
 import { StreamBufferConverter } from "@/modules/photo-upload/StreamBufferConverter";
+import { renderSessionMapPng } from "@/lib/shareSessionMap";
 
 // Prisma (getCurrentUser / history) and the storage layer need Node, not edge.
 export const runtime = "nodejs";
@@ -47,7 +48,6 @@ export async function GET(
   const tz = await getUserTimeZone();
   const title = sessionTitle(session, tz);
   const drinks = session.checkins.length;
-  const typeCount = session.types.length;
   const minutes = sessionMinutes(session);
   const venues = session.venues;
   const venueLine =
@@ -57,35 +57,61 @@ export async function GET(
         ? venues[0]
         : `${venues[0]} + ${venues.length - 1} more`;
 
+  // Route map is the primary visual (Strava-style) when the session has
+  // located check-ins; the hero photo is the fallback for sessions with no
+  // route. Rasterized server-side (lib/shareSessionMap.ts) since Satori
+  // (next/og's renderer) can't render nested SVG paths/circles, only <img>.
+  const routePoints = session.checkins
+    .filter((c) => c.lat != null && c.lng != null)
+    .map((c) => ({ lat: c.lat as number, lng: c.lng as number }));
+  const MAP_WIDTH = WIDTH - 144;
+  const MAP_HEIGHT = 460;
+  let mapDataUri: string | null = null;
+  if (routePoints.length > 0) {
+    const mapPng = await renderSessionMapPng(routePoints, MAP_WIDTH, MAP_HEIGHT);
+    if (mapPng) {
+      mapDataUri = `data:image/png;base64,${mapPng.toString("base64")}`;
+    }
+  }
+
   // Hero photo: read bytes straight from storage, NOT the auth-gated
   // /api/photos route — a server-to-server fetch of that route carries no
   // session cookie and 401s (documented image-pipeline landmine). Embed as a
   // data URI so Satori can render it without any network fetch.
   let heroDataUri: string | null = null;
-  const heroCheckin = session.checkins.find((c) => c.photo_url);
-  if (heroCheckin?.photo_url) {
-    try {
-      const photo = await drinkPhotoService.read(heroCheckin.photo_url);
-      if (photo) {
-        const buf = await StreamBufferConverter.toBuffer(photo.stream);
-        // Satori (next/og's renderer) can't decode WebP — every stored check-in
-        // photo is WebP (lib/photoUpload.ts) — so re-encode to JPEG just for
-        // this embed rather than switching the whole pipeline's storage format.
-        const jpeg = await sharp(buf).jpeg({ quality: 85 }).toBuffer();
-        heroDataUri = `data:image/jpeg;base64,${jpeg.toString("base64")}`;
+  if (!mapDataUri) {
+    const heroCheckin = session.checkins.find((c) => c.photo_url);
+    if (heroCheckin?.photo_url) {
+      try {
+        const photo = await drinkPhotoService.read(heroCheckin.photo_url);
+        if (photo) {
+          const buf = await StreamBufferConverter.toBuffer(photo.stream);
+          // Satori can't decode WebP — every stored check-in photo is WebP
+          // (lib/photoUpload.ts) — so re-encode to JPEG just for this embed
+          // rather than switching the whole pipeline's storage format.
+          const jpeg = await sharp(buf).jpeg({ quality: 85 }).toBuffer();
+          heroDataUri = `data:image/jpeg;base64,${jpeg.toString("base64")}`;
+        }
+      } catch {
+        /* no hero photo either — card still renders with stats only */
       }
-    } catch {
-      /* no hero photo — card still renders with stats only */
     }
   }
 
+  // Pace only makes sense across a real span with more than one drink —
+  // a deliberate, share-card-only exception to the app's parked pace rule
+  // (see CLAUDE.md's "Celebrate variety, never volume").
+  const pace = minutes > 0 && drinks > 1 ? formatSessionDuration(Math.round(minutes / drinks)) : null;
+
   const stats: Array<{ value: string; label: string }> = [
     { value: String(drinks), label: drinks === 1 ? "drink" : "drinks" },
-    { value: String(typeCount), label: typeCount === 1 ? "type" : "types" },
   ];
   // Duration only makes sense for a real session span — a lone check-in has none.
   if (minutes > 0) {
     stats.push({ value: formatSessionDuration(minutes), label: "duration" });
+  }
+  if (pace) {
+    stats.push({ value: pace, label: "per drink" });
   }
 
   return new ImageResponse(
@@ -117,8 +143,29 @@ export async function GET(
           </div>
         </div>
 
-        {/* hero photo */}
-        {heroDataUri && (
+        {/* route map (primary visual when the session has one), else hero photo */}
+        {mapDataUri && (
+          <div
+            style={{
+              display: "flex",
+              marginTop: 48,
+              width: "100%",
+              height: MAP_HEIGHT,
+              borderRadius: 32,
+              overflow: "hidden",
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={mapDataUri}
+              width={MAP_WIDTH}
+              height={MAP_HEIGHT}
+              style={{ objectFit: "cover", width: "100%", height: "100%" }}
+              alt=""
+            />
+          </div>
+        )}
+        {!mapDataUri && heroDataUri && (
           <div
             style={{
               display: "flex",

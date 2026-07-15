@@ -16,6 +16,7 @@ export function SocialActs({
   on,
   commentCount,
   shareText,
+  isOwner,
 }: {
   /** Session anchor check-in id the cheers/comments are keyed by. */
   entryId: string;
@@ -23,6 +24,8 @@ export function SocialActs({
   on: boolean;
   commentCount: number;
   shareText: string;
+  /** Only the owner's own session gets the recap-image share; others get a link. */
+  isOwner: boolean;
 }) {
   const [state, setState] = useState({ count, on });
   const [, startTransition] = useTransition();
@@ -41,23 +44,29 @@ export function SocialActs({
     });
   };
 
-  const shareTextOnly = async () => {
+  const shareTextOnly = async (url?: string) => {
     if (navigator.share) {
       try {
-        await navigator.share({ text: shareText });
+        await navigator.share(url ? { text: shareText, url } : { text: shareText });
       } catch {
         /* user cancelled */
       }
       return;
     }
-    await navigator.clipboard.writeText(shareText);
+    await navigator.clipboard.writeText(url ? `${shareText} ${url}` : shareText);
     showToast("Copied to clipboard");
   };
 
-  const handleShare = async () => {
-    // Best-effort: share the rendered recap card image. The route serves the
-    // image only for the viewer's OWN session (404 otherwise), so on someone
-    // else's card this quietly falls back to the text share.
+  // Someone else's session: never generate their recap image (that reads as
+  // claiming their session) — just share/copy a link to it.
+  const handleShareLink = async () => {
+    const url = `${window.location.origin}/sessions/${entryId}`;
+    await shareTextOnly(url);
+  };
+
+  // Own session: share the rendered recap card image (route + duration +
+  // drinks + pace), falling back to a text share if generation fails.
+  const handleShareOwn = async () => {
     try {
       const res = await fetch(`/api/sessions/${entryId}/share-image`);
       if (res.ok) {
@@ -73,6 +82,8 @@ export function SocialActs({
     }
     await shareTextOnly();
   };
+
+  const handleShare = () => (isOwner ? handleShareOwn() : handleShareLink());
 
   return (
     <div className="social acts">
