@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
@@ -8,6 +9,7 @@ import { weekIndex } from "@/lib/dates";
 import { DRINK_TYPES } from "@/lib/types";
 import { ScreenTabs } from "@/components/ui/screen-tabs";
 import { AchievementGlyph } from "@/components/drink/achievement-icon";
+import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 
 function SessionsPerWeekChart({
   counts,
@@ -81,32 +83,38 @@ export default async function StatsPage() {
   const user = await getCurrentUser();
   if (!user) return null;
 
+  return (
+    <>
+      {/* Tabs need none of the stats data below — render immediately
+          instead of waiting behind the same fetch as everything else. */}
+      <ScreenTabs
+        tabs={[
+          { label: "Overview", active: true },
+          { label: "Sessions", toast: "Full session history — soon" },
+          { label: "Records", toast: "Personal records — soon" },
+        ]}
+      />
+      <Suspense fallback={<StatsBodySkeleton />}>
+        <StatsBody />
+      </Suspense>
+    </>
+  );
+}
+
+async function StatsBody() {
   const [tz, entries] = await Promise.all([
     getUserTimeZone(),
     getMyDrinkHistory(),
   ]);
   const sessions = groupIntoSessions(entries);
 
-  const tabs = (
-    <ScreenTabs
-      tabs={[
-        { label: "Overview", active: true },
-        { label: "Sessions", toast: "Full session history — soon" },
-        { label: "Records", toast: "Personal records — soon" },
-      ]}
-    />
-  );
-
   if (sessions.length === 0) {
     return (
-      <>
-        {tabs}
-        <div className="section" style={{ textAlign: "center", padding: "48px 16px" }}>
-          <p style={{ fontSize: 14.5, color: "var(--ink-dim)" }}>
-            Stats appear after your first session.
-          </p>
-        </div>
-      </>
+      <div className="section" style={{ textAlign: "center", padding: "48px 16px" }}>
+        <p style={{ fontSize: 14.5, color: "var(--ink-dim)" }}>
+          Stats appear after your first session.
+        </p>
+      </div>
     );
   }
 
@@ -162,8 +170,6 @@ export default async function StatsPage() {
 
   return (
     <>
-      {tabs}
-
       {/* discovery hero */}
       <div className="section">
         <div className="h-row" style={{ marginBottom: 16 }}>
@@ -292,5 +298,29 @@ export default async function StatsPage() {
         ))}
       </div>
     </>
+  );
+}
+
+function StatsBodySkeleton() {
+  return (
+    <div className="space-y-6 py-4">
+      <SkeletonCard className="space-y-3">
+        <Skeleton className="h-5 w-36" />
+        <div className="grid grid-cols-3 gap-3">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="space-y-1.5 text-center">
+              <Skeleton className="h-8 w-12 mx-auto" />
+              <Skeleton className="h-3 w-16 mx-auto" />
+            </div>
+          ))}
+        </div>
+      </SkeletonCard>
+      {[...Array(2)].map((_, i) => (
+        <SkeletonCard key={i} className="space-y-3">
+          <Skeleton className={i === 0 ? "h-5 w-28" : "h-5 w-32"} />
+          <Skeleton className="h-48 rounded-lg" />
+        </SkeletonCard>
+      ))}
+    </div>
   );
 }
