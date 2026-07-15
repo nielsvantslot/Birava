@@ -11,11 +11,7 @@ import {
   getRecentDrinkHistory,
   drinkHistoryTag,
 } from "@/lib/queries/drinkEntryQueries";
-import {
-  getSessionById,
-  getSessionsForUserIds,
-  getAllSessionsForUser,
-} from "@/lib/queries/drinkSessionQueries";
+import { getSessionById, getSessionsForUserIds } from "@/lib/queries/drinkSessionQueries";
 import { getFollowingIds } from "@/lib/queries/followQueries";
 import type { DrinkEntry } from "@/lib/types";
 import type { DrinkSession } from "@/lib/sessions";
