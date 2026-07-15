@@ -70,7 +70,10 @@ export const getCurrentUser = cache(async (): Promise<SessionUserDTO | null> => 
 
   const session = await db.session.findUnique({
     where: { sessionToken: token },
-    include: { user: true },
+    select: {
+      expiresAt: true,
+      user: { select: { id: true, email: true, username: true, avatarUrl: true, createdAt: true } },
+    },
   });
 
   if (!session) return null;

@@ -1,11 +1,17 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { toggleCheer } from "@/lib/controllers/socialController";
 import { showToast } from "@/components/ui/toast-pill";
 import { cn } from "@/lib/utils";
-import { ShareSheet } from "@/components/drink/share-sheet";
+
+// SocialActs renders on every session card — dashboard feed, profile,
+// session lists — but the sheet itself only matters to the small fraction
+// of views where someone actually taps Share. Loading its module on demand
+// keeps that cost off every card's initial bundle.
+const ShareSheet = dynamic(() => import("@/components/drink/share-sheet").then((m) => m.ShareSheet));
 
 /**
  * The session card's social affordances: cheers with a live count,

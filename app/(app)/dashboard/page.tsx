@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
@@ -5,6 +6,7 @@ import { getLocalLegendVenue } from "@/lib/sessions";
 import { getMyFeedSessions, getMyDrinkHistory } from "@/lib/controllers/drinkController";
 import { ScreenTabs } from "@/components/ui/screen-tabs";
 import { DashboardFeed } from "@/components/drink/dashboard-feed";
+import { Skeleton, SkeletonAvatarRow } from "@/components/ui/skeleton";
 
 export default async function DashboardPage({
   searchParams,
@@ -17,17 +19,6 @@ export default async function DashboardPage({
   const { tab } = await searchParams;
   const showOnlyOwn = tab === "you";
 
-  const [tz, feedPage, ownHistory] = await Promise.all([
-    getUserTimeZone(),
-    getMyFeedSessions({ onlyOwn: showOnlyOwn }),
-    getMyDrinkHistory(),
-  ]);
-  const { sessions, cheers, commentCounts, nextCursor } = feedPage;
-  const legendVenue = getLocalLegendVenue(ownHistory);
-
-  // The Local Legend callout appears once, on the newest own session
-  const newestOwnId = sessions.find((s) => s.userId === user.id)?.id;
-
   return (
     <>
       <ScreenTabs
@@ -37,44 +28,79 @@ export default async function DashboardPage({
         ]}
       />
 
-      {sessions.length === 0 ? (
-        <div
-          className="section"
-          style={{ textAlign: "center", padding: "48px 16px" }}
-        >
-          <h3
-            style={{
-              fontFamily: "var(--serif)",
-              fontSize: 20,
-              fontWeight: 600,
-              marginBottom: 6,
-            }}
-          >
-            No sessions yet
-          </h3>
-          <p style={{ fontSize: 14, color: "var(--ink-dim)", marginBottom: 20 }}>
-            Log a drink and your first session starts here.
-          </p>
-          <Link className="btn btn-primary" href="/log">
-            Log a drink
-          </Link>
-        </div>
-      ) : (
-        <DashboardFeed
-          // Remounts fresh on tab switch instead of reconciling paginated
-          // client state against a brand new server-rendered first page.
-          key={showOnlyOwn ? "you" : "following"}
-          initialSessions={sessions}
-          initialCheers={cheers}
-          initialCommentCounts={commentCounts}
-          initialNextCursor={nextCursor}
-          tz={tz}
-          currentUserId={user.id}
-          onlyOwn={showOnlyOwn}
-          legendVenue={legendVenue}
-          newestOwnId={newestOwnId}
-        />
-      )}
+      {/* The tabs above need none of the feed's data — only the feed itself
+          waits on it, so switching tabs updates the active underline
+          instantly while this streams in behind it. */}
+      <Suspense fallback={<FeedSkeleton />}>
+        <FeedLoader userId={user.id} showOnlyOwn={showOnlyOwn} />
+      </Suspense>
     </>
+  );
+}
+
+async function FeedLoader({ userId, showOnlyOwn }: { userId: string; showOnlyOwn: boolean }) {
+  const [tz, feedPage, ownHistory] = await Promise.all([
+    getUserTimeZone(),
+    getMyFeedSessions({ onlyOwn: showOnlyOwn }),
+    getMyDrinkHistory(),
+  ]);
+  const { sessions, cheers, commentCounts, nextCursor } = feedPage;
+  const legendVenue = getLocalLegendVenue(ownHistory);
+
+  // The Local Legend callout appears once, on the newest own session
+  const newestOwnId = sessions.find((s) => s.userId === userId)?.id;
+
+  if (sessions.length === 0) {
+    return (
+      <div
+        className="section"
+        style={{ textAlign: "center", padding: "48px 16px" }}
+      >
+        <h3
+          style={{
+            fontFamily: "var(--serif)",
+            fontSize: 20,
+            fontWeight: 600,
+            marginBottom: 6,
+          }}
+        >
+          No sessions yet
+        </h3>
+        <p style={{ fontSize: 14, color: "var(--ink-dim)", marginBottom: 20 }}>
+          Log a drink and your first session starts here.
+        </p>
+        <Link className="btn btn-primary" href="/log">
+          Log a drink
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <DashboardFeed
+      // Remounts fresh on tab switch instead of reconciling paginated
+      // client state against a brand new server-rendered first page.
+      key={showOnlyOwn ? "you" : "following"}
+      initialSessions={sessions}
+      initialCheers={cheers}
+      initialCommentCounts={commentCounts}
+      initialNextCursor={nextCursor}
+      tz={tz}
+      currentUserId={userId}
+      onlyOwn={showOnlyOwn}
+      legendVenue={legendVenue}
+      newestOwnId={newestOwnId}
+    />
+  );
+}
+
+function FeedSkeleton() {
+  return (
+    <div className="space-y-2 py-4">
+      {[...Array(3)].map((_, i) => (
+        <SkeletonAvatarRow key={i} line1Width="w-40" line2Width="w-24" />
+      ))}
+      <Skeleton className="h-40 w-full rounded-xl" />
+    </div>
   );
 }

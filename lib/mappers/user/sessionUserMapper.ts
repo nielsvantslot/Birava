@@ -2,7 +2,9 @@ import type { User as UserRow } from "@prisma/client";
 import type { SessionUserDTO } from "@/lib/dtos";
 
 export class SessionUserMapper {
-  static toDTO(user: UserRow): SessionUserDTO {
+  static toDTO(
+    user: Pick<UserRow, "id" | "email" | "username" | "avatarUrl" | "createdAt">
+  ): SessionUserDTO {
     return {
       id: user.id,
       email: user.email,
