@@ -492,10 +492,38 @@ input:focus-visible, .chip:focus-visible {
 .lightbox-nav.prev { left: 16px; }
 .lightbox-nav.next { right: 16px; }
 
-/* ---- share preview: swipe between recap image variants (Strava-style) ---- */
-.share-sheet figure { width: min(340px, 88vw); }
+/* ---- share preview: bottom sheet, swipe between recap image variants (Strava-style) ---- */
+.sheet-backdrop {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6);
+  z-index: 200; display: flex; align-items: flex-end; justify-content: center;
+}
+.share-sheet {
+  width: 100%; max-width: 480px; max-height: 88vh;
+  background: var(--surface); border-radius: 24px 24px 0 0;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  padding: 10px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+}
+.sheet-handle { width: 36px; height: 4px; border-radius: 999px; background: var(--line); }
+.sheet-header {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  font-size: 15px; font-weight: 700; color: var(--ink);
+}
+.sheet-close {
+  border: none; background: none; color: var(--ink-dim); font-size: 22px;
+  line-height: 1; cursor: pointer; padding: 4px;
+}
+.share-track {
+  width: 100%; display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+.share-track::-webkit-scrollbar { display: none; }
+.share-slide {
+  flex: 0 0 100%; scroll-snap-align: center; display: flex;
+  align-items: center; justify-content: center; padding: 0 4px;
+}
 .share-preview {
-  width: 100%; aspect-ratio: 9 / 16; object-fit: contain; border-radius: 16px;
+  width: auto; height: min(50vh, 460px); aspect-ratio: 9 / 16; object-fit: contain;
+  border-radius: 16px;
   background:
     linear-gradient(45deg, #2a2a2a 25%, transparent 25%) -8px 0/16px 16px,
     linear-gradient(-45deg, #2a2a2a 25%, transparent 25%) -8px 0/16px 16px,
@@ -503,9 +531,15 @@ input:focus-visible, .chip:focus-visible {
     linear-gradient(-45deg, transparent 75%, #2a2a2a 75%) -8px 0/16px 16px,
     #1c1c1c;
 }
+.share-preview-loading {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  padding: 24px; font-size: 14px; font-weight: 700; color: var(--ink-dim);
+}
+.share-picker { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .share-dots { display: flex; gap: 6px; }
-.share-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, 0.3); }
-.share-dot.on { background: #fff; }
+.share-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--line); border: none; padding: 0; cursor: pointer; }
+.share-dot.on { background: var(--accent); }
+.share-variant-label { font-size: 13px; font-weight: 700; color: var(--ink-dim); }
 .share-cta { width: 100%; }
 
 /* ---- first-time hint strip on the bg gap ---- */

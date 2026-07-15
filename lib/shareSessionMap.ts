@@ -6,6 +6,71 @@ const ACCENT = "#A9C641";
 const INK = "#EEF2E7";
 const HONEY = "#E8C15A";
 
+type Frame = { zoom: number; originX: number; originY: number };
+
+function frame(points: MapPoint[], width: number, height: number): Frame {
+  const zoom = pickZoom(points, width, height);
+  const projected = points.map((p) => project(p, zoom));
+  const cx =
+    (Math.min(...projected.map((p) => p.x)) + Math.max(...projected.map((p) => p.x))) / 2;
+  const cy =
+    (Math.min(...projected.map((p) => p.y)) + Math.max(...projected.map((p) => p.y))) / 2;
+  return { zoom, originX: cx - width / 2, originY: cy - height / 2 };
+}
+
+/** Route line + start/end dots (or numbered pins), as standalone SVG markup — no basemap, no background rect. */
+function routeOverlaySvg(
+  points: MapPoint[],
+  width: number,
+  height: number,
+  { zoom, originX, originY }: Frame,
+  pins?: MapPin[]
+): string {
+  const projected = points.map((p) => project(p, zoom));
+  const route = projected.map((p) => ({ x: p.x - originX, y: p.y - originY }));
+  const path = route
+    .map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
+    .join(" ");
+  const start = route[0];
+  const end = route[route.length - 1];
+
+  const markup: string[] = [];
+  if (route.length > 1) {
+    markup.push(
+      `<path d="${path}" fill="none" stroke="${ACCENT}" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>`
+    );
+  }
+  if (!pins) {
+    for (const p of route.slice(1, -1)) {
+      markup.push(
+        `<circle cx="${p.x}" cy="${p.y}" r="4.5" fill="${ACCENT}" stroke="${BG}" stroke-width="1.6"/>`
+      );
+    }
+    markup.push(
+      `<circle cx="${start.x}" cy="${start.y}" r="6" fill="${ACCENT}" stroke="${BG}" stroke-width="2.5"/>`
+    );
+    if (route.length > 1) {
+      markup.push(
+        `<circle cx="${end.x}" cy="${end.y}" r="6" fill="${INK}" stroke="${BG}" stroke-width="2.5"/>`
+      );
+    }
+  } else {
+    for (const pin of pins) {
+      const p = project(pin.point, zoom);
+      const x = p.x - originX;
+      const y = p.y - originY;
+      markup.push(
+        `<circle cx="${x}" cy="${y}" r="${pin.legend ? 12 : 11}" fill="${pin.legend ? HONEY : ACCENT}" stroke="${BG}" stroke-width="3"/>`
+      );
+      markup.push(
+        `<text x="${x}" y="${y + 4}" text-anchor="middle" font-size="12" font-weight="800" fill="#141A06">${pin.label}</text>`
+      );
+    }
+  }
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">${markup.join("")}</svg>`;
+}
+
 /**
  * Rasterizes the same route map `session-map.tsx` renders as SVG, but as a
  * flat PNG — next/og's ImageResponse (Satori) can embed a plain `<img>` but
@@ -22,14 +87,8 @@ export async function renderSessionMapPng(
   if (points.length === 0) return null;
 
   try {
-    const zoom = pickZoom(points, width, height);
-    const projected = points.map((p) => project(p, zoom));
-    const cx =
-      (Math.min(...projected.map((p) => p.x)) + Math.max(...projected.map((p) => p.x))) / 2;
-    const cy =
-      (Math.min(...projected.map((p) => p.y)) + Math.max(...projected.map((p) => p.y))) / 2;
-    const originX = cx - width / 2;
-    const originY = cy - height / 2;
+    const f = frame(points, width, height);
+    const { zoom, originX, originY } = f;
 
     const maxTile = 2 ** zoom - 1;
     const txMin = Math.floor(originX / TILE);
@@ -89,53 +148,35 @@ export async function renderSessionMapPng(
       .png()
       .toBuffer();
 
-    const route = projected.map((p) => ({ x: p.x - originX, y: p.y - originY }));
-    const path = route
-      .map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
-      .join(" ");
-    const start = route[0];
-    const end = route[route.length - 1];
-
-    const markup: string[] = [];
-    if (route.length > 1) {
-      markup.push(
-        `<path d="${path}" fill="none" stroke="${ACCENT}" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>`
-      );
-    }
-    if (!pins) {
-      for (const p of route.slice(1, -1)) {
-        markup.push(
-          `<circle cx="${p.x}" cy="${p.y}" r="4.5" fill="${ACCENT}" stroke="${BG}" stroke-width="1.6"/>`
-        );
-      }
-      markup.push(
-        `<circle cx="${start.x}" cy="${start.y}" r="6" fill="${ACCENT}" stroke="${BG}" stroke-width="2.5"/>`
-      );
-      if (route.length > 1) {
-        markup.push(
-          `<circle cx="${end.x}" cy="${end.y}" r="6" fill="${INK}" stroke="${BG}" stroke-width="2.5"/>`
-        );
-      }
-    } else {
-      for (const pin of pins) {
-        const p = project(pin.point, zoom);
-        const x = p.x - originX;
-        const y = p.y - originY;
-        markup.push(
-          `<circle cx="${x}" cy="${y}" r="${pin.legend ? 12 : 11}" fill="${pin.legend ? HONEY : ACCENT}" stroke="${BG}" stroke-width="3"/>`
-        );
-        markup.push(
-          `<text x="${x}" y="${y + 4}" text-anchor="middle" font-size="12" font-weight="800" fill="#141A06">${pin.label}</text>`
-        );
-      }
-    }
-
-    const overlaySvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">${markup.join("")}</svg>`;
+    const overlaySvg = routeOverlaySvg(points, width, height, f, pins);
 
     return await sharp(baseBuffer)
       .composite([{ input: Buffer.from(overlaySvg) }])
       .png()
       .toBuffer();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Route line only (no basemap tiles, no background) — for the transparent
+ * "sticker" share variant, which composites onto whatever the user shares it
+ * onto, so a generic basemap would look out of place. Also has no external
+ * tile fetch, so it's much faster than renderSessionMapPng.
+ */
+export async function renderRouteOnlyPng(
+  points: MapPoint[],
+  width: number,
+  height: number,
+  pins?: MapPin[]
+): Promise<Buffer | null> {
+  if (points.length === 0) return null;
+
+  try {
+    const f = frame(points, width, height);
+    const svg = routeOverlaySvg(points, width, height, f, pins);
+    return await sharp(Buffer.from(svg)).png().toBuffer();
   } catch {
     return null;
   }
