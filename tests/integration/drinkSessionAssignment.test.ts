@@ -168,6 +168,31 @@ describe("createDrinkEntry session placement", () => {
   });
 });
 
+describe("createDrinkEntry concurrent session assignment", () => {
+  it("serializes two concurrent check-ins for the same user into one session instead of racing into two", async () => {
+    // Regression test for the pg_advisory_xact_lock in createDrinkEntry:
+    // assignSessionForNewEntry is read-then-write with no locking of its
+    // own, so two concurrent creates (double-submit, two tabs/devices)
+    // could each see "no session yet" and each create their own — instead
+    // of one correctly attaching to the other, as the 4h gap says they
+    // should. Without the lock this is flaky-fails-sometimes rather than
+    // reliably red, since it depends on both transactions' queries
+    // overlapping — but the lock makes the outcome deterministic either way.
+    const user = await fixtures.createUser();
+    const actor = { username: user.username, avatarUrl: user.avatarUrl };
+    const now = Date.now();
+
+    const [first, second] = await Promise.all([
+      createAt(user.id, actor, now),
+      createAt(user.id, actor, now + 60 * 1000), // 1 minute apart, well within the 4h gap
+    ]);
+
+    expect(first.sessionId).toBe(second.sessionId);
+    const sessions = await db.drinkSession.findMany({ where: { userId: user.id } });
+    expect(sessions).toHaveLength(1);
+  });
+});
+
 describe("createDrinkEntry backdating trust window", () => {
   it("clamps createdAt beyond MAX_BACKDATE_MS to now", async () => {
     const user = await fixtures.createUser();
