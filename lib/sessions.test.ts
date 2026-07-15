@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeWeeks, formatPace, formatSessionDuration, groupIntoSessions, sessionMinutes, sessionTitle, SESSION_GAP_MS } from "./sessions";
+import { activeWeeks, defaultSessionTitle, formatPace, formatSessionDuration, groupIntoSessions, sessionMinutes, sessionTitle, SESSION_GAP_MS } from "./sessions";
 import type { DrinkEntry } from "./types";
 
 let idCounter = 0;
@@ -127,6 +127,14 @@ describe("sessionTitle", () => {
       entry({ created_at: "2026-01-01T20:30:00.000Z" }),
     ]);
     expect(sessionTitle(session, "Europe/Amsterdam")).toBe("Evening session");
+  });
+
+  it("prefers an owner-set custom name over the derived title, but keeps the derived title available", () => {
+    const [session] = groupIntoSessions([entry({ created_at: "2026-01-01T20:00:00.000Z", drink_name: "Westmalle Tripel" })]);
+    const renamed = { ...session, name: "Friday kickoff" };
+
+    expect(sessionTitle(renamed, "Europe/Amsterdam")).toBe("Friday kickoff");
+    expect(defaultSessionTitle(renamed, "Europe/Amsterdam")).toBe("Westmalle Tripel");
   });
 });
 
