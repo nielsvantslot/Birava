@@ -16,11 +16,13 @@
  * serves them from (`/api/photos/[entryId]`).
  */
 import { PrismaClient } from "@prisma/client";
+import { randomUUID } from "crypto";
 import { readFile } from "fs/promises";
 import path from "path";
 import { hashPassword } from "../lib/auth/password";
 import { drinkPhotoService } from "../lib/photoUpload";
-import { backfillDrinkSessions } from "../lib/commands/backfillDrinkSessions";
+import { groupIntoSessions } from "../lib/sessions";
+import type { DrinkEntry as DrinkEntryDTO } from "../lib/types";
 
 const db = new PrismaClient();
 
@@ -141,26 +143,66 @@ async function createUser(username: string, email: string, password: string) {
   });
 }
 
+// DrinkEntry.sessionId is required at creation, so each check-in needs its
+// session decided before it's inserted — not after, the way a live check-in
+// would attach via createDrinkEntry(). Since the whole batch is known
+// upfront, it's simplest to pre-generate ids, cluster the batch in-memory
+// with the same groupIntoSessions() the app uses, then insert sessions
+// before the check-ins that reference them.
 async function insertCheckins(
   userId: string,
   checkins: Seeded[],
   photoUrls: Record<string, string> = {}
 ) {
-  for (const c of checkins) {
-    await db.drinkEntry.create({
-      data: {
-        userId,
-        drinkName: c.beerName,
-        drinkType: c.drinkType,
-        venue: c.venue,
-        lat: c.lat ?? null,
-        lng: c.lng ?? null,
-        notes: c.notes ?? null,
-        photoUrl: c.photo ? (photoUrls[c.photo] ?? null) : null,
-        createdAt: at(c.daysAgo, c.hour, c.minute),
-      },
-    });
-  }
+  const prepared = checkins.map((c) => ({
+    id: randomUUID(),
+    userId,
+    drinkName: c.beerName,
+    drinkType: c.drinkType,
+    venue: c.venue,
+    lat: c.lat ?? null,
+    lng: c.lng ?? null,
+    notes: c.notes ?? null,
+    photoUrl: c.photo ? (photoUrls[c.photo] ?? null) : null,
+    createdAt: at(c.daysAgo, c.hour, c.minute),
+  }));
+
+  const asDto: DrinkEntryDTO[] = prepared.map((p) => ({
+    id: p.id,
+    user_id: p.userId,
+    group_id: null,
+    drink_name: p.drinkName,
+    brewery: null,
+    style: null,
+    drink_type: p.drinkType,
+    amount: 1,
+    rating: null,
+    venue: p.venue,
+    lat: p.lat,
+    lng: p.lng,
+    notes: p.notes,
+    photo_url: p.photoUrl,
+    photo_lqip: null,
+    created_at: p.createdAt.toISOString(),
+  }));
+
+  const sessions = groupIntoSessions(asDto);
+  const sessionIdByEntryId = new Map(
+    sessions.flatMap((s) => s.checkins.map((c) => [c.id, s.id] as const))
+  );
+
+  await db.$transaction([
+    ...sessions.map((s) =>
+      db.drinkSession.create({
+        data: { id: s.id, userId, startedAt: new Date(s.start), endedAt: new Date(s.end) },
+      })
+    ),
+    ...prepared.map((p) =>
+      db.drinkEntry.create({
+        data: { ...p, sessionId: sessionIdByEntryId.get(p.id)! },
+      })
+    ),
+  ]);
 }
 
 async function main() {
@@ -229,10 +271,8 @@ async function main() {
     },
   });
 
-  const { sessionsCreated } = await backfillDrinkSessions(db);
-
   console.log(
-    `[seed] Done — ${DEMO.username} (${DEMO.email}) with ${DEMO_CHECKINS.length} check-ins, ${MEMBERS.length} crew-mates, crew "${crew.name}" (${crew.inviteCode}), ${sessionsCreated} sessions.`
+    `[seed] Done — ${DEMO.username} (${DEMO.email}) with ${DEMO_CHECKINS.length} check-ins, ${MEMBERS.length} crew-mates, crew "${crew.name}" (${crew.inviteCode}).`
   );
 }
 
