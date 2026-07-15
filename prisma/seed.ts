@@ -20,6 +20,7 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { hashPassword } from "../lib/auth/password";
 import { drinkPhotoService } from "../lib/photoUpload";
+import { backfillDrinkSessions } from "../lib/commands/backfillDrinkSessions";
 
 const db = new PrismaClient();
 
@@ -228,8 +229,10 @@ async function main() {
     },
   });
 
+  const { sessionsCreated } = await backfillDrinkSessions(db);
+
   console.log(
-    `[seed] Done — ${DEMO.username} (${DEMO.email}) with ${DEMO_CHECKINS.length} check-ins, ${MEMBERS.length} crew-mates, crew "${crew.name}" (${crew.inviteCode}).`
+    `[seed] Done — ${DEMO.username} (${DEMO.email}) with ${DEMO_CHECKINS.length} check-ins, ${MEMBERS.length} crew-mates, crew "${crew.name}" (${crew.inviteCode}), ${sessionsCreated} sessions.`
   );
 }
 

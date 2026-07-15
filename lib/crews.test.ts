@@ -10,6 +10,7 @@ function row(overrides: Partial<DrinkEntryRow> & { userId: string; createdAt: Da
   return {
     id: `row-${idCounter}`,
     groupId: null,
+    sessionId: null,
     drinkName: null,
     brewery: null,
     style: null,
