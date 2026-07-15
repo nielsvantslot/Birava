@@ -252,6 +252,7 @@ export default async function SessionDetailPage({
           on={cheer.on}
           commentCount={comments.length}
           shareText={shareText}
+          isOwner={isSelf}
         />
       </div>
 

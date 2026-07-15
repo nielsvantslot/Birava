@@ -103,12 +103,18 @@ export function findSessionWithCheckin(
   );
 }
 
+function sessionSpanMs(session: DrinkSession): number {
+  return new Date(session.end).getTime() - new Date(session.start).getTime();
+}
+
 /** Duration in minutes (0 for a session of one). */
 export function sessionMinutes(session: DrinkSession): number {
-  return Math.round(
-    (new Date(session.end).getTime() - new Date(session.start).getTime()) /
-      60000
-  );
+  return Math.round(sessionSpanMs(session) / 60000);
+}
+
+/** Duration in seconds (0 for a session of one) — finer-grained than sessionMinutes, for pace math. */
+export function sessionSeconds(session: DrinkSession): number {
+  return Math.round(sessionSpanMs(session) / 1000);
 }
 
 /** Human duration for a span of minutes: "3h 20m", "45m", "2h". */
@@ -118,6 +124,20 @@ export function formatSessionDuration(minutes: number): string {
   if (h === 0) return `${m}m`;
   if (m === 0) return `${h}h`;
   return `${h}h ${m}m`;
+}
+
+/**
+ * Human pace for a span of seconds: "45s", "3m", "3m 20s", "1h 5m". Unlike
+ * formatSessionDuration, this keeps seconds — a sub-minute pace (e.g. several
+ * check-ins logged in quick succession) would otherwise round down to "0m".
+ */
+export function formatPace(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) return m === 0 ? `${h}h` : `${h}h ${m}m`;
+  if (m > 0) return s === 0 ? `${m}m` : `${m}m ${s}s`;
+  return `${s}s`;
 }
 
 /**
