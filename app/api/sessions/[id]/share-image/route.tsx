@@ -59,7 +59,14 @@ function renderCard({
   // justifyContent:"center" can center this block as a whole).
   function renderTextBlock(stretch: boolean) {
     return (
-    <div style={{ display: "flex", flexDirection: "column", width: "100%", ...(stretch ? { flex: 1 } : {}) }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        width: "100%",
+        ...(stretch ? { flex: 1 } : { alignItems: "center", textAlign: "center" }),
+      }}
+    >
       <div
         style={{
           display: "flex",
@@ -119,6 +126,8 @@ function renderCard({
           style={{
             display: "flex",
             flexDirection: "column",
+            alignItems: "center",
+            width: "100%",
             marginTop: 56,
             borderTop: `2px solid ${LINE}`,
             paddingTop: 40,
