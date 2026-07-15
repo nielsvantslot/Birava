@@ -17,8 +17,9 @@ import { renderSessionMapPng } from "@/lib/shareSessionMap";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// 9:16 — matches the pre-redesign share card's story-shaped ratio.
 const WIDTH = 1080;
-const HEIGHT = 1350;
+const HEIGHT = 1920;
 
 const BG = "#0A0D09";
 const INK = "#EEF2E7";
@@ -65,7 +66,7 @@ export async function GET(
     .filter((c) => c.lat != null && c.lng != null)
     .map((c) => ({ lat: c.lat as number, lng: c.lng as number }));
   const MAP_WIDTH = WIDTH - 144;
-  const MAP_HEIGHT = 460;
+  const MAP_HEIGHT = 1080;
   let mapDataUri: string | null = null;
   if (routePoints.length > 0) {
     const mapPng = await renderSessionMapPng(routePoints, MAP_WIDTH, MAP_HEIGHT);
@@ -171,7 +172,7 @@ export async function GET(
               display: "flex",
               marginTop: 48,
               width: "100%",
-              height: 560,
+              height: MAP_HEIGHT,
               borderRadius: 32,
               overflow: "hidden",
             }}
@@ -179,8 +180,8 @@ export async function GET(
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={heroDataUri}
-              width={WIDTH - 144}
-              height={560}
+              width={MAP_WIDTH}
+              height={MAP_HEIGHT}
               style={{ objectFit: "cover", width: "100%", height: "100%" }}
               alt=""
             />
