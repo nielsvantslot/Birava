@@ -11,6 +11,8 @@ import {
   drinkHistoryTag,
 } from "@/lib/queries/drinkEntryQueries";
 import { getSessionById, getSessionsForUserIds } from "@/lib/queries/drinkSessionQueries";
+import { getCheerStates, type CheerState } from "@/lib/queries/cheerQueries";
+import { getCommentCounts } from "@/lib/queries/commentQueries";
 import { getFollowingIds } from "@/lib/queries/followQueries";
 import type { DrinkEntry } from "@/lib/types";
 import type { DrinkSession } from "@/lib/sessions";
@@ -98,15 +100,56 @@ export async function getSession(input: GetSessionDTO): Promise<DrinkSession | n
   return getSessionById(input.id);
 }
 
-/** The dashboard feed's sessions: viewer alone ("You" tab) or viewer + everyone they follow. */
-export async function getMyFeedSessions(input: GetMyFeedDTO): Promise<DrinkSession[]> {
+/** One page of the dashboard feed: sessions plus everything a SessionCard needs to render them. */
+export type FeedSessionsPage = {
+  sessions: DrinkSession[];
+  cheers: [string, CheerState][];
+  commentCounts: [string, number][];
+  /** Pass straight back as beforeEndedAt/beforeId to fetch the next page; null when there isn't one. */
+  nextCursor: { endedAt: string; id: string } | null;
+};
+
+const EMPTY_FEED_PAGE: FeedSessionsPage = { sessions: [], cheers: [], commentCounts: [], nextCursor: null };
+
+/**
+ * One page of the dashboard feed's sessions: viewer alone ("You" tab) or
+ * viewer + everyone they follow, newest-ended first. Called both for the
+ * initial (server-rendered) page and, directly as a server action, by the
+ * client's infinite-scroll "load more" — same function, same shape, so
+ * there's exactly one way this data gets assembled.
+ *
+ * Fetches one extra row over the page size to know whether a next page
+ * exists, rather than a separate count query.
+ */
+export async function getMyFeedSessions(input: GetMyFeedDTO): Promise<FeedSessionsPage> {
   const user = await getCurrentUser();
-  if (!user) return [];
+  if (!user) return EMPTY_FEED_PAGE;
 
   const userIds = input.onlyOwn
     ? [user.id]
     : [user.id, ...(await getFollowingIds(user.id))];
-  return getSessionsForUserIds(userIds, { limit: FEED_SESSION_LIMIT });
+  const before =
+    input.beforeEndedAt && input.beforeId
+      ? { endedAt: new Date(input.beforeEndedAt), id: input.beforeId }
+      : undefined;
+
+  const rows = await getSessionsForUserIds(userIds, { limit: FEED_SESSION_LIMIT + 1, before });
+  const hasMore = rows.length > FEED_SESSION_LIMIT;
+  const sessions = hasMore ? rows.slice(0, FEED_SESSION_LIMIT) : rows;
+  const sessionIds = sessions.map((s) => s.id);
+
+  const [cheerMap, commentCountMap] = await Promise.all([
+    getCheerStates(sessionIds, user.id),
+    getCommentCounts(sessionIds),
+  ]);
+
+  const last = sessions[sessions.length - 1];
+  return {
+    sessions,
+    cheers: [...cheerMap.entries()],
+    commentCounts: [...commentCountMap.entries()],
+    nextCursor: hasMore && last ? { endedAt: last.end, id: last.id } : null,
+  };
 }
 
 /**

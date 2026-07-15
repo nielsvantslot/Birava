@@ -87,4 +87,57 @@ describe("getSessionsForUserIds", () => {
   it("returns an empty array for no user ids", async () => {
     expect(await getSessionsForUserIds([])).toEqual([]);
   });
+
+  it("fetches the next page via a keyset cursor with no overlap or gaps", async () => {
+    const user = await db.user.create({
+      data: { username: "cursor_query_user", email: "cursor_query_user@test.birava", passwordHash: "x" },
+    });
+    const actor = { username: user.username, avatarUrl: user.avatarUrl };
+    const base = Date.now() - 4 * DAY;
+
+    const a = await createAt(user.id, actor, base);
+    const b = await createAt(user.id, actor, base + 8 * HOUR);
+    const c = await createAt(user.id, actor, base + 16 * HOUR);
+    const d = await createAt(user.id, actor, base + 24 * HOUR);
+
+    const page1 = await getSessionsForUserIds([user.id], { limit: 2 });
+    expect(page1.map((s) => s.id)).toEqual([d.sessionId, c.sessionId]);
+
+    const lastOfPage1 = page1[page1.length - 1];
+    const page2 = await getSessionsForUserIds([user.id], {
+      limit: 2,
+      before: { endedAt: new Date(lastOfPage1.end), id: lastOfPage1.id },
+    });
+    expect(page2.map((s) => s.id)).toEqual([b.sessionId, a.sessionId]);
+  });
+
+  it("keyset pagination is immune to a session created between page fetches (unlike offset-based skip)", async () => {
+    const user = await db.user.create({
+      data: { username: "concurrent_insert_user", email: "concurrent_insert_user@test.birava", passwordHash: "x" },
+    });
+    const actor = { username: user.username, avatarUrl: user.avatarUrl };
+    const base = Date.now() - 4 * DAY;
+
+    const a = await createAt(user.id, actor, base);
+    const b = await createAt(user.id, actor, base + 8 * HOUR);
+    const c = await createAt(user.id, actor, base + 16 * HOUR);
+    const d = await createAt(user.id, actor, base + 24 * HOUR);
+
+    const page1 = await getSessionsForUserIds([user.id], { limit: 2 });
+    expect(page1.map((s) => s.id)).toEqual([d.sessionId, c.sessionId]);
+    const lastOfPage1 = page1[page1.length - 1];
+
+    // A new check-in arrives after page 1 was fetched but before page 2 is —
+    // newer than everything above, so it should never appear on any page
+    // fetched relative to a cursor older than it.
+    const e = await createAt(user.id, actor, base + 32 * HOUR);
+
+    const page2 = await getSessionsForUserIds([user.id], {
+      limit: 2,
+      before: { endedAt: new Date(lastOfPage1.end), id: lastOfPage1.id },
+    });
+    expect(page2.map((s) => s.id)).toEqual([b.sessionId, a.sessionId]);
+    expect(page2.some((s) => s.id === e.sessionId)).toBe(false);
+    expect(page2.some((s) => s.id === d.sessionId || s.id === c.sessionId)).toBe(false);
+  });
 });
