@@ -8,7 +8,7 @@ import {
 } from "@/lib/sessions";
 import { computeAchievements } from "@/lib/achievements";
 import { relativeDay } from "@/lib/dates";
-import { getMyDrinkHistory } from "@/lib/controllers/drinkController";
+import { getMyDrinkHistory, getRecentSessionsForUser } from "@/lib/controllers/drinkController";
 import { getFollowCounts } from "@/lib/controllers/socialController";
 import { ProfileHead, ProfileActions } from "@/components/drink/profile-client";
 import { AchievementGlyph } from "@/components/drink/achievement-icon";
@@ -20,9 +20,14 @@ export default async function ProfilePage() {
 
   const tz = await getUserTimeZone();
   // Independent reads — run in parallel (F2).
-  const [entries, followCounts] = await Promise.all([
+  const [entries, followCounts, recentSessions] = await Promise.all([
     getMyDrinkHistory(),
     getFollowCounts({ profileId: user.id }),
+    // Fetched from the real DrinkSession rows, not re-derived from `entries`
+    // below — a session's id is permanent once created, so recomputing it
+    // from raw check-ins could disagree with the stored id after a
+    // backdated (offline-sync) check-in became chronologically first.
+    getRecentSessionsForUser({ userId: user.id, limit: 3 }),
   ]);
   const sessions = groupIntoSessions(entries);
   const weeks = activeWeeks(sessions, tz);
@@ -40,8 +45,6 @@ export default async function ProfilePage() {
         b.progress / b.goal - a.progress / a.goal
     )
     .slice(0, 3);
-
-  const recentSessions = sessions.slice(0, 3);
 
   const memberSince = new Date(user.createdAt).toLocaleDateString("en-GB", {
     month: "long",

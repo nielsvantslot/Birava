@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { getDrinkHistoryForUser } from "@/lib/controllers/drinkController";
+import { getDrinkHistoryForUser, getRecentSessionsForUser } from "@/lib/controllers/drinkController";
 import { getProfileByUsername } from "@/lib/controllers/profileController";
 import { getFollowCounts, isFollowingUser } from "@/lib/controllers/socialController";
 import {
@@ -30,12 +30,17 @@ export default async function PublicProfilePage({ params }: Props) {
 
   const isOwnProfile = currentUser?.id === targetUser.id;
 
-  const [isFollowing, counts, entries] = await Promise.all([
+  const [isFollowing, counts, entries, recentSessions] = await Promise.all([
     currentUser && !isOwnProfile
       ? isFollowingUser({ targetUserId: targetUser.id })
       : Promise.resolve(false),
     getFollowCounts({ profileId: targetUser.id }),
     getDrinkHistoryForUser({ userId: targetUser.id }),
+    // From the real DrinkSession rows, not re-derived from `entries` below —
+    // a session's id is permanent once created, so recomputing it from raw
+    // check-ins could disagree with the stored id after a backdated
+    // (offline-sync) check-in became chronologically first.
+    getRecentSessionsForUser({ userId: targetUser.id, limit: 3 }),
   ]);
   const { followers: followerCount, following: followingCount } = counts;
 
@@ -46,7 +51,6 @@ export default async function PublicProfilePage({ params }: Props) {
   );
   const types = new Set(entries.map((e) => e.drink_type).filter(Boolean));
   const earned = computeAchievements(entries, tz).filter((a) => a.earned);
-  const recentSessions = sessions.slice(0, 3);
 
   const memberSince = new Date(targetUser.createdAt).toLocaleDateString("en-GB", {
     month: "long",

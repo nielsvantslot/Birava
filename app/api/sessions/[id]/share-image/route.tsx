@@ -1,9 +1,8 @@
 import { ImageResponse } from "next/og";
 import sharp from "sharp";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getSessionCheckins } from "@/lib/controllers/drinkController";
+import { getSession } from "@/lib/controllers/drinkController";
 import {
-  findSessionWithCheckin,
   formatPace,
   formatSessionDuration,
   sessionMinutes,
@@ -252,12 +251,9 @@ export async function GET(
   const user = await getCurrentUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
 
-  // Recompute the session from its bounded ±48h window (the same path the
-  // detail page uses) instead of scanning the caller's whole history.
-  // getSessionCheckins is only login-gated, so the own-only rule is enforced
+  // getSession is only login-gated, so the own-only rule is enforced
   // explicitly below; the client falls back to a text share on 404.
-  const sessionWindow = await getSessionCheckins({ anchorId: id });
-  const session = sessionWindow ? findSessionWithCheckin(sessionWindow, id) : null;
+  const session = await getSession({ id });
   if (!session || session.userId !== user.id) {
     return new Response("Not found", { status: 404 });
   }

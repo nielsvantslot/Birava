@@ -7,13 +7,18 @@ import { createDrinkEntry, updateDrinkEntry, deleteDrinkEntry } from "@/lib/comm
 import {
   getDrinkHistory,
   getFeedDrinkHistory,
-  getSessionWindow,
   getDrinkEntryForUser,
   getRecentDrinkHistory,
   drinkHistoryTag,
 } from "@/lib/queries/drinkEntryQueries";
+import {
+  getSessionById,
+  getSessionsForUserIds,
+  getAllSessionsForUser,
+} from "@/lib/queries/drinkSessionQueries";
 import { getFollowingIds } from "@/lib/queries/followQueries";
 import type { DrinkEntry } from "@/lib/types";
+import type { DrinkSession } from "@/lib/sessions";
 import {
   ActionResultDTO,
   AddDrinkResultDTO,
@@ -23,9 +28,13 @@ import {
   GetMyDrinkEntryDTO,
   GetMyFeedDTO,
   GetMyRecentDrinksDTO,
-  GetSessionCheckinsDTO,
+  GetSessionDTO,
+  GetSessionsForUserDTO,
   UpdateDrinkEntryDTO,
 } from "@/lib/dtos";
+
+/** Feed sessions fetched per page — matches the dashboard's current page size. */
+const FEED_SESSION_LIMIT = 12;
 
 const DRINK_PATHS = ["/dashboard", "/stats", "/log", "/profile", "/achievements"];
 
@@ -97,14 +106,34 @@ export async function getMyFeed(input: GetMyFeedDTO): Promise<DrinkEntry[]> {
   return getFeedDrinkHistory(userIds);
 }
 
-/** The ±48h check-in window a session page recomputes its session from. */
-export async function getSessionCheckins(
-  input: GetSessionCheckinsDTO
-): Promise<DrinkEntry[] | null> {
+/** A single session by id — the session detail page + share-image route. */
+export async function getSession(input: GetSessionDTO): Promise<DrinkSession | null> {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  return getSessionWindow(input.anchorId);
+  return getSessionById(input.id);
+}
+
+/** The dashboard feed's sessions: viewer alone ("You" tab) or viewer + everyone they follow. */
+export async function getMyFeedSessions(input: GetMyFeedDTO): Promise<DrinkSession[]> {
+  const user = await getCurrentUser();
+  if (!user) return [];
+
+  const userIds = input.onlyOwn
+    ? [user.id]
+    : [user.id, ...(await getFollowingIds(user.id))];
+  return getSessionsForUserIds(userIds, { limit: FEED_SESSION_LIMIT });
+}
+
+/**
+ * A user's most recent sessions (profile "Recent sessions" list). Public
+ * read (no auth) — same as getDrinkHistoryForUser — since both the own and
+ * public profile pages use it.
+ */
+export async function getRecentSessionsForUser(
+  input: GetSessionsForUserDTO
+): Promise<DrinkSession[]> {
+  return getSessionsForUserIds([input.userId], { limit: input.limit });
 }
 
 /** One of the current user's own check-ins (for the edit form). */

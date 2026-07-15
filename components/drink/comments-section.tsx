@@ -9,13 +9,12 @@ import type { CommentDTO } from "@/lib/dtos";
 
 /** The session detail page's comment thread: list + composer. */
 export function CommentsSection({
-  entryId,
+  sessionId,
   tz,
   currentUserId,
   initial,
 }: {
-  /** Session anchor check-in id the comments are keyed by. */
-  entryId: string;
+  sessionId: string;
   tz: string;
   currentUserId: string;
   initial: CommentDTO[];
@@ -42,7 +41,7 @@ export function CommentsSection({
     if (!trimmed) return;
 
     startTransition(async () => {
-      const result = await createComment({ entryId, body: trimmed });
+      const result = await createComment({ sessionId, body: trimmed });
       if (result.error || !result.comment) {
         showToast(result.error ?? "Failed to comment");
         return;

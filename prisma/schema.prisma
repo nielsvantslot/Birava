@@ -85,8 +85,6 @@ model DrinkEntry {
   user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   group     Group?        @relation(fields: [groupId], references: [id], onDelete: SetNull)
   session   DrinkSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  cheers    Cheer[]
-  comments  Comment[]
 
   @@index([groupId])
   @@index([userId, createdAt])
@@ -106,34 +104,34 @@ model DrinkSession {
   name      String?
   user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   entries   DrinkEntry[]
+  cheers    Cheer[]
+  comments  Comment[]
 
   @@index([userId, endedAt])
 }
 
-/// A "cheers" (kudos) on a session, keyed by the session's anchor
-/// check-in — the session id is its first check-in's id.
+/// A "cheers" (kudos) on a session.
 model Cheer {
-  entryId   String     @db.Uuid
-  userId    String     @db.Uuid
-  createdAt DateTime   @default(now()) @db.Timestamptz(6)
-  entry     DrinkEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId String       @db.Uuid
+  userId    String       @db.Uuid
+  createdAt DateTime     @default(now()) @db.Timestamptz(6)
+  session   DrinkSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@id([entryId, userId])
+  @@id([sessionId, userId])
 }
 
-/// A comment on a session, keyed by the session's anchor check-in — the
-/// session id is its first check-in's id (same convention as Cheer).
+/// A comment on a session.
 model Comment {
-  id        String     @id @default(uuid()) @db.Uuid
-  entryId   String     @db.Uuid
-  userId    String     @db.Uuid
+  id        String       @id @default(uuid()) @db.Uuid
+  sessionId String       @db.Uuid
+  userId    String       @db.Uuid
   body      String
-  createdAt DateTime   @default(now()) @db.Timestamptz(6)
-  entry     DrinkEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now()) @db.Timestamptz(6)
+  session   DrinkSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([entryId, createdAt])
+  @@index([sessionId, createdAt])
 }
 
 model Follow {

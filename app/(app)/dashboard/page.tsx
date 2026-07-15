@@ -2,8 +2,8 @@ import Link from "next/link";
 import { Fragment } from "react";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { groupIntoSessions, getLocalLegendVenue } from "@/lib/sessions";
-import { getMyFeed } from "@/lib/controllers/drinkController";
+import { getLocalLegendVenue } from "@/lib/sessions";
+import { getMyFeedSessions, getMyDrinkHistory } from "@/lib/controllers/drinkController";
 import { getSessionCheers, getCommentCounts } from "@/lib/controllers/socialController";
 import { ScreenTabs } from "@/components/ui/screen-tabs";
 import { SessionCard } from "@/components/drink/session-card";
@@ -19,18 +19,16 @@ export default async function DashboardPage({
   const { tab } = await searchParams;
   const showOnlyOwn = tab === "you";
 
-  const [tz, all] = await Promise.all([
+  const [tz, sessions, ownHistory] = await Promise.all([
     getUserTimeZone(),
-    getMyFeed({ onlyOwn: showOnlyOwn }),
+    getMyFeedSessions({ onlyOwn: showOnlyOwn }),
+    getMyDrinkHistory(),
   ]);
-  const sessions = groupIntoSessions(all).slice(0, 12);
-  const legendVenue = getLocalLegendVenue(
-    all.filter((e) => e.user_id === user.id)
-  );
-  const entryIds = sessions.map((s) => s.id);
+  const legendVenue = getLocalLegendVenue(ownHistory);
+  const sessionIds = sessions.map((s) => s.id);
   const [cheers, commentCounts] = await Promise.all([
-    getSessionCheers({ entryIds }),
-    getCommentCounts({ entryIds }),
+    getSessionCheers({ sessionIds }),
+    getCommentCounts({ sessionIds }),
   ]);
 
   // The Local Legend callout appears once, on the newest own session

@@ -1,3 +1,3 @@
 export class ToggleCheerDTO {
-  declare entryId: string;
+  declare sessionId: string;
 }

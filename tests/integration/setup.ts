@@ -42,6 +42,19 @@ vi.mock("next/server", async (importOriginal) => ({
   },
 }));
 
+// unstable_cache needs Next's incremental-cache context, real only inside an
+// actual request/build — direct function-call tests have neither. Callers
+// (getDrinkHistory, getFeedDrinkHistory, getSessionsForUserIds, ...) only
+// care that the wrapped function's result comes back; skip the caching
+// itself rather than fail outright.
+vi.mock("next/cache", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/cache")>()),
+  unstable_cache:
+    <T extends (...args: never[]) => unknown>(fn: T) =>
+    (...args: Parameters<T>) =>
+      fn(...args),
+}));
+
 const reset = new PostgresDatabaseReset(db);
 
 beforeEach(async () => {
