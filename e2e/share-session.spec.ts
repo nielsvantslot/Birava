@@ -50,9 +50,13 @@ test("share sheet: pre-fetches both variants, swipes between them, shares files-
   const sessionPage = new SessionDetailPage(page);
   // Cold next-dev compile of /dashboard + /sessions/[id] can take a while the
   // first time a fresh process serves them — generous timeout on purpose
-  // (same reasoning as log-drink.spec.ts's pendingPanel wait).
+  // (same reasoning as log-drink.spec.ts's pendingPanel wait). Opens the
+  // topmost (most recent) card rather than matching by title: the e2e suite
+  // shares one fixed account across specs, so this check-in can merge into
+  // an existing multi-check-in session whose computed title is no longer
+  // the drink name just logged.
   await expect(async () => {
-    await sessionPage.openFromDashboard(drinkName);
+    await sessionPage.openMostRecent();
   }).toPass({ timeout: 60_000 });
 
   const shareImageRequests: string[] = [];

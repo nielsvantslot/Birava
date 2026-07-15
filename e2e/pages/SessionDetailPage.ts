@@ -4,9 +4,9 @@ import type { ISessionDetailPage } from "./ISessionDetailPage";
 export class SessionDetailPage implements ISessionDetailPage {
   constructor(private readonly page: Page) {}
 
-  async openFromDashboard(titleText: string): Promise<void> {
+  async openMostRecent(): Promise<void> {
     await this.page.goto("/dashboard", { waitUntil: "networkidle" });
-    await this.page.locator(".act-title-link", { hasText: titleText }).first().click();
+    await this.page.locator(".act-title-link").first().click();
     await this.page.waitForURL(/\/sessions\//, { timeout: 30_000 });
   }
 
