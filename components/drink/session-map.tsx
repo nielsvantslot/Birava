@@ -1,3 +1,16 @@
+import {
+  type MapPin,
+  type MapPoint,
+  MAP_BG,
+  MAP_HONEY,
+  MAP_ACCENT,
+  MAP_PIN_TEXT,
+  TILE,
+  pickZoom,
+  project,
+  tileUrl,
+} from "@/lib/mapProjection";
+
 /**
  * Static route map for a session's located check-ins.
  *
@@ -9,41 +22,8 @@
 
 const W = 512;
 const H = 250;
-const TILE = 256;
-const MIN_ZOOM = 3;
-const MAX_ZOOM = 16;
 
-export type MapPoint = { lat: number; lng: number };
-
-export type MapPin = {
-  point: MapPoint;
-  /** The number rendered in the pin (venue order). */
-  label: string;
-  /** Local Legend venue gets the honey pin. */
-  legend?: boolean;
-};
-
-function project(point: MapPoint, zoom: number): { x: number; y: number } {
-  const world = TILE * 2 ** zoom;
-  const rad = (point.lat * Math.PI) / 180;
-  return {
-    x: ((point.lng + 180) / 360) * world,
-    y: ((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) * world,
-  };
-}
-
-function pickZoom(points: MapPoint[]): number {
-  if (points.length === 1) return MAX_ZOOM - 1;
-  for (let zoom = MAX_ZOOM; zoom > MIN_ZOOM; zoom--) {
-    const projected = points.map((p) => project(p, zoom));
-    const xs = projected.map((p) => p.x);
-    const ys = projected.map((p) => p.y);
-    const dx = Math.max(...xs) - Math.min(...xs);
-    const dy = Math.max(...ys) - Math.min(...ys);
-    if (dx <= W * 0.7 && dy <= H * 0.6) return zoom;
-  }
-  return MIN_ZOOM;
-}
+export type { MapPin, MapPoint };
 
 export function SessionMap({
   points,
@@ -55,7 +35,7 @@ export function SessionMap({
 }) {
   if (points.length === 0) return null;
 
-  const zoom = pickZoom(points);
+  const zoom = pickZoom(points, W, H);
   const projected = points.map((p) => project(p, zoom));
   const cx =
     (Math.min(...projected.map((p) => p.x)) +
@@ -90,7 +70,6 @@ export function SessionMap({
     .join(" ");
   const start = route[0];
   const end = route[route.length - 1];
-  const subdomains = ["a", "b", "c", "d"];
 
   return (
     <svg
@@ -100,11 +79,11 @@ export function SessionMap({
       role="img"
       aria-label="Route map of the session"
     >
-      <rect width={W} height={H} fill="#151A21" />
+      <rect width={W} height={H} fill={MAP_BG} />
       {tiles.map((tile) => (
         <image
           key={`${tile.x}-${tile.y}`}
-          href={`https://${subdomains[(tile.x + tile.y) % 4]}.basemaps.cartocdn.com/dark_all/${zoom}/${tile.x}/${tile.y}.png`}
+          href={tileUrl(zoom, tile.x, tile.y)}
           x={tile.left}
           y={tile.top}
           width={TILE}
@@ -130,7 +109,7 @@ export function SessionMap({
               cy={p.y}
               r="4.5"
               fill="var(--accent)"
-              stroke="#151A21"
+              stroke={MAP_BG}
               strokeWidth="1.6"
             />
           ))}
@@ -139,7 +118,7 @@ export function SessionMap({
             cy={start.y}
             r="6"
             fill="var(--accent)"
-            stroke="#151A21"
+            stroke={MAP_BG}
             strokeWidth="2.5"
           />
           {route.length > 1 && (
@@ -148,7 +127,7 @@ export function SessionMap({
               cy={end.y}
               r="6"
               fill="var(--ink)"
-              stroke="#151A21"
+              stroke={MAP_BG}
               strokeWidth="2.5"
             />
           )}
@@ -164,8 +143,8 @@ export function SessionMap({
               cx={x}
               cy={y}
               r={pin.legend ? 12 : 11}
-              fill={pin.legend ? "#E8C15A" : "#A9C641"}
-              stroke="#151A21"
+              fill={pin.legend ? MAP_HONEY : MAP_ACCENT}
+              stroke={MAP_BG}
               strokeWidth="3"
             />
             <text
@@ -175,7 +154,7 @@ export function SessionMap({
               style={{
                 fontSize: 12,
                 fontWeight: 800,
-                fill: "#141A06",
+                fill: MAP_PIN_TEXT,
                 fontFamily: "var(--font)",
               }}
             >

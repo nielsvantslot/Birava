@@ -5,6 +5,7 @@ import Link from "next/link";
 import { toggleCheer } from "@/lib/controllers/socialController";
 import { showToast } from "@/components/ui/toast-pill";
 import { cn } from "@/lib/utils";
+import { ShareSheet } from "@/components/drink/share-sheet";
 
 /**
  * The session card's social affordances: cheers with a live count,
@@ -16,6 +17,7 @@ export function SocialActs({
   on,
   commentCount,
   shareText,
+  isOwner,
 }: {
   /** Session anchor check-in id the cheers/comments are keyed by. */
   entryId: string;
@@ -23,9 +25,12 @@ export function SocialActs({
   on: boolean;
   commentCount: number;
   shareText: string;
+  /** Only the owner's own session gets the recap-image share; others get a link. */
+  isOwner: boolean;
 }) {
   const [state, setState] = useState({ count, on });
   const [, startTransition] = useTransition();
+  const [shareSheetOpen, setShareSheetOpen] = useState(false);
 
   const handleCheer = () => {
     // Optimistic — settle with the server's answer
@@ -41,37 +46,32 @@ export function SocialActs({
     });
   };
 
-  const shareTextOnly = async () => {
+  const shareTextOnly = async (url?: string) => {
     if (navigator.share) {
       try {
-        await navigator.share({ text: shareText });
+        await navigator.share(url ? { text: shareText, url } : { text: shareText });
       } catch {
         /* user cancelled */
       }
       return;
     }
-    await navigator.clipboard.writeText(shareText);
+    await navigator.clipboard.writeText(url ? `${shareText} ${url}` : shareText);
     showToast("Copied to clipboard");
   };
 
-  const handleShare = async () => {
-    // Best-effort: share the rendered recap card image. The route serves the
-    // image only for the viewer's OWN session (404 otherwise), so on someone
-    // else's card this quietly falls back to the text share.
-    try {
-      const res = await fetch(`/api/sessions/${entryId}/share-image`);
-      if (res.ok) {
-        const blob = await res.blob();
-        const file = new File([blob], "birava-session.png", { type: "image/png" });
-        if (navigator.canShare?.({ files: [file] })) {
-          await navigator.share({ files: [file], text: shareText });
-          return;
-        }
-      }
-    } catch {
-      /* fall through to the text share below */
-    }
-    await shareTextOnly();
+  // Someone else's session: never generate their recap image (that reads as
+  // claiming their session) — just share/copy a link to it.
+  const handleShareLink = async () => {
+    const url = `${window.location.origin}/sessions/${entryId}`;
+    await shareTextOnly(url);
+  };
+
+  // Own session: open the share preview (Strava-style — swipe between the
+  // card and sticker versions, then hand the picked one to the OS share
+  // sheet). Someone else's session skips straight to the link share.
+  const handleShare = () => {
+    if (isOwner) setShareSheetOpen(true);
+    else handleShareLink();
   };
 
   return (
@@ -106,6 +106,13 @@ export function SocialActs({
         </svg>
         Share
       </button>
+      {shareSheetOpen && (
+        <ShareSheet
+          entryId={entryId}
+          shareText={shareText}
+          onClose={() => setShareSheetOpen(false)}
+        />
+      )}
     </div>
   );
 }
