@@ -86,30 +86,64 @@ function renderCard({
         </div>
       )}
 
-      {/* stats */}
-      <div
-        style={{
-          display: "flex",
-          marginTop: stretch ? "auto" : 56,
-          gap: 40,
-          borderTop: `2px solid ${LINE}`,
-          paddingTop: 48,
-        }}
-      >
-        {stats.map((s) => (
-          <div
-            key={s.label}
-            style={{ display: "flex", flexDirection: "column", flex: 1 }}
-          >
-            <div style={{ display: "flex", fontSize: 76, fontWeight: 800, color: ACCENT }}>
-              {s.value}
+      {/* stats: side-by-side columns when pinned under a map (a familiar
+          footer-strip shape); stacked rows when centered with no map — a row
+          of 3 small columns reads as cramped floating in all that empty
+          space, a list fills it better. */}
+      {stretch ? (
+        <div
+          style={{
+            display: "flex",
+            marginTop: "auto",
+            gap: 40,
+            borderTop: `2px solid ${LINE}`,
+            paddingTop: 48,
+          }}
+        >
+          {stats.map((s) => (
+            <div
+              key={s.label}
+              style={{ display: "flex", flexDirection: "column", flex: 1 }}
+            >
+              <div style={{ display: "flex", fontSize: 76, fontWeight: 800, color: ACCENT }}>
+                {s.value}
+              </div>
+              <div style={{ display: "flex", marginTop: 8, fontSize: 30, color: INK_DIM }}>
+                {s.label}
+              </div>
             </div>
-            <div style={{ display: "flex", marginTop: 8, fontSize: 30, color: INK_DIM }}>
-              {s.label}
+          ))}
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            marginTop: 56,
+            borderTop: `2px solid ${LINE}`,
+            paddingTop: 40,
+          }}
+        >
+          {stats.map((s) => (
+            <div
+              key={s.label}
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                gap: 20,
+                marginTop: 24,
+              }}
+            >
+              <div style={{ display: "flex", fontSize: 64, fontWeight: 800, color: ACCENT }}>
+                {s.value}
+              </div>
+              <div style={{ display: "flex", fontSize: 30, color: INK_DIM }}>
+                {s.label}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
     );
   }
