@@ -12,7 +12,7 @@ import { ShareSheet } from "@/components/drink/share-sheet";
  * comment, share. Icon buttons, no emoji.
  */
 export function SocialActs({
-  entryId,
+  sessionId,
   count,
   on,
   commentCount,
@@ -20,7 +20,7 @@ export function SocialActs({
   isOwner,
 }: {
   /** Session anchor check-in id the cheers/comments are keyed by. */
-  entryId: string;
+  sessionId: string;
   count: number;
   on: boolean;
   commentCount: number;
@@ -36,7 +36,7 @@ export function SocialActs({
     // Optimistic — settle with the server's answer
     setState((s) => ({ on: !s.on, count: s.count + (s.on ? -1 : 1) }));
     startTransition(async () => {
-      const result = await toggleCheer({ entryId });
+      const result = await toggleCheer({ sessionId });
       if (result.error) {
         setState({ count, on });
         showToast(result.error);
@@ -62,7 +62,7 @@ export function SocialActs({
   // Someone else's session: never generate their recap image (that reads as
   // claiming their session) — just share/copy a link to it.
   const handleShareLink = async () => {
-    const url = `${window.location.origin}/sessions/${entryId}`;
+    const url = `${window.location.origin}/sessions/${sessionId}`;
     await shareTextOnly(url);
   };
 
@@ -90,7 +90,7 @@ export function SocialActs({
       </button>
       <Link
         className="act"
-        href={`/sessions/${entryId}#comments`}
+        href={`/sessions/${sessionId}#comments`}
         aria-label="Comments"
         scroll={false}
       >
@@ -108,7 +108,7 @@ export function SocialActs({
       </button>
       {shareSheetOpen && (
         <ShareSheet
-          entryId={entryId}
+          sessionId={sessionId}
           shareText={shareText}
           onClose={() => setShareSheetOpen(false)}
         />

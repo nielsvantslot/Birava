@@ -255,7 +255,7 @@ export function SessionCard({
       )}
 
       <SocialActs
-        entryId={session.id}
+        sessionId={session.id}
         count={cheer.count}
         on={cheer.on}
         commentCount={commentCount}

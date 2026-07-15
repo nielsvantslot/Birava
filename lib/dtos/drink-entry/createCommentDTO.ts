@@ -1,4 +1,4 @@
 export class CreateCommentDTO {
-  declare entryId: string;
+  declare sessionId: string;
   declare body: string;
 }

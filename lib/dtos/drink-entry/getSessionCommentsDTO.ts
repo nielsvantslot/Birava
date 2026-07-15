@@ -1,3 +1,3 @@
 export class GetSessionCommentsDTO {
-  declare entryIds: string[];
+  declare sessionIds: string[];
 }

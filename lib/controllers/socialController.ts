@@ -115,7 +115,7 @@ export async function toggleCheer(input: ToggleCheerDTO): Promise<ToggleCheerRes
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
-  const result = await toggleCheerCommand(user.id, input.entryId, {
+  const result = await toggleCheerCommand(user.id, input.sessionId, {
     username: user.username,
     avatarUrl: user.avatarUrl,
   });
@@ -126,21 +126,21 @@ export async function toggleCheer(input: ToggleCheerDTO): Promise<ToggleCheerRes
   return result;
 }
 
-/** Cheer counts + the viewer's own state for a set of session anchor ids. */
+/** Cheer counts + the viewer's own state for a set of session ids. */
 export async function getSessionCheers(
   input: GetSessionCheersDTO
 ): Promise<Map<string, CheerState>> {
   const user = await getCurrentUser();
   if (!user) return new Map();
 
-  return getCheerStates(input.entryIds, user.id);
+  return getCheerStates(input.sessionIds, user.id);
 }
 
 export async function createComment(input: CreateCommentDTO): Promise<CreateCommentResultDTO> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
-  const result = await createCommentCommand(user.id, input.entryId, input.body);
+  const result = await createCommentCommand(user.id, input.sessionId, input.body);
   if (!result.error) {
     revalidatePath("/dashboard");
     revalidatePath("/sessions", "layout");
@@ -160,22 +160,22 @@ export async function deleteComment(input: DeleteCommentDTO): Promise<DeleteComm
   return result;
 }
 
-/** Comment counts for a set of session anchor ids — used by feed cards. */
+/** Comment counts for a set of session ids — used by feed cards. */
 export async function getCommentCounts(
   input: GetCommentCountsDTO
 ): Promise<Map<string, number>> {
   const user = await getCurrentUser();
   if (!user) return new Map();
 
-  return getCommentCountsQuery(input.entryIds);
+  return getCommentCountsQuery(input.sessionIds);
 }
 
-/** Full comment threads for a set of session anchor ids. */
+/** Full comment threads for a set of session ids. */
 export async function getSessionComments(
   input: GetSessionCommentsDTO
 ): Promise<Map<string, CommentDTO[]>> {
   const user = await getCurrentUser();
   if (!user) return new Map();
 
-  return getSessionCommentsQuery(input.entryIds);
+  return getSessionCommentsQuery(input.sessionIds);
 }

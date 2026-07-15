@@ -21,6 +21,9 @@ export type DrinkEntryFixtureInput = {
   photoUrl?: string | null;
   photoLqip?: string | null;
   createdAt?: Date;
+  /** Attach to an existing DrinkSession (e.g. to model several check-ins in
+   * one session) instead of the default: a fresh standalone session. */
+  sessionId?: string;
 };
 
 export type DrinkEntryFixture = {

@@ -1,3 +1,3 @@
 export class GetCommentCountsDTO {
-  declare entryIds: string[];
+  declare sessionIds: string[];
 }

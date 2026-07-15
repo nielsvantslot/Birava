@@ -7,4 +7,8 @@ export class CreateDrinkEntryDTO {
   declare notes: string | null;
   declare photoUrl: string | null;
   declare photoLqip: string | null;
+  /** Client epoch ms, for offline-sync recovering a check-in logged in the
+   * past — the server clamps this (see MAX_BACKDATE_MS), it never trusts it
+   * outright. Omit for a real-time check-in (defaults to now()). */
+  declare createdAt?: number | null;
 }

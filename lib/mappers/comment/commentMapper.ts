@@ -7,7 +7,7 @@ export class CommentMapper {
   ): CommentDTO {
     return {
       id: row.id,
-      entryId: row.entryId,
+      sessionId: row.sessionId,
       userId: row.userId,
       username: row.user.username,
       avatarUrl: row.user.avatarUrl,

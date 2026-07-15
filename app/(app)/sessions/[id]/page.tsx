@@ -4,13 +4,12 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
 import { DrinkEntry } from "@/lib/types";
 import {
-  findSessionWithCheckin,
   getLocalLegendVenue,
   sessionMinutes,
   sessionTitle,
 } from "@/lib/sessions";
 import {
-  getSessionCheckins,
+  getSession,
   getMyDrinkHistory,
 } from "@/lib/controllers/drinkController";
 import { getSessionCheers, getSessionComments } from "@/lib/controllers/socialController";
@@ -50,15 +49,10 @@ export default async function SessionDetailPage({
 
   const { id } = await params;
 
-  // The session is computed, never stored: fetch the ±48h window around the
-  // anchor and pick the session that contains it.
-  const [tz, windowCheckins] = await Promise.all([
+  const [tz, session] = await Promise.all([
     getUserTimeZone(),
-    getSessionCheckins({ anchorId: id }),
+    getSession({ id }),
   ]);
-  if (!windowCheckins) notFound();
-
-  const session = findSessionWithCheckin(windowCheckins, id);
   if (!session) notFound();
 
   const isSelf = session.userId === user.id;
@@ -72,8 +66,8 @@ export default async function SessionDetailPage({
   // comment thread are independent — fetch all three in parallel (F2).
   const [ownForLegend, cheerMap, commentsMap] = await Promise.all([
     isSelf ? getMyDrinkHistory() : Promise.resolve(null),
-    getSessionCheers({ entryIds: [session.id] }),
-    getSessionComments({ entryIds: [session.id] }),
+    getSessionCheers({ sessionIds: [session.id] }),
+    getSessionComments({ sessionIds: [session.id] }),
   ]);
 
   let legendVenue: string | null = null;
@@ -247,7 +241,7 @@ export default async function SessionDetailPage({
       {/* social */}
       <div className="section flush">
         <SocialActs
-          entryId={session.id}
+          sessionId={session.id}
           count={cheer.count}
           on={cheer.on}
           commentCount={comments.length}
@@ -259,7 +253,7 @@ export default async function SessionDetailPage({
       {/* comments */}
       <div className="section flush">
         <CommentsSection
-          entryId={session.id}
+          sessionId={session.id}
           tz={tz}
           currentUserId={user.id}
           initial={comments}
