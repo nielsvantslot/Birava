@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
 import { DrinkEntry } from "@/lib/types";
 import {
+  defaultSessionTitle,
   getLocalLegendVenue,
   sessionMinutes,
   sessionTitle,
@@ -15,6 +16,7 @@ import {
 import { getSessionCheers, getSessionComments } from "@/lib/controllers/socialController";
 import { formatTime, relativeDayTime } from "@/lib/dates";
 import { SessionMap, MapPin } from "@/components/drink/session-map";
+import { SessionTitle } from "@/components/drink/session-title";
 import { SocialActs } from "@/components/drink/social-row";
 import { CheckinGrid } from "@/components/drink/checkin-grid";
 import { CommentsSection } from "@/components/drink/comments-section";
@@ -60,6 +62,7 @@ export default async function SessionDetailPage({
   const lone = checkins.length === 1;
   const minutes = sessionMinutes(session);
   const title = sessionTitle(session, tz);
+  const defaultTitle = defaultSessionTitle(session, tz);
   const venueGroups = groupByVenueRun(checkins);
 
   // Local Legend needs the owner's own history; the cheer state and
@@ -129,9 +132,13 @@ export default async function SessionDetailPage({
             </div>
           </div>
         </Link>
-        <div className="act-title" style={{ paddingBottom: 14 }}>
-          {title}
-        </div>
+        <SessionTitle
+          sessionId={session.id}
+          title={title}
+          defaultTitle={defaultTitle}
+          isOwnName={!!session.name}
+          isSelf={isSelf}
+        />
         {!lone && (
           <div className="act-stats">
             <div className="stats big">

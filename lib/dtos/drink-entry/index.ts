@@ -11,6 +11,7 @@ export * from "./getDrinkHistoryForUserDTO";
 export * from "./getSessionCheersDTO";
 export * from "./getSessionDTO";
 export * from "./getSessionsForUserDTO";
+export * from "./renameSessionDTO";
 export * from "./getMyDrinkEntryDTO";
 export * from "./getMyRecentDrinksDTO";
 export * from "./toggleCheerDTO";

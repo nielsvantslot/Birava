@@ -4,6 +4,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/session";
 import { NOT_AUTHENTICATED } from "@/lib/auth/authErrors";
 import { createDrinkEntry, updateDrinkEntry, deleteDrinkEntry } from "@/lib/commands/drinkEntryCommands";
+import { renameSession as renameSessionCommand } from "@/lib/commands/drinkSessionCommands";
 import {
   getDrinkHistory,
   getDrinkEntryForUser,
@@ -27,6 +28,7 @@ import {
   GetMyRecentDrinksDTO,
   GetSessionDTO,
   GetSessionsForUserDTO,
+  RenameSessionDTO,
   UpdateDrinkEntryDTO,
 } from "@/lib/dtos";
 
@@ -68,6 +70,15 @@ export async function deleteDrink(input: DeleteDrinkEntryDTO): Promise<ActionRes
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await deleteDrinkEntry(user.id, input);
+  if (!result.error) revalidateDrinkPaths(user.id);
+  return result;
+}
+
+export async function renameSession(input: RenameSessionDTO): Promise<ActionResultDTO> {
+  const user = await getCurrentUser();
+  if (!user) return NOT_AUTHENTICATED;
+
+  const result = await renameSessionCommand(user.id, input);
   if (!result.error) revalidateDrinkPaths(user.id);
   return result;
 }
