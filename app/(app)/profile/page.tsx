@@ -18,9 +18,9 @@ export default async function ProfilePage() {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  const tz = await getUserTimeZone();
   // Independent reads — run in parallel (F2).
-  const [entries, followCounts, recentSessions] = await Promise.all([
+  const [tz, entries, followCounts, recentSessions] = await Promise.all([
+    getUserTimeZone(),
     getMyDrinkHistory(),
     getFollowCounts({ profileId: user.id }),
     // Fetched from the real DrinkSession rows, not re-derived from `entries`

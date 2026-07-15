@@ -30,10 +30,10 @@ export default async function LogPage({
   if (!user) return null;
 
   const { edit } = await searchParams;
-  const tz = await getUserTimeZone();
 
   // Independent reads — run in parallel (F2).
-  const [editEntryOrNull, recent] = await Promise.all([
+  const [tz, editEntryOrNull, recent] = await Promise.all([
+    getUserTimeZone(),
     edit ? getMyDrinkEntry({ id: edit }) : Promise.resolve(null),
     getMyRecentDrinks({ limit: 4 }),
   ]);
