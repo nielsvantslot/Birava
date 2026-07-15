@@ -1,12 +1,10 @@
 import Link from "next/link";
-import { Fragment } from "react";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { groupIntoSessions, getLocalLegendVenue } from "@/lib/sessions";
-import { getMyFeed } from "@/lib/controllers/drinkController";
-import { getSessionCheers, getCommentCounts } from "@/lib/controllers/socialController";
+import { getLocalLegendVenue } from "@/lib/sessions";
+import { getMyFeedSessions, getMyDrinkHistory } from "@/lib/controllers/drinkController";
 import { ScreenTabs } from "@/components/ui/screen-tabs";
-import { SessionCard } from "@/components/drink/session-card";
+import { DashboardFeed } from "@/components/drink/dashboard-feed";
 
 export default async function DashboardPage({
   searchParams,
@@ -19,19 +17,13 @@ export default async function DashboardPage({
   const { tab } = await searchParams;
   const showOnlyOwn = tab === "you";
 
-  const [tz, all] = await Promise.all([
+  const [tz, feedPage, ownHistory] = await Promise.all([
     getUserTimeZone(),
-    getMyFeed({ onlyOwn: showOnlyOwn }),
+    getMyFeedSessions({ onlyOwn: showOnlyOwn }),
+    getMyDrinkHistory(),
   ]);
-  const sessions = groupIntoSessions(all).slice(0, 12);
-  const legendVenue = getLocalLegendVenue(
-    all.filter((e) => e.user_id === user.id)
-  );
-  const entryIds = sessions.map((s) => s.id);
-  const [cheers, commentCounts] = await Promise.all([
-    getSessionCheers({ entryIds }),
-    getCommentCounts({ entryIds }),
-  ]);
+  const { sessions, cheers, commentCounts, nextCursor } = feedPage;
+  const legendVenue = getLocalLegendVenue(ownHistory);
 
   // The Local Legend callout appears once, on the newest own session
   const newestOwnId = sessions.find((s) => s.userId === user.id)?.id;
@@ -68,42 +60,20 @@ export default async function DashboardPage({
           </Link>
         </div>
       ) : (
-        sessions.map((session, index) => (
-          <Fragment key={session.id}>
-            <SessionCard
-              session={session}
-              tz={tz}
-              isSelf={session.userId === user.id}
-              legendVenue={session.id === newestOwnId ? legendVenue : null}
-              cheer={cheers.get(session.id) ?? { count: 0, on: false }}
-              commentCount={commentCounts.get(session.id) ?? 0}
-              priority={index === 0}
-            />
-            {index === 0 && (
-              <div className="hint">
-                <span className="mark">
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.9"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="12" cy="12" r="9"></circle>
-                    <path d="M12 16v-4M12 8h.01"></path>
-                  </svg>
-                </span>
-                <div>
-                  <b>Check-ins on the same night group into a session.</b> Log
-                  each drink as you go — Birava stitches your evening together.
-                </div>
-              </div>
-            )}
-          </Fragment>
-        ))
+        <DashboardFeed
+          // Remounts fresh on tab switch instead of reconciling paginated
+          // client state against a brand new server-rendered first page.
+          key={showOnlyOwn ? "you" : "following"}
+          initialSessions={sessions}
+          initialCheers={cheers}
+          initialCommentCounts={commentCounts}
+          initialNextCursor={nextCursor}
+          tz={tz}
+          currentUserId={user.id}
+          onlyOwn={showOnlyOwn}
+          legendVenue={legendVenue}
+          newestOwnId={newestOwnId}
+        />
       )}
     </>
   );

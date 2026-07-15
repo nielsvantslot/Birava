@@ -1,3 +1,3 @@
 export class GetSessionCheersDTO {
-  declare entryIds: string[];
+  declare sessionIds: string[];
 }

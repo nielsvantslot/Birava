@@ -8,6 +8,16 @@ import { localParts, weekIndex } from "@/lib/dates";
  */
 export const SESSION_GAP_MS = 4 * 60 * 60 * 1000;
 
+/**
+ * How far into the past a check-in's createdAt may be backdated (offline
+ * sync recovering something logged hours ago) before the server stops
+ * trusting it and falls back to now(). Generous relative to any realistic
+ * offline queue, since createDrinkEntry is a "use server" action — any
+ * caller can set createdAt, not just the offline-sync flow — and
+ * achievements/streaks would otherwise be gameable by backdating freely.
+ */
+export const MAX_BACKDATE_MS = 7 * 24 * 60 * 60 * 1000;
+
 export type DrinkSession = {
   /** Id of the first check-in — the stable handle for /sessions/[id]. */
   id: string;
@@ -34,10 +44,11 @@ function ts(entry: DrinkEntry): number {
   return new Date(entry.created_at).getTime();
 }
 
-function buildSession(checkins: DrinkEntry[]): DrinkSession {
-  const first = checkins[0];
-  const last = checkins[checkins.length - 1];
-
+function deriveVenuesTypesPhotos(checkins: DrinkEntry[]): {
+  venues: string[];
+  types: string[];
+  photoIds: string[];
+} {
   const venues: string[] = [];
   const types: string[] = [];
   for (const c of checkins) {
@@ -45,6 +56,34 @@ function buildSession(checkins: DrinkEntry[]): DrinkSession {
     if (venue && !venues.includes(venue)) venues.push(venue);
     if (c.drink_type && !types.includes(c.drink_type)) types.push(c.drink_type);
   }
+  return { venues, types, photoIds: checkins.filter((c) => !!c.photo_url).map((c) => c.id) };
+}
+
+/**
+ * Assembles a DrinkSession from its authoritative identity/bounds (a real
+ * DrinkSession row) plus its checkins. Unlike buildSession, identity isn't
+ * re-derived from checkins[0] — a session's id is permanent once created,
+ * so a backdated check-in can become chronologically first without the
+ * session's id changing to match. Used by the DB-backed queries in
+ * lib/queries/drinkSessionQueries.ts.
+ */
+export function assembleDrinkSession(
+  identity: {
+    id: string;
+    userId: string;
+    username: string;
+    avatarUrl: string | null;
+    start: string;
+    end: string;
+  },
+  checkins: DrinkEntry[]
+): DrinkSession {
+  return { ...identity, checkins, ...deriveVenuesTypesPhotos(checkins) };
+}
+
+function buildSession(checkins: DrinkEntry[]): DrinkSession {
+  const first = checkins[0];
+  const last = checkins[checkins.length - 1];
 
   return {
     id: first.id,
@@ -54,9 +93,7 @@ function buildSession(checkins: DrinkEntry[]): DrinkSession {
     start: first.created_at,
     end: last.created_at,
     checkins,
-    venues,
-    types,
-    photoIds: checkins.filter((c) => !!c.photo_url).map((c) => c.id),
+    ...deriveVenuesTypesPhotos(checkins),
   };
 }
 
@@ -88,18 +125,6 @@ export function groupIntoSessions(entries: DrinkEntry[]): DrinkSession[] {
 
   return sessions.sort(
     (a, b) => new Date(b.end).getTime() - new Date(a.end).getTime()
-  );
-}
-
-/** The session that contains a given check-in, or null. */
-export function findSessionWithCheckin(
-  entries: DrinkEntry[],
-  checkinId: string
-): DrinkSession | null {
-  return (
-    groupIntoSessions(entries).find((s) =>
-      s.checkins.some((c) => c.id === checkinId)
-    ) ?? null
   );
 }
 

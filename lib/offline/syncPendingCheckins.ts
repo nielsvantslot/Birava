@@ -59,7 +59,7 @@ export async function flushPendingCheckins(
           photoLqip = uploaded.lqip;
         }
 
-        const result = await addDrink({ ...entry.payload, photoUrl, photoLqip });
+        const result = await addDrink({ ...entry.payload, photoUrl, photoLqip, createdAt: entry.createdAt });
         if (result.error) {
           await updatePendingCheckin(entry.id, { status: "failed", lastError: result.error });
           continue;

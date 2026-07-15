@@ -31,11 +31,11 @@ async function dataUriToFile(dataUri: string, filename: string): Promise<File> {
  * first.
  */
 export function ShareSheet({
-  entryId,
+  sessionId,
   shareText,
   onClose,
 }: {
-  entryId: string;
+  sessionId: string;
   /** Fallback text (+ session link) used when the recap image can't be generated. */
   shareText: string;
   onClose: () => void;
@@ -53,7 +53,7 @@ export function ShareSheet({
     let cancelled = false;
     const controller = new AbortController();
 
-    fetch(`/api/sessions/${entryId}/share-image`, { signal: controller.signal })
+    fetch(`/api/sessions/${sessionId}/share-image`, { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : null))
       .then(async (data: { opaque: string; transparent: string } | null) => {
         if (cancelled || !data) return;
@@ -78,7 +78,7 @@ export function ShareSheet({
       cancelled = true;
       controller.abort();
     };
-  }, [entryId]);
+  }, [sessionId]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -108,7 +108,7 @@ export function ShareSheet({
   // (network blip, server error) — share a text + link instead of leaving
   // the user stuck with no way to complete the share.
   const shareLinkFallback = async () => {
-    const url = `${window.location.origin}/sessions/${entryId}`;
+    const url = `${window.location.origin}/sessions/${sessionId}`;
     if (navigator.share) {
       try {
         await navigator.share({ text: shareText, url });

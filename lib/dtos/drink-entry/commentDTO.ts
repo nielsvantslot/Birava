@@ -1,6 +1,6 @@
 export class CommentDTO {
   declare id: string;
-  declare entryId: string;
+  declare sessionId: string;
   declare userId: string;
   declare username: string;
   declare avatarUrl: string | null;
