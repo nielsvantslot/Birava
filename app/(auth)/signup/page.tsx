@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Beer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
@@ -14,13 +15,20 @@ export default function SignupPage() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
 
     const response = await fetch("/api/signup", {
       method: "POST",
@@ -113,12 +121,23 @@ export default function SignupPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="password">Password</Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 placeholder="At least 8 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="confirmPassword">Confirm password</Label>
+              <PasswordInput
+                id="confirmPassword"
+                placeholder="Repeat your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 minLength={8}
                 autoComplete="new-password"
