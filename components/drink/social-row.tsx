@@ -107,7 +107,11 @@ export function SocialActs({
         Share
       </button>
       {shareSheetOpen && (
-        <ShareSheet entryId={entryId} onClose={() => setShareSheetOpen(false)} />
+        <ShareSheet
+          entryId={entryId}
+          shareText={shareText}
+          onClose={() => setShareSheetOpen(false)}
+        />
       )}
     </div>
   );

@@ -1,4 +1,15 @@
-import { type MapPin, type MapPoint, TILE, pickZoom, project, tileUrl } from "@/lib/mapProjection";
+import {
+  type MapPin,
+  type MapPoint,
+  MAP_BG,
+  MAP_HONEY,
+  MAP_ACCENT,
+  MAP_PIN_TEXT,
+  TILE,
+  pickZoom,
+  project,
+  tileUrl,
+} from "@/lib/mapProjection";
 
 /**
  * Static route map for a session's located check-ins.
@@ -68,7 +79,7 @@ export function SessionMap({
       role="img"
       aria-label="Route map of the session"
     >
-      <rect width={W} height={H} fill="#151A21" />
+      <rect width={W} height={H} fill={MAP_BG} />
       {tiles.map((tile) => (
         <image
           key={`${tile.x}-${tile.y}`}
@@ -98,7 +109,7 @@ export function SessionMap({
               cy={p.y}
               r="4.5"
               fill="var(--accent)"
-              stroke="#151A21"
+              stroke={MAP_BG}
               strokeWidth="1.6"
             />
           ))}
@@ -107,7 +118,7 @@ export function SessionMap({
             cy={start.y}
             r="6"
             fill="var(--accent)"
-            stroke="#151A21"
+            stroke={MAP_BG}
             strokeWidth="2.5"
           />
           {route.length > 1 && (
@@ -116,7 +127,7 @@ export function SessionMap({
               cy={end.y}
               r="6"
               fill="var(--ink)"
-              stroke="#151A21"
+              stroke={MAP_BG}
               strokeWidth="2.5"
             />
           )}
@@ -132,8 +143,8 @@ export function SessionMap({
               cx={x}
               cy={y}
               r={pin.legend ? 12 : 11}
-              fill={pin.legend ? "#E8C15A" : "#A9C641"}
-              stroke="#151A21"
+              fill={pin.legend ? MAP_HONEY : MAP_ACCENT}
+              stroke={MAP_BG}
               strokeWidth="3"
             />
             <text
@@ -143,7 +154,7 @@ export function SessionMap({
               style={{
                 fontSize: 12,
                 fontWeight: 800,
-                fill: "#141A06",
+                fill: MAP_PIN_TEXT,
                 fontFamily: "var(--font)",
               }}
             >

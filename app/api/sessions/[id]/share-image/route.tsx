@@ -13,7 +13,7 @@ import {
 import { getUserTimeZone } from "@/lib/timezone";
 import { drinkPhotoService } from "@/lib/photoUpload";
 import { StreamBufferConverter } from "@/modules/photo-upload/StreamBufferConverter";
-import { renderRouteOnlyPng, renderSessionMapPng } from "@/lib/shareSessionMap";
+import { renderSessionVisuals } from "@/lib/shareSessionMap";
 
 // Prisma (getCurrentUser / history) and the storage layer need Node, not edge.
 export const runtime = "nodejs";
@@ -31,6 +31,36 @@ const LINE = "rgba(242, 238, 228, 0.12)";
 
 const MAP_WIDTH = WIDTH - 144;
 const MAP_HEIGHT = 1080;
+
+/**
+ * One stat's value + label pair. "column" stacks the value over the label
+ * (used side-by-side under a map, a familiar footer-strip shape); "row" puts
+ * the label beside the value (used stacked as a list when there's no map —
+ * a row of small columns floating in empty space reads as cramped, a list
+ * fills the space better).
+ */
+function renderStatPair(s: { value: string; label: string }, orientation: "column" | "row") {
+  if (orientation === "column") {
+    return (
+      <div key={s.label} style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+        <div style={{ display: "flex", fontSize: 76, fontWeight: 800, color: ACCENT }}>
+          {s.value}
+        </div>
+        <div style={{ display: "flex", marginTop: 8, fontSize: 30, color: INK_DIM }}>
+          {s.label}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div key={s.label} style={{ display: "flex", alignItems: "baseline", gap: 20, marginTop: 24 }}>
+      <div style={{ display: "flex", fontSize: 64, fontWeight: 800, color: ACCENT }}>
+        {s.value}
+      </div>
+      <div style={{ display: "flex", fontSize: 30, color: INK_DIM }}>{s.label}</div>
+    </div>
+  );
+}
 
 function renderCard({
   transparent,
@@ -93,10 +123,6 @@ function renderCard({
         </div>
       )}
 
-      {/* stats: side-by-side columns when pinned under a map (a familiar
-          footer-strip shape); stacked rows when centered with no map — a row
-          of 3 small columns reads as cramped floating in all that empty
-          space, a list fills it better. */}
       {stretch ? (
         <div
           style={{
@@ -107,19 +133,7 @@ function renderCard({
             paddingTop: 48,
           }}
         >
-          {stats.map((s) => (
-            <div
-              key={s.label}
-              style={{ display: "flex", flexDirection: "column", flex: 1 }}
-            >
-              <div style={{ display: "flex", fontSize: 76, fontWeight: 800, color: ACCENT }}>
-                {s.value}
-              </div>
-              <div style={{ display: "flex", marginTop: 8, fontSize: 30, color: INK_DIM }}>
-                {s.label}
-              </div>
-            </div>
-          ))}
+          {stats.map((s) => renderStatPair(s, "column"))}
         </div>
       ) : (
         <div
@@ -133,24 +147,7 @@ function renderCard({
             paddingTop: 40,
           }}
         >
-          {stats.map((s) => (
-            <div
-              key={s.label}
-              style={{
-                display: "flex",
-                alignItems: "baseline",
-                gap: 20,
-                marginTop: 24,
-              }}
-            >
-              <div style={{ display: "flex", fontSize: 64, fontWeight: 800, color: ACCENT }}>
-                {s.value}
-              </div>
-              <div style={{ display: "flex", fontSize: 30, color: INK_DIM }}>
-                {s.label}
-              </div>
-            </div>
-          ))}
+          {stats.map((s) => renderStatPair(s, "row"))}
         </div>
       )}
     </div>
@@ -291,10 +288,8 @@ export async function GET(
   // Transparent sticker: route line only, no basemap tiles — a generic
   // basemap would look out of place composited onto the user's own photo,
   // and skipping the tile fetch makes this variant fast and network-free.
-  const [mapPng, routeOnlyPng] = await Promise.all([
-    routePoints.length > 0 ? renderSessionMapPng(routePoints, MAP_WIDTH, MAP_HEIGHT) : null,
-    routePoints.length > 0 ? renderRouteOnlyPng(routePoints, MAP_WIDTH, MAP_HEIGHT) : null,
-  ]);
+  // renderSessionVisuals computes the shared zoom/origin frame once for both.
+  const { mapPng, routeOnlyPng } = await renderSessionVisuals(routePoints, MAP_WIDTH, MAP_HEIGHT);
   const mapDataUri = mapPng ? `data:image/png;base64,${mapPng.toString("base64")}` : null;
   const routeOnlyDataUri = routeOnlyPng
     ? `data:image/png;base64,${routeOnlyPng.toString("base64")}`

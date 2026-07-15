@@ -1,10 +1,21 @@
 import sharp from "sharp";
-import { type MapPin, type MapPoint, TILE, pickZoom, project, tileUrl } from "@/lib/mapProjection";
+import {
+  type MapPin,
+  type MapPoint,
+  MAP_ACCENT as ACCENT,
+  MAP_BG as BG,
+  MAP_HONEY as HONEY,
+  MAP_PIN_TEXT,
+  TILE,
+  pickZoom,
+  project,
+  tileUrl,
+} from "@/lib/mapProjection";
 
-const BG = "#151A21";
-const ACCENT = "#A9C641";
+// Not shared with session-map.tsx — that file uses var(--ink) directly (it
+// renders in a browser with CSS available); this is just its hex value for
+// the server-rendered end dot, which has no CSS context to resolve against.
 const INK = "#EEF2E7";
-const HONEY = "#E8C15A";
 
 type Frame = { zoom: number; originX: number; originY: number };
 
@@ -63,12 +74,119 @@ function routeOverlaySvg(
         `<circle cx="${x}" cy="${y}" r="${pin.legend ? 12 : 11}" fill="${pin.legend ? HONEY : ACCENT}" stroke="${BG}" stroke-width="3"/>`
       );
       markup.push(
-        `<text x="${x}" y="${y + 4}" text-anchor="middle" font-size="12" font-weight="800" fill="#141A06">${pin.label}</text>`
+        `<text x="${x}" y="${y + 4}" text-anchor="middle" font-size="12" font-weight="800" fill="${MAP_PIN_TEXT}">${pin.label}</text>`
       );
     }
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">${markup.join("")}</svg>`;
+}
+
+async function buildMapPng(
+  points: MapPoint[],
+  width: number,
+  height: number,
+  f: Frame,
+  pins?: MapPin[]
+): Promise<Buffer | null> {
+  const { zoom, originX, originY } = f;
+
+  const maxTile = 2 ** zoom - 1;
+  const txMin = Math.floor(originX / TILE);
+  const tyMin = Math.max(0, Math.floor(originY / TILE));
+  const tiles: Array<{ x: number; y: number }> = [];
+  for (let tx = txMin; tx * TILE < originX + width; tx++) {
+    for (let ty = tyMin; ty * TILE < originY + height && ty <= maxTile; ty++) {
+      tiles.push({ x: tx, y: ty });
+    }
+  }
+  if (tiles.length === 0) return null;
+
+  const txMax = Math.max(...tiles.map((t) => t.x));
+  const tyMax = Math.max(...tiles.map((t) => t.y));
+  const gridWidth = (txMax - txMin + 1) * TILE;
+  const gridHeight = (tyMax - tyMin + 1) * TILE;
+
+  const fetched = await Promise.all(
+    tiles.map(async (tile) => {
+      try {
+        const res = await fetch(tileUrl(zoom, tile.x, tile.y));
+        if (!res.ok) return null;
+        return {
+          buf: Buffer.from(await res.arrayBuffer()),
+          left: (tile.x - txMin) * TILE,
+          top: (tile.y - tyMin) * TILE,
+        };
+      } catch {
+        return null;
+      }
+    })
+  );
+  const tileLayers = fetched.filter((t): t is NonNullable<typeof t> => !!t);
+  if (tileLayers.length === 0) return null;
+
+  const cropLeft = Math.min(
+    Math.max(0, originX - txMin * TILE),
+    Math.max(0, gridWidth - width)
+  );
+  const cropTop = Math.min(
+    Math.max(0, originY - tyMin * TILE),
+    Math.max(0, gridHeight - height)
+  );
+  const cropWidth = Math.min(width, gridWidth);
+  const cropHeight = Math.min(height, gridHeight);
+
+  // Composited and cropped in two separate sharp() calls, not chained on one
+  // instance — sharp throws "Image to composite must have same dimensions or
+  // smaller" when .composite() and .extract() are chained together on a
+  // single pipeline (reproducible even with tiles that fit entirely within
+  // the canvas), so the crop runs on the composite's own already-materialized
+  // output instead.
+  const compositeBuffer = await sharp({
+    create: { width: gridWidth, height: gridHeight, channels: 3, background: BG },
+  })
+    .composite(tileLayers.map((t) => ({ input: t.buf, left: t.left, top: t.top })))
+    .png()
+    .toBuffer();
+
+  const baseBuffer = await sharp(compositeBuffer)
+    .extract({
+      left: Math.round(cropLeft),
+      top: Math.round(cropTop),
+      width: cropWidth,
+      height: cropHeight,
+    })
+    .png()
+    .toBuffer();
+
+  // The overlay must be built at the ACTUAL cropped size (cropWidth/Height
+  // can be smaller than the requested width/height near map edges, e.g. tiles
+  // clamped at the top of the world) and positioned relative to the actual
+  // crop origin in world space — not the nominal width/height/originX/originY
+  // — otherwise sharp rejects an oversized overlay and/or the route renders
+  // offset from where it was cropped.
+  const actualOrigin: Frame = {
+    zoom,
+    originX: txMin * TILE + cropLeft,
+    originY: tyMin * TILE + cropTop,
+  };
+  const overlaySvg = routeOverlaySvg(points, cropWidth, cropHeight, actualOrigin, pins);
+
+  return await sharp(baseBuffer)
+    .composite([{ input: Buffer.from(overlaySvg) }])
+    .png()
+    .toBuffer();
+}
+
+async function buildRouteOnlyPng(
+  points: MapPoint[],
+  width: number,
+  height: number,
+  f: Frame,
+  pins?: MapPin[]
+): Promise<Buffer | null> {
+  const svg = routeOverlaySvg(points, width, height, f, pins);
+  return await sharp(Buffer.from(svg)).png().toBuffer();
 }
 
 /**
@@ -85,75 +203,8 @@ export async function renderSessionMapPng(
   pins?: MapPin[]
 ): Promise<Buffer | null> {
   if (points.length === 0) return null;
-
   try {
-    const f = frame(points, width, height);
-    const { zoom, originX, originY } = f;
-
-    const maxTile = 2 ** zoom - 1;
-    const txMin = Math.floor(originX / TILE);
-    const tyMin = Math.max(0, Math.floor(originY / TILE));
-    const tiles: Array<{ x: number; y: number }> = [];
-    for (let tx = txMin; tx * TILE < originX + width; tx++) {
-      for (let ty = tyMin; ty * TILE < originY + height && ty <= maxTile; ty++) {
-        tiles.push({ x: tx, y: ty });
-      }
-    }
-    if (tiles.length === 0) return null;
-
-    const txMax = Math.max(...tiles.map((t) => t.x));
-    const tyMax = Math.max(...tiles.map((t) => t.y));
-    const gridWidth = (txMax - txMin + 1) * TILE;
-    const gridHeight = (tyMax - tyMin + 1) * TILE;
-
-    const fetched = await Promise.all(
-      tiles.map(async (tile) => {
-        try {
-          const res = await fetch(tileUrl(zoom, tile.x, tile.y));
-          if (!res.ok) return null;
-          return {
-            buf: Buffer.from(await res.arrayBuffer()),
-            left: (tile.x - txMin) * TILE,
-            top: (tile.y - tyMin) * TILE,
-          };
-        } catch {
-          return null;
-        }
-      })
-    );
-    const tileLayers = fetched.filter((t): t is NonNullable<typeof t> => !!t);
-    if (tileLayers.length === 0) return null;
-
-    const cropLeft = Math.min(
-      Math.max(0, originX - txMin * TILE),
-      Math.max(0, gridWidth - width)
-    );
-    const cropTop = Math.min(
-      Math.max(0, originY - tyMin * TILE),
-      Math.max(0, gridHeight - height)
-    );
-    const cropWidth = Math.min(width, gridWidth);
-    const cropHeight = Math.min(height, gridHeight);
-
-    const baseBuffer = await sharp({
-      create: { width: gridWidth, height: gridHeight, channels: 3, background: BG },
-    })
-      .composite(tileLayers.map((t) => ({ input: t.buf, left: t.left, top: t.top })))
-      .extract({
-        left: Math.round(cropLeft),
-        top: Math.round(cropTop),
-        width: cropWidth,
-        height: cropHeight,
-      })
-      .png()
-      .toBuffer();
-
-    const overlaySvg = routeOverlaySvg(points, width, height, f, pins);
-
-    return await sharp(baseBuffer)
-      .composite([{ input: Buffer.from(overlaySvg) }])
-      .png()
-      .toBuffer();
+    return await buildMapPng(points, width, height, frame(points, width, height), pins);
   } catch {
     return null;
   }
@@ -172,12 +223,29 @@ export async function renderRouteOnlyPng(
   pins?: MapPin[]
 ): Promise<Buffer | null> {
   if (points.length === 0) return null;
-
   try {
-    const f = frame(points, width, height);
-    const svg = routeOverlaySvg(points, width, height, f, pins);
-    return await sharp(Buffer.from(svg)).png().toBuffer();
+    return await buildRouteOnlyPng(points, width, height, frame(points, width, height), pins);
   } catch {
     return null;
   }
+}
+
+/**
+ * Both share-image variants at once, computing the shared zoom/origin frame
+ * only once — used by the share-image route, which always needs both.
+ */
+export async function renderSessionVisuals(
+  points: MapPoint[],
+  width: number,
+  height: number,
+  pins?: MapPin[]
+): Promise<{ mapPng: Buffer | null; routeOnlyPng: Buffer | null }> {
+  if (points.length === 0) return { mapPng: null, routeOnlyPng: null };
+
+  const f = frame(points, width, height);
+  const [mapPng, routeOnlyPng] = await Promise.all([
+    buildMapPng(points, width, height, f, pins).catch(() => null),
+    buildRouteOnlyPng(points, width, height, f, pins).catch(() => null),
+  ]);
+  return { mapPng, routeOnlyPng };
 }

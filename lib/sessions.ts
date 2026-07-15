@@ -103,20 +103,18 @@ export function findSessionWithCheckin(
   );
 }
 
+function sessionSpanMs(session: DrinkSession): number {
+  return new Date(session.end).getTime() - new Date(session.start).getTime();
+}
+
 /** Duration in minutes (0 for a session of one). */
 export function sessionMinutes(session: DrinkSession): number {
-  return Math.round(
-    (new Date(session.end).getTime() - new Date(session.start).getTime()) /
-      60000
-  );
+  return Math.round(sessionSpanMs(session) / 60000);
 }
 
 /** Duration in seconds (0 for a session of one) — finer-grained than sessionMinutes, for pace math. */
 export function sessionSeconds(session: DrinkSession): number {
-  return Math.round(
-    (new Date(session.end).getTime() - new Date(session.start).getTime()) /
-      1000
-  );
+  return Math.round(sessionSpanMs(session) / 1000);
 }
 
 /** Human duration for a span of minutes: "3h 20m", "45m", "2h". */

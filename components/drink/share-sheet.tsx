@@ -32,9 +32,12 @@ async function dataUriToFile(dataUri: string, filename: string): Promise<File> {
  */
 export function ShareSheet({
   entryId,
+  shareText,
   onClose,
 }: {
   entryId: string;
+  /** Fallback text (+ session link) used when the recap image can't be generated. */
+  shareText: string;
   onClose: () => void;
 }) {
   const [variants, setVariants] = useState<Variant[]>([
@@ -88,7 +91,11 @@ export function ShareSheet({
   const handleScroll = () => {
     const el = trackRef.current;
     if (!el || el.clientWidth === 0) return;
-    setIndex(Math.round(el.scrollLeft / el.clientWidth));
+    // Clamped — iOS Safari's elastic overscroll can push scrollLeft past
+    // either end of the track (negative, or beyond the last slide), which
+    // would otherwise index out of range and blank the label/current file.
+    const raw = Math.round(el.scrollLeft / el.clientWidth);
+    setIndex(Math.max(0, Math.min(variants.length - 1, raw)));
   };
 
   const goTo = (i: number) => {
@@ -97,11 +104,29 @@ export function ShareSheet({
 
   const current = variants[index];
 
+  // Guaranteed fallback if the recap image couldn't be generated at all
+  // (network blip, server error) — share a text + link instead of leaving
+  // the user stuck with no way to complete the share.
+  const shareLinkFallback = async () => {
+    const url = `${window.location.origin}/sessions/${entryId}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ text: shareText, url });
+      } catch {
+        /* user cancelled */
+      }
+      return;
+    }
+    await navigator.clipboard.writeText(`${shareText} ${url}`);
+    showToast("Copied to clipboard");
+  };
+
   const handleShare = async () => {
     if (sharing || !ready) return;
     const file = current?.file;
     if (!file) {
-      showToast("Could not generate this image");
+      await shareLinkFallback();
+      onClose();
       return;
     }
     setSharing(true);
