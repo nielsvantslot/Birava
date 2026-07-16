@@ -102,6 +102,13 @@ model DrinkSession {
   startedAt DateTime     @db.Timestamptz(6)
   endedAt   DateTime     @db.Timestamptz(6)
   name      String?
+  /// Cached rendered share-image variants (lib/shareImageCache.ts) — storage
+  /// keys/URLs, not the bytes themselves. Null means "not cached, or stale":
+  /// every command that changes this session's entries or name nulls both
+  /// out, and app/api/sessions/[id]/share-image/route.tsx regenerates and
+  /// re-populates them on the next request.
+  shareImageOpaqueUrl      String?
+  shareImageTransparentUrl String?
   user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   entries   DrinkEntry[]
   cheers    Cheer[]
