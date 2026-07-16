@@ -42,6 +42,22 @@ export async function getSessionById(id: string): Promise<DrinkSession | null> {
 }
 
 /**
+ * Just a session's owner id — a cheap ownership check that avoids loading its
+ * full check-in set. The share-image route's hot (cache-hit) path only needs
+ * to confirm the caller owns the session before returning cached bytes, so it
+ * uses this instead of getSessionById and defers the full load to cache-miss.
+ */
+export async function getSessionOwnerId(id: string): Promise<string | null> {
+  if (!SESSION_ID_PATTERN.test(id)) return null;
+
+  const row = await db.drinkSession.findUnique({
+    where: { id },
+    select: { userId: true },
+  });
+  return row?.userId ?? null;
+}
+
+/**
  * A session's cached share-image render (lib/shareImageCache.ts's storage
  * keys, not the bytes), if a complete pair is present. Null if uncached or
  * invalidated — every command that changes what the card would show nulls
