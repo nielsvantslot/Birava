@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { showToast } from "@/components/ui/toast-pill";
 import { cn } from "@/lib/utils";
+import type { ShareImageDTO } from "@/lib/dtos";
 
 type VariantKey = "opaque" | "transparent";
 
@@ -18,7 +19,9 @@ const LABELS: Record<VariantKey, string> = { opaque: "Card", transparent: "Stick
 async function dataUriToFile(dataUri: string, filename: string): Promise<File> {
   const res = await fetch(dataUri);
   const blob = await res.blob();
-  return new File([blob], filename, { type: "image/png" });
+  // blob.type comes from the data URI's own declared MIME — the opaque card
+  // is JPEG (see the route), the transparent sticker is PNG; don't hardcode.
+  return new File([blob], filename, { type: blob.type || "image/png" });
 }
 
 /**
@@ -55,10 +58,10 @@ export function ShareSheet({
 
     fetch(`/api/sessions/${sessionId}/share-image`, { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : null))
-      .then(async (data: { opaque: string; transparent: string } | null) => {
+      .then(async (data: ShareImageDTO | null) => {
         if (cancelled || !data) return;
         const [opaqueFile, transparentFile] = await Promise.all([
-          dataUriToFile(data.opaque, "birava-session-card.png"),
+          dataUriToFile(data.opaque, "birava-session-card.jpg"),
           dataUriToFile(data.transparent, "birava-session-sticker.png"),
         ]);
         if (cancelled) return;

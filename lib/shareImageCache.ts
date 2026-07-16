@@ -7,13 +7,13 @@ import { StorageAdapterFactory } from "@/lib/storageAdapterFactory";
  * backend as check-in photos (lib/photoUpload.ts, via StorageAdapterFactory)
  * as its own storage, since share images have none of the resize/HEIC/LQIP
  * needs PhotoUploadService exists for; this just needs put/get/del of an
- * already-finished PNG buffer.
+ * already-finished image buffer.
  */
 const storage = StorageAdapterFactory.create();
 const KEY_PREFIX = "share-images";
 
-function pngFile(buffer: Buffer, name: string): File {
-  return new File([Uint8Array.from(buffer)], name, { type: "image/png" });
+function imageFile(buffer: Buffer, name: string, type: string): File {
+  return new File([Uint8Array.from(buffer)], name, { type });
 }
 
 /**
@@ -21,6 +21,14 @@ function pngFile(buffer: Buffer, name: string): File {
  * random one) — a regeneration overwrites the previous render in place
  * rather than accumulating orphaned blobs, since only the latest render for
  * a session is ever valid.
+ *
+ * Opaque is stored as JPEG, not the PNG next/og's ImageResponse produces it
+ * as — a rasterized basemap composited into the card makes PNG's lossless
+ * encoding balloon to multiple MB, which dominates the share sheet's
+ * "Preparing…" time on a real network far more than server render cost does.
+ * Transparent has no basemap (route line only) and needs its alpha channel,
+ * so it stays PNG — it's already tiny (route.tsx does the JPEG re-encode
+ * before calling store, this just labels the two differently).
  */
 async function store(
   sessionId: string,
@@ -28,8 +36,11 @@ async function store(
   transparent: Buffer
 ): Promise<{ opaqueUrl: string; transparentUrl: string }> {
   const [{ url: opaqueUrl }, { url: transparentUrl }] = await Promise.all([
-    storage.put(`${KEY_PREFIX}/${sessionId}/opaque.png`, pngFile(opaque, "opaque.png")),
-    storage.put(`${KEY_PREFIX}/${sessionId}/transparent.png`, pngFile(transparent, "transparent.png")),
+    storage.put(`${KEY_PREFIX}/${sessionId}/opaque.jpg`, imageFile(opaque, "opaque.jpg", "image/jpeg")),
+    storage.put(
+      `${KEY_PREFIX}/${sessionId}/transparent.png`,
+      imageFile(transparent, "transparent.png", "image/png")
+    ),
   ]);
   return { opaqueUrl, transparentUrl };
 }
