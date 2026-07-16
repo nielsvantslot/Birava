@@ -26,11 +26,18 @@ export const dynamic = "force-dynamic";
 const WIDTH = 1080;
 const HEIGHT = 1920;
 
-/** Builds this route's response DTO for both the cache-hit and freshly-rendered paths below. */
-function shareImageResponse(opaqueJpeg: Buffer, transparentPng: Buffer): Response {
+/**
+ * Builds this route's response DTO for both the cache-hit and
+ * freshly-rendered paths below. `opaqueMime` isn't always "image/jpeg" — a
+ * session cached before the JPEG re-encode shipped still points at an
+ * `opaque.png` blob, and mislabeling those bytes would break client-side
+ * decoding, so the cache-hit caller sniffs the stored URL's extension
+ * instead of assuming.
+ */
+function shareImageResponse(opaque: Buffer, opaqueMime: string, transparent: Buffer): Response {
   const dto: ShareImageDTO = {
-    opaque: `data:image/jpeg;base64,${opaqueJpeg.toString("base64")}`,
-    transparent: `data:image/png;base64,${transparentPng.toString("base64")}`,
+    opaque: `data:${opaqueMime};base64,${opaque.toString("base64")}`,
+    transparent: `data:image/png;base64,${transparent.toString("base64")}`,
   };
   return Response.json(dto);
 }
@@ -282,7 +289,8 @@ export async function GET(
       shareImageCache.read(cached.transparentUrl),
     ]);
     if (opaque && transparent) {
-      return shareImageResponse(opaque, transparent);
+      const opaqueMime = cached.opaqueUrl.endsWith(".png") ? "image/png" : "image/jpeg";
+      return shareImageResponse(opaque, opaqueMime, transparent);
     }
     // Blobs vanished from storage despite the DB still pointing at them —
     // fall through and regenerate rather than 500ing.
@@ -416,5 +424,5 @@ export async function GET(
     /* served below regardless; just won't be cached for the next request */
   }
 
-  return shareImageResponse(opaqueBytes, transparentBytes);
+  return shareImageResponse(opaqueBytes, "image/jpeg", transparentBytes);
 }
