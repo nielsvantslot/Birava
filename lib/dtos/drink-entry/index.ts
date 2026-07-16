@@ -23,3 +23,4 @@ export * from "./deleteCommentDTO";
 export * from "./deleteCommentResultDTO";
 export * from "./getSessionCommentsDTO";
 export * from "./getCommentCountsDTO";
+export * from "./shareImageDTO";
