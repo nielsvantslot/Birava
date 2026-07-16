@@ -6,6 +6,7 @@ import { SESSION_GAP_MS, MAX_BACKDATE_MS } from "@/lib/sessions";
 import { getUserTimeZone } from "@/lib/timezone";
 import { toDrinkEntry } from "@/lib/mappers";
 import { drinkPhotoService } from "@/lib/photoUpload";
+import { shareImageCache } from "@/lib/shareImageCache";
 import { getFollowerIds } from "@/lib/queries/followQueries";
 import { queueNotifications, type NotificationEvent } from "@/lib/notify";
 import {
@@ -44,12 +45,18 @@ function resolveCreatedAt(clientCreatedAt: number | null | undefined): Date {
  * entries immediately bordering it, each case below has a closed-form bounds
  * update (or none) rather than needing a full re-aggregate.
  */
+/** Clears a share-image cache pair in an update's `data`, in place. */
+const CLEAR_SHARE_IMAGE_CACHE = {
+  shareImageOpaqueUrl: null,
+  shareImageTransparentUrl: null,
+} as const;
+
 async function assignSessionForNewEntry(
   tx: Tx,
   userId: string,
   entryId: string,
   createdAt: Date
-): Promise<{ sessionId: string; isNewSession: boolean }> {
+): Promise<{ sessionId: string; isNewSession: boolean; orphanedShareImageUrls: string[] }> {
   const time = createdAt.getTime();
 
   const [prev, next] = await Promise.all([
@@ -113,20 +120,32 @@ async function assignSessionForNewEntry(
     // about to stop existing would 404 an otherwise-valid notification link.
     await tx.notification.updateMany({ where: { entryId: loserId }, data: { entryId: survivorId } });
 
-    await tx.drinkSession.update({ where: { id: survivorId }, data: { endedAt: loser.endedAt } });
+    await tx.drinkSession.update({
+      where: { id: survivorId },
+      data: { endedAt: loser.endedAt, ...CLEAR_SHARE_IMAGE_CACHE },
+    });
     await tx.drinkSession.delete({ where: { id: loserId } });
-    return { sessionId: survivorId, isNewSession: false };
+    // The loser row is gone for good — its own cached render (if any) is
+    // never regenerated in place, unlike ordinary invalidation, so it's
+    // worth actually deleting rather than leaving it orphaned in storage.
+    const orphanedShareImageUrls = [loser.shareImageOpaqueUrl, loser.shareImageTransparentUrl].filter(
+      (url): url is string => !!url
+    );
+    return { sessionId: survivorId, isNewSession: false, orphanedShareImageUrls };
   }
 
   if (prev && prevInGap) {
     // Either only prev is in range (prev's session's last entry, extend
     // endedAt), or both are and they're the same session (inserting into
     // its middle — bounds already cover this entry, nothing to update).
+    // Either way this session gained an entry, so its cached share image
+    // (if any) is stale regardless of which sub-case this is.
     const sessionId = prev.sessionId;
-    if (!nextInGap) {
-      await tx.drinkSession.update({ where: { id: sessionId }, data: { endedAt: createdAt } });
-    }
-    return { sessionId, isNewSession: false };
+    await tx.drinkSession.update({
+      where: { id: sessionId },
+      data: { ...(!nextInGap ? { endedAt: createdAt } : {}), ...CLEAR_SHARE_IMAGE_CACHE },
+    });
+    return { sessionId, isNewSession: false, orphanedShareImageUrls: [] };
   }
 
   if (next && nextInGap) {
@@ -135,12 +154,15 @@ async function assignSessionForNewEntry(
     // stability for existing links matters more than "id = literally the
     // first entry" being true 100% of the time.
     const sessionId = next.sessionId;
-    await tx.drinkSession.update({ where: { id: sessionId }, data: { startedAt: createdAt } });
-    return { sessionId, isNewSession: false };
+    await tx.drinkSession.update({
+      where: { id: sessionId },
+      data: { startedAt: createdAt, ...CLEAR_SHARE_IMAGE_CACHE },
+    });
+    return { sessionId, isNewSession: false, orphanedShareImageUrls: [] };
   }
 
   await tx.drinkSession.create({ data: { id: entryId, userId, startedAt: createdAt, endedAt: createdAt } });
-  return { sessionId: entryId, isNewSession: true };
+  return { sessionId: entryId, isNewSession: true, orphanedShareImageUrls: [] };
 }
 
 export async function createDrinkEntry(
@@ -185,10 +207,17 @@ export async function createDrinkEntry(
           createdAt,
         },
       });
-      return { entry, isNewSession: assignment.isNewSession };
+      return {
+        entry,
+        isNewSession: assignment.isNewSession,
+        orphanedShareImageUrls: assignment.orphanedShareImageUrls,
+      };
     });
     created = result.entry;
     isNewSession = result.isNewSession;
+    if (result.orphanedShareImageUrls.length > 0) {
+      await Promise.all(result.orphanedShareImageUrls.map((url) => shareImageCache.remove(url)));
+    }
   } catch {
     return { error: "Failed to save check-in." };
   }
@@ -266,23 +295,32 @@ export async function updateDrinkEntry(
 ): Promise<ActionResultDTO> {
   const existing = await db.drinkEntry.findFirst({
     where: { id: input.id, userId },
-    select: { photoUrl: true },
+    select: { photoUrl: true, sessionId: true },
   });
   if (!existing) return { error: "Check-in not found" };
 
   try {
-    await db.drinkEntry.updateMany({
-      where: { id: input.id, userId },
-      data: {
-        drinkName: input.drinkName,
-        drinkType: input.drinkType,
-        venue: input.venue,
-        lat: input.lat,
-        lng: input.lng,
-        notes: input.notes,
-        photoUrl: input.photoUrl,
-        photoLqip: input.photoLqip,
-      },
+    await db.$transaction(async (tx) => {
+      await tx.drinkEntry.updateMany({
+        where: { id: input.id, userId },
+        data: {
+          drinkName: input.drinkName,
+          drinkType: input.drinkType,
+          venue: input.venue,
+          lat: input.lat,
+          lng: input.lng,
+          notes: input.notes,
+          photoUrl: input.photoUrl,
+          photoLqip: input.photoLqip,
+        },
+      });
+      // Any of the edited fields can change what the share card would show
+      // (title, venue line, route, hero photo fallback) — invalidate rather
+      // than track exactly which ones did.
+      await tx.drinkSession.update({
+        where: { id: existing.sessionId },
+        data: CLEAR_SHARE_IMAGE_CACHE,
+      });
     });
   } catch {
     return { error: "Failed to update check-in." };
@@ -304,7 +342,11 @@ export async function updateDrinkEntry(
  * comments/cheers/links stay attached to whichever entries are still
  * chronologically anchored there); later clusters mint fresh ids.
  */
-async function reclusterSessionAfterDelete(tx: Tx, userId: string, sessionId: string): Promise<void> {
+async function reclusterSessionAfterDelete(
+  tx: Tx,
+  userId: string,
+  sessionId: string
+): Promise<string[]> {
   const remaining = await tx.drinkEntry.findMany({
     where: { sessionId },
     orderBy: { createdAt: "asc" },
@@ -312,8 +354,12 @@ async function reclusterSessionAfterDelete(tx: Tx, userId: string, sessionId: st
   });
 
   if (remaining.length === 0) {
-    await tx.drinkSession.delete({ where: { id: sessionId } });
-    return;
+    const deleted = await tx.drinkSession.delete({ where: { id: sessionId } });
+    // This row is gone for good — its cached render (if any) never gets
+    // regenerated in place, so it's worth deleting rather than orphaning.
+    return [deleted.shareImageOpaqueUrl, deleted.shareImageTransparentUrl].filter(
+      (url): url is string => !!url
+    );
   }
 
   const clusters: (typeof remaining)[] = [];
@@ -331,11 +377,16 @@ async function reclusterSessionAfterDelete(tx: Tx, userId: string, sessionId: st
   const [first, ...rest] = clusters;
   await tx.drinkSession.update({
     where: { id: sessionId },
-    data: { startedAt: first[0].createdAt, endedAt: first[first.length - 1].createdAt },
+    data: {
+      startedAt: first[0].createdAt,
+      endedAt: first[first.length - 1].createdAt,
+      ...CLEAR_SHARE_IMAGE_CACHE,
+    },
   });
 
   for (const cluster of rest) {
     const newSessionId = cluster[0].id;
+    // A freshly created row — no cache to invalidate.
     await tx.drinkSession.create({
       data: {
         id: newSessionId,
@@ -349,6 +400,8 @@ async function reclusterSessionAfterDelete(tx: Tx, userId: string, sessionId: st
       data: { sessionId: newSessionId },
     });
   }
+
+  return [];
 }
 
 export async function deleteDrinkEntry(
@@ -361,6 +414,7 @@ export async function deleteDrinkEntry(
   });
   if (!entry) return {};
 
+  let orphanedShareImageUrls: string[] = [];
   try {
     await db.$transaction(async (tx) => {
       // Same per-user serialization as createDrinkEntry's lock, and the same
@@ -368,7 +422,7 @@ export async function deleteDrinkEntry(
       // against each other, not just delete-vs-delete.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
       await tx.drinkEntry.deleteMany({ where: { id: input.id, userId } });
-      await reclusterSessionAfterDelete(tx, userId, entry.sessionId);
+      orphanedShareImageUrls = await reclusterSessionAfterDelete(tx, userId, entry.sessionId);
     });
   } catch {
     return { error: "Failed to delete check-in." };
@@ -376,6 +430,9 @@ export async function deleteDrinkEntry(
 
   if (entry.photoUrl) {
     await drinkPhotoService.remove(entry.photoUrl, userId);
+  }
+  if (orphanedShareImageUrls.length > 0) {
+    await Promise.all(orphanedShareImageUrls.map((url) => shareImageCache.remove(url)));
   }
 
   return {};

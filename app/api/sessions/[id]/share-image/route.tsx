@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import sharp from "sharp";
+import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getSession } from "@/lib/controllers/drinkController";
 import {
@@ -13,6 +14,7 @@ import { getUserTimeZone } from "@/lib/timezone";
 import { drinkPhotoService } from "@/lib/photoUpload";
 import { StreamBufferConverter } from "@/modules/photo-upload/StreamBufferConverter";
 import { renderSessionVisuals } from "@/lib/shareSessionMap";
+import { shareImageCache } from "@/lib/shareImageCache";
 
 // Prisma (getCurrentUser / history) and the storage layer need Node, not edge.
 export const runtime = "nodejs";
@@ -258,6 +260,29 @@ export async function GET(
     return new Response("Not found", { status: 404 });
   }
 
+  // Cache hit: this session's entries/name haven't changed since it was last
+  // generated (every command that changes them nulls these fields out — see
+  // lib/commands/drinkEntryCommands.ts / drinkSessionCommands.ts), so skip
+  // the tile fetch, sharp compositing, and Satori renders entirely.
+  const cached = await db.drinkSession.findUnique({
+    where: { id },
+    select: { shareImageOpaqueUrl: true, shareImageTransparentUrl: true },
+  });
+  if (cached?.shareImageOpaqueUrl && cached?.shareImageTransparentUrl) {
+    const [opaque, transparent] = await Promise.all([
+      shareImageCache.read(cached.shareImageOpaqueUrl),
+      shareImageCache.read(cached.shareImageTransparentUrl),
+    ]);
+    if (opaque && transparent) {
+      return Response.json({
+        opaque: `data:image/png;base64,${opaque.toString("base64")}`,
+        transparent: `data:image/png;base64,${transparent.toString("base64")}`,
+      });
+    }
+    // Blobs vanished from storage despite the DB still pointing at them —
+    // fall through and regenerate rather than 500ing.
+  }
+
   const tz = await getUserTimeZone();
   const title = sessionTitle(session, tz);
   const drinks = session.checkins.length;
@@ -363,9 +388,27 @@ export async function GET(
     opaqueImg.arrayBuffer(),
     transparentImg.arrayBuffer(),
   ]);
+  const opaqueBytes = Buffer.from(opaqueBuf);
+  const transparentBytes = Buffer.from(transparentBuf);
+
+  // Persist for next time — best-effort: a storage/DB hiccup here shouldn't
+  // fail a request that already has its rendered images in hand.
+  try {
+    const { opaqueUrl, transparentUrl } = await shareImageCache.store(
+      id,
+      opaqueBytes,
+      transparentBytes
+    );
+    await db.drinkSession.update({
+      where: { id },
+      data: { shareImageOpaqueUrl: opaqueUrl, shareImageTransparentUrl: transparentUrl },
+    });
+  } catch {
+    /* served below regardless; just won't be cached for the next request */
+  }
 
   return Response.json({
-    opaque: `data:image/png;base64,${Buffer.from(opaqueBuf).toString("base64")}`,
-    transparent: `data:image/png;base64,${Buffer.from(transparentBuf).toString("base64")}`,
+    opaque: `data:image/png;base64,${opaqueBytes.toString("base64")}`,
+    transparent: `data:image/png;base64,${transparentBytes.toString("base64")}`,
   });
 }
