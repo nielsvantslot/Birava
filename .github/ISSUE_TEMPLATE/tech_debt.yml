@@ -1,0 +1,37 @@
+name: Tech debt / cleanup
+description: Cleanup or consistency work with no user-facing behavior change.
+labels: ["tech-debt"]
+body:
+  - type: textarea
+    id: debt
+    attributes:
+      label: What's the debt
+      description: What's inconsistent, dead, or duplicated — with file references.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it matters
+      description: What it costs to leave as-is (confusion, risk of misuse, maintenance burden).
+    validations:
+      required: false
+
+  - type: textarea
+    id: fix
+    attributes:
+      label: Proposed fix
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - priority-high (user-facing breakage or time-sensitive)
+        - priority-medium (worth doing soon, not urgent)
+        - priority-low (nice to have, no rush)
+    validations:
+      required: false

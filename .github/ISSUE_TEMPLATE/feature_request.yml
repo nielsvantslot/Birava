@@ -1,0 +1,46 @@
+name: Feature request
+description: New functionality or an enhancement to existing functionality.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What's missing or awkward today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: false
+
+  - type: textarea
+    id: affected-files
+    attributes:
+      label: Affected files (if known)
+    validations:
+      required: false
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - priority-high (user-facing breakage or time-sensitive)
+        - priority-medium (worth doing soon, not urgent)
+        - priority-low (nice to have, no rush)
+    validations:
+      required: false
