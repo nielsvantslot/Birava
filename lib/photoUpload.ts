@@ -1,18 +1,16 @@
-import path from "path";
 import { PhotoUploadServiceFactory } from "@/modules/photo-upload/services/PhotoUploadServiceFactory";
 import { SharpImageProcessor } from "@/modules/photo-upload/services/SharpImageProcessor";
-import { LocalDiskStorageAdapter } from "@/modules/photo-upload/adapters/LocalDiskStorageAdapter";
-import { VercelBlobStorageAdapter } from "@/modules/photo-upload/adapters/VercelBlobStorageAdapter";
 import { VercelBlobDirectUploadCoordinator } from "@/modules/photo-upload/adapters/VercelBlobDirectUploadCoordinator";
 import type { IDirectUploadCoordinator } from "@/modules/photo-upload/adapters/IDirectUploadCoordinator";
 import type { IStorageAdapter } from "@/modules/photo-upload/adapters/IStorageAdapter";
+import { StorageAdapterFactory } from "@/lib/storageAdapterFactory";
 import { DRINK_PHOTO_MAX_DIMENSION, DRINK_PHOTO_MAX_UPLOAD_BYTES, drinkPhotoKeyPrefix } from "@/lib/photoUploadConfig";
 
 /**
- * Composition root for check-in photo storage — picks the concrete
- * IStorageAdapter/IDirectUploadCoordinator for the current environment. This
- * environment-branching decision is deliberately app-level code, not part of
- * the reusable modules/photo-upload module.
+ * Composition root for check-in photo storage — the storage backend itself
+ * comes from the shared StorageAdapterFactory; this factory only adds the
+ * direct-upload coordinator decision, which is check-in-photo-specific (share
+ * images, for instance, are server-rendered and never need one).
  *
  * `next dev` (including inside docker-compose) always runs with
  * NODE_ENV=development, so local development stays on-disk and never
@@ -21,13 +19,7 @@ import { DRINK_PHOTO_MAX_DIMENSION, DRINK_PHOTO_MAX_UPLOAD_BYTES, drinkPhotoKeyP
  */
 class DrinkPhotoStorageFactory {
   static createStorageAdapter(): IStorageAdapter {
-    if (process.env.NODE_ENV === "production") {
-      return new VercelBlobStorageAdapter({ access: "private" });
-    }
-    return new LocalDiskStorageAdapter({
-      rootDir: path.join(process.cwd(), "public", "uploads"),
-      publicPathPrefix: "/uploads",
-    });
+    return StorageAdapterFactory.create();
   }
 
   static createDirectUploadCoordinator(): IDirectUploadCoordinator | undefined {
