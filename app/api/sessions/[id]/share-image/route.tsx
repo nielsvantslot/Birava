@@ -16,6 +16,7 @@ import { drinkPhotoService } from "@/lib/photoUpload";
 import { StreamBufferConverter } from "@/modules/photo-upload/StreamBufferConverter";
 import { renderSessionVisuals } from "@/lib/shareSessionMap";
 import { shareImageCache } from "@/lib/shareImageCache";
+import { ShareImageDTO } from "@/lib/dtos";
 
 // Prisma (getCurrentUser / history) and the storage layer need Node, not edge.
 export const runtime = "nodejs";
@@ -24,6 +25,15 @@ export const dynamic = "force-dynamic";
 // 9:16 — matches the pre-redesign share card's story-shaped ratio.
 const WIDTH = 1080;
 const HEIGHT = 1920;
+
+/** Builds this route's response DTO for both the cache-hit and freshly-rendered paths below. */
+function shareImageResponse(opaqueJpeg: Buffer, transparentPng: Buffer): Response {
+  const dto: ShareImageDTO = {
+    opaque: `data:image/jpeg;base64,${opaqueJpeg.toString("base64")}`,
+    transparent: `data:image/png;base64,${transparentPng.toString("base64")}`,
+  };
+  return Response.json(dto);
+}
 
 const BG = "#0A0D09";
 const INK = "#EEF2E7";
@@ -272,10 +282,7 @@ export async function GET(
       shareImageCache.read(cached.transparentUrl),
     ]);
     if (opaque && transparent) {
-      return Response.json({
-        opaque: `data:image/png;base64,${opaque.toString("base64")}`,
-        transparent: `data:image/png;base64,${transparent.toString("base64")}`,
-      });
+      return shareImageResponse(opaque, transparent);
     }
     // Blobs vanished from storage despite the DB still pointing at them —
     // fall through and regenerate rather than 500ing.
@@ -382,11 +389,18 @@ export async function GET(
     }),
   ]);
 
-  const [opaqueBuf, transparentBuf] = await Promise.all([
+  const [opaquePngBuf, transparentBuf] = await Promise.all([
     opaqueImg.arrayBuffer(),
     transparentImg.arrayBuffer(),
   ]);
-  const opaqueBytes = Buffer.from(opaqueBuf);
+  // Satori (next/og's renderer) only emits PNG. That's fine for the
+  // transparent sticker (route line only, no basemap — a few KB either way),
+  // but the opaque card composites a rasterized basemap tile in, and PNG's
+  // lossless encoding balloons a photographic image like that to multiple
+  // MB. Re-encoding to JPEG here cuts it by 6-8x — this is the dominant cost
+  // in the share sheet's "Preparing…" time on a real network, far more than
+  // the render itself (which the DB-backed cache above already handles).
+  const opaqueBytes = await sharp(Buffer.from(opaquePngBuf)).jpeg({ quality: 90 }).toBuffer();
   const transparentBytes = Buffer.from(transparentBuf);
 
   // Persist for next time — best-effort: a storage/DB hiccup here shouldn't
@@ -402,8 +416,5 @@ export async function GET(
     /* served below regardless; just won't be cached for the next request */
   }
 
-  return Response.json({
-    opaque: `data:image/png;base64,${opaqueBytes.toString("base64")}`,
-    transparent: `data:image/png;base64,${transparentBytes.toString("base64")}`,
-  });
+  return shareImageResponse(opaqueBytes, transparentBytes);
 }
