@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import sharp from "sharp";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getSession } from "@/lib/controllers/drinkController";
-import { getShareImageCache } from "@/lib/queries/drinkSessionQueries";
+import { getShareImageCache, getSessionOwnerId } from "@/lib/queries/drinkSessionQueries";
 import { cacheShareImages } from "@/lib/commands/drinkSessionCommands";
 import {
   formatPace,
@@ -271,17 +271,21 @@ export async function GET(
   const user = await getCurrentUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
 
-  // getSession is only login-gated, so the own-only rule is enforced
-  // explicitly below; the client falls back to a text share on 404.
-  const session = await getSession({ id });
-  if (!session || session.userId !== user.id) {
+  // Ownership check first, with a cheap owner-id-only lookup. The cache-hit
+  // path below needs nothing more than "does the caller own this session?",
+  // so defer the full session+check-ins load (getSession) until a confirmed
+  // cache miss actually requires it to render. getSession is only login-gated,
+  // so the own-only rule is enforced explicitly here (a mismatched or missing
+  // owner both 404); the client falls back to a text share on 404.
+  const ownerId = await getSessionOwnerId(id);
+  if (ownerId !== user.id) {
     return new Response("Not found", { status: 404 });
   }
 
   // Cache hit: this session's entries/name haven't changed since it was last
   // generated (every command that changes them nulls these fields out — see
   // lib/commands/drinkEntryCommands.ts / drinkSessionCommands.ts), so skip
-  // the tile fetch, sharp compositing, and Satori renders entirely.
+  // the full session load, tile fetch, sharp compositing, and Satori renders.
   const cached = await getShareImageCache(id);
   if (cached) {
     const [opaque, transparent] = await Promise.all([
@@ -294,6 +298,12 @@ export async function GET(
     }
     // Blobs vanished from storage despite the DB still pointing at them —
     // fall through and regenerate rather than 500ing.
+  }
+
+  // Cache miss — now load the full session (all check-ins) needed to render.
+  const session = await getSession({ id });
+  if (!session) {
+    return new Response("Not found", { status: 404 });
   }
 
   const tz = await getUserTimeZone();
