@@ -22,7 +22,10 @@ export async function renameSession(
 
   await db.drinkSession.update({
     where: { id: input.id },
-    data: { name: trimmed },
+    // The session title is part of the cached share image, so a rename
+    // invalidates it the same way an entry change does (see
+    // lib/commands/drinkEntryCommands.ts).
+    data: { name: trimmed, shareImageOpaqueUrl: null, shareImageTransparentUrl: null },
   });
 
   return {};
