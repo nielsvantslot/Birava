@@ -1,0 +1,43 @@
+name: Product decision needed
+description: Engineering is blocked on (or would benefit from) an explicit product/business call.
+labels: ["product-decision"]
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What exists today, and why this isn't just an engineering call.
+    validations:
+      required: true
+
+  - type: textarea
+    id: options
+    attributes:
+      label: Options considered
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: What "decided" looks like — what changes once a call is made.
+      placeholder: |
+        - [ ] Product has picked an option above.
+        - [ ] ...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - priority-high (user-facing breakage or time-sensitive)
+        - priority-medium (worth doing soon, not urgent)
+        - priority-low (nice to have, no rush)
+    validations:
+      required: false
