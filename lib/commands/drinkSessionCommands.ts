@@ -30,3 +30,15 @@ export async function renameSession(
 
   return {};
 }
+
+/** Persists a freshly rendered share-image pair after a cache miss (the share-image route's only write path). */
+export async function cacheShareImages(
+  sessionId: string,
+  opaqueUrl: string,
+  transparentUrl: string
+): Promise<void> {
+  await db.drinkSession.update({
+    where: { id: sessionId },
+    data: { shareImageOpaqueUrl: opaqueUrl, shareImageTransparentUrl: transparentUrl },
+  });
+}

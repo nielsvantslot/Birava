@@ -41,6 +41,24 @@ export async function getSessionById(id: string): Promise<DrinkSession | null> {
   return row ? toDrinkSession(row) : null;
 }
 
+/**
+ * A session's cached share-image render (lib/shareImageCache.ts's storage
+ * keys, not the bytes), if a complete pair is present. Null if uncached or
+ * invalidated — every command that changes what the card would show nulls
+ * both fields together, so a partial pair never happens in practice, but
+ * requiring both here keeps that assumption from being load-bearing.
+ */
+export async function getShareImageCache(
+  id: string
+): Promise<{ opaqueUrl: string; transparentUrl: string } | null> {
+  const row = await db.drinkSession.findUnique({
+    where: { id },
+    select: { shareImageOpaqueUrl: true, shareImageTransparentUrl: true },
+  });
+  if (!row?.shareImageOpaqueUrl || !row.shareImageTransparentUrl) return null;
+  return { opaqueUrl: row.shareImageOpaqueUrl, transparentUrl: row.shareImageTransparentUrl };
+}
+
 export type SessionCursor = { endedAt: Date; id: string };
 
 /**

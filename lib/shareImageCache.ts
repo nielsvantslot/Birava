@@ -1,28 +1,15 @@
-import path from "path";
-import { LocalDiskStorageAdapter } from "@/modules/photo-upload/adapters/LocalDiskStorageAdapter";
-import { VercelBlobStorageAdapter } from "@/modules/photo-upload/adapters/VercelBlobStorageAdapter";
 import { StreamBufferConverter } from "@/modules/photo-upload/StreamBufferConverter";
-import type { IStorageAdapter } from "@/modules/photo-upload/adapters/IStorageAdapter";
+import { StorageAdapterFactory } from "@/lib/storageAdapterFactory";
 
 /**
  * Composition root for caching rendered session share images (see
- * app/api/sessions/[id]/share-image/route.tsx). Reuses the same
- * IStorageAdapter backends as check-in photos (lib/photoUpload.ts) — local
- * disk in dev, Vercel Blob in production — as its own storage, since share
- * images have none of the resize/HEIC/LQIP needs PhotoUploadService exists
- * for; this just needs put/get/del of an already-finished PNG buffer.
+ * app/api/sessions/[id]/share-image/route.tsx). Reuses the same storage
+ * backend as check-in photos (lib/photoUpload.ts, via StorageAdapterFactory)
+ * as its own storage, since share images have none of the resize/HEIC/LQIP
+ * needs PhotoUploadService exists for; this just needs put/get/del of an
+ * already-finished PNG buffer.
  */
-function createStorageAdapter(): IStorageAdapter {
-  if (process.env.NODE_ENV === "production") {
-    return new VercelBlobStorageAdapter({ access: "private" });
-  }
-  return new LocalDiskStorageAdapter({
-    rootDir: path.join(process.cwd(), "public", "uploads"),
-    publicPathPrefix: "/uploads",
-  });
-}
-
-const storage = createStorageAdapter();
+const storage = StorageAdapterFactory.create();
 const KEY_PREFIX = "share-images";
 
 function pngFile(buffer: Buffer, name: string): File {

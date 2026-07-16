@@ -1,8 +1,9 @@
 import { ImageResponse } from "next/og";
 import sharp from "sharp";
-import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getSession } from "@/lib/controllers/drinkController";
+import { getShareImageCache } from "@/lib/queries/drinkSessionQueries";
+import { cacheShareImages } from "@/lib/commands/drinkSessionCommands";
 import {
   formatPace,
   formatSessionDuration,
@@ -264,14 +265,11 @@ export async function GET(
   // generated (every command that changes them nulls these fields out — see
   // lib/commands/drinkEntryCommands.ts / drinkSessionCommands.ts), so skip
   // the tile fetch, sharp compositing, and Satori renders entirely.
-  const cached = await db.drinkSession.findUnique({
-    where: { id },
-    select: { shareImageOpaqueUrl: true, shareImageTransparentUrl: true },
-  });
-  if (cached?.shareImageOpaqueUrl && cached?.shareImageTransparentUrl) {
+  const cached = await getShareImageCache(id);
+  if (cached) {
     const [opaque, transparent] = await Promise.all([
-      shareImageCache.read(cached.shareImageOpaqueUrl),
-      shareImageCache.read(cached.shareImageTransparentUrl),
+      shareImageCache.read(cached.opaqueUrl),
+      shareImageCache.read(cached.transparentUrl),
     ]);
     if (opaque && transparent) {
       return Response.json({
@@ -399,10 +397,7 @@ export async function GET(
       opaqueBytes,
       transparentBytes
     );
-    await db.drinkSession.update({
-      where: { id },
-      data: { shareImageOpaqueUrl: opaqueUrl, shareImageTransparentUrl: transparentUrl },
-    });
+    await cacheShareImages(id, opaqueUrl, transparentUrl);
   } catch {
     /* served below regardless; just won't be cached for the next request */
   }
