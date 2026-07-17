@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { avatarSrc, cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/components/layout/nav-items";
 import {
   DropdownMenu,
@@ -14,15 +14,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 interface SidebarNavProps {
+  userId?: string;
   username?: string;
   avatarUrl?: string | null;
   unreadCount?: number;
 }
 
-export function SidebarNav({ username, avatarUrl, unreadCount = 0 }: SidebarNavProps) {
+export function SidebarNav({ userId, username, avatarUrl, unreadCount = 0 }: SidebarNavProps) {
   return (
-    <Suspense fallback={<SidebarInner pathname="" username={username} avatarUrl={avatarUrl} unreadCount={unreadCount} />}>
-      <SidebarInnerWithPathname username={username} avatarUrl={avatarUrl} unreadCount={unreadCount} />
+    <Suspense fallback={<SidebarInner pathname="" userId={userId} username={username} avatarUrl={avatarUrl} unreadCount={unreadCount} />}>
+      <SidebarInnerWithPathname userId={userId} username={username} avatarUrl={avatarUrl} unreadCount={unreadCount} />
     </Suspense>
   );
 }
@@ -34,6 +35,7 @@ function SidebarInnerWithPathname(props: SidebarNavProps) {
 
 function SidebarInner({
   pathname,
+  userId,
   username,
   avatarUrl,
   unreadCount = 0,
@@ -78,10 +80,10 @@ function SidebarInner({
           const isProfile = href === "/profile";
           return (
             <Link key={href} href={href} className={cn(active && "active")}>
-              {isProfile && avatarUrl ? (
+              {isProfile && avatarUrl && userId ? (
                 <span className="sidebar-avatar">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={avatarUrl} alt="" />
+                  <img src={avatarSrc(userId)} alt="" />
                 </span>
               ) : (
                 icon

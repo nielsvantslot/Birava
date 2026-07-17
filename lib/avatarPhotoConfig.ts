@@ -2,6 +2,7 @@
  * Plain config for profile-avatar uploads — no server-only imports, so it can
  * be shared with the client if needed (mirrors lib/photoUploadConfig.ts).
  */
+import { PRIVATE_BLOB_ACCESS } from "@/lib/blobAccess";
 
 /** Square edge, in px, avatars are cropped/encoded to — small; avatars never render large. */
 export const AVATAR_MAX_DIMENSION = 512;
@@ -15,17 +16,14 @@ export function avatarKeyPrefix(userId: string): string {
 }
 
 /**
- * Blob access level avatars are stored/uploaded with — public, since avatars
- * render as plain `<img>` everywhere, unlike check-in photos' private blob.
- * The single source of truth for this: both `lib/avatarPhoto.ts`'s storage
- * adapter and `avatarUploadEndpoints` below read it from here, so the two
- * can't drift out of sync with each other.
- */
-export const AVATAR_BLOB_ACCESS = "public" as const;
-
-/**
  * Picks the upload endpoints a `PhotoUploader.upload` call needs for
  * avatars — mirrors `drinkPhotoUploadEndpoints` (lib/photoUploadConfig.ts).
+ * Access is private, same one Blob store/strategy as check-in photos (see
+ * lib/blobAccess.ts) — a "public" access write was rejected by the deployed
+ * Vercel Blob store with a CORS error on the direct-upload PUT. Every avatar
+ * render now goes through the auth-gated /api/avatars/[userId] proxy
+ * (lib/utils.ts's avatarSrc) instead of a raw stored URL, matching how
+ * check-in photos serve through /api/photos.
  */
 export function avatarUploadEndpoints(userId: string, supportsDirectUpload: boolean) {
   return supportsDirectUpload
@@ -34,7 +32,7 @@ export function avatarUploadEndpoints(userId: string, supportsDirectUpload: bool
         tokenUrl: "/api/uploads/avatar/blob-token",
         finalizeUrl: "/api/uploads/avatar/finalize",
         keyPrefix: avatarKeyPrefix(userId),
-        access: AVATAR_BLOB_ACCESS,
+        access: PRIVATE_BLOB_ACCESS,
       }
     : { mode: "server" as const, uploadUrl: "/api/uploads/avatar" };
 }

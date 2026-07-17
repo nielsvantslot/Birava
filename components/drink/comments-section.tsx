@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createComment, deleteComment } from "@/lib/controllers/socialController";
 import { showToast } from "@/components/ui/toast-pill";
 import { timeAgo } from "@/lib/dates";
+import { avatarSrc } from "@/lib/utils";
 import type { CommentDTO } from "@/lib/dtos";
 
 /** The session detail page's comment thread: list + composer. */
@@ -85,7 +86,7 @@ export function CommentsSection({
               <Link className="avatar" href={`/profile/${c.username}`}>
                 {c.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={c.avatarUrl} alt={c.username} />
+                  <img src={avatarSrc(c.userId)} alt={c.username} />
                 ) : (
                   c.username.slice(0, 2).toUpperCase()
                 )}

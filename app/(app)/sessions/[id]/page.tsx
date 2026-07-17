@@ -17,6 +17,7 @@ import {
 } from "@/lib/controllers/drinkController";
 import { getSessionCheers, getSessionComments, getCommentCounts } from "@/lib/controllers/socialController";
 import { formatTime, relativeDayTime } from "@/lib/dates";
+import { avatarSrc } from "@/lib/utils";
 import { SessionMap, MapPin } from "@/components/drink/session-map";
 import { SessionTitle } from "@/components/drink/session-title";
 import { SocialActs } from "@/components/drink/social-row";
@@ -88,7 +89,7 @@ export default async function SessionDetailPage({
           <div className="avatar">
             {session.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={session.avatarUrl} alt={session.username} />
+              <img src={avatarSrc(session.userId)} alt={session.username} />
             ) : (
               session.username.slice(0, 2).toUpperCase()
             )}
