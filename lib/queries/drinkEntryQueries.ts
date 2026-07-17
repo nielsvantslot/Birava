@@ -2,48 +2,34 @@ import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { DrinkEntryMapper, toDrinkEntry } from "@/lib/mappers";
 import { DrinkEntryWithAuthorDTO } from "@/lib/dtos";
-import { getFollowingIds, isFollowing } from "@/lib/queries/followQueries";
+import { getFollowingIds } from "@/lib/queries/followQueries";
 import type { DrinkEntry } from "@/lib/types";
 
 const ENTRY_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-async function canViewDrinkEntry(
-  entry: { userId: string; groupId: string | null },
-  viewerId: string
-): Promise<boolean> {
-  if (entry.userId === viewerId) return true;
-
-  if (entry.groupId) {
-    const membership = await db.groupMember.findUnique({
-      where: { groupId_userId: { groupId: entry.groupId, userId: viewerId } },
-    });
-    if (membership) return true;
-  }
-
-  return isFollowing(viewerId, entry.userId);
-}
-
 /**
- * Resolve the storage URL of a photo the viewer is allowed to see, without
- * reading the bytes. Lets the route emit an ETag and answer conditional
- * requests with a 304 (no storage read) — see the photos route.
+ * Resolve the storage URL of a check-in's photo for serving, without reading
+ * the bytes (lets the route emit an ETag and answer conditional requests with
+ * a 304 — see the photos route).
+ *
+ * No per-viewer visibility gate: a check-in always belongs to a DrinkSession,
+ * and a session is shareable by link with no follow/ownership check
+ * (getSessionById) — the recap is public by design. So a session's photos are
+ * viewable by any authenticated viewer along with the rest of the recap
+ * (issue #99); previously the blur placeholder rendered but the real bytes
+ * 404'd for non-followers, which read as broken. The photos route still
+ * requires a logged-in user via requireUser.
  */
 export async function getViewableDrinkPhotoUrl(
-  viewerId: string,
   entryId: string
 ): Promise<string | null> {
   if (!ENTRY_ID_PATTERN.test(entryId)) return null;
 
   const entry = await db.drinkEntry.findUnique({
     where: { id: entryId },
-    select: { userId: true, groupId: true, photoUrl: true },
+    select: { photoUrl: true },
   });
-  if (!entry || !entry.photoUrl) return null;
-
-  const allowed = await canViewDrinkEntry(entry, viewerId);
-  if (!allowed) return null;
-
-  return entry.photoUrl;
+  return entry?.photoUrl ?? null;
 }
 
 export async function getSocialFeed(

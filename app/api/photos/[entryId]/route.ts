@@ -34,11 +34,11 @@ function parseResize(searchParams: URLSearchParams): Resize | null {
 }
 
 export const GET = requireUser<RouteContext<"/api/photos/[entryId]">>(
-  async (request, user, { params }) => {
+  async (request, _user, { params }) => {
     const { entryId } = await params;
     const resize = parseResize(new URL(request.url).searchParams);
 
-    const photoUrl = await getViewableDrinkPhotoUrl(user.id, entryId);
+    const photoUrl = await getViewableDrinkPhotoUrl(entryId);
     if (!photoUrl) return new Response("Not found", { status: 404 });
 
     // The bytes behind a given photoUrl never change (an edit swaps in a new
