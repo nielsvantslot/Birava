@@ -16,13 +16,8 @@ export type DrinkType = (typeof DRINK_TYPES)[number];
 export type DrinkEntry = {
   id: string;
   user_id: string;
-  group_id: string | null;
   drink_name: string | null;
-  brewery: string | null;
-  style: string | null;
   drink_type: string;
-  amount: number;
-  rating: number | null;
   venue: string | null;
   lat: number | null;
   lng: number | null;
