@@ -107,7 +107,8 @@ The app briefly ran on Next.js 16.2.9 (with `cacheComponents: true`) but was dow
 
 ## Known landmines (see `docs/audit/` for the full reports)
 - **Uploads write to `public/uploads/` on the local filesystem** (`modules/photo-upload/adapters/LocalDiskStorageAdapter.ts`, wired in `lib/photoUpload.ts`) — this breaks on Vercel's ephemeral/read-only FS; used in dev only, `VercelBlobStorageAdapter` handles staging/production. Size (20MB cap) and format validation (via `sharp` failing to decode) live in `SharpImageProcessor` — see "Image pipeline" above.
-- **Open product calls** (flagged 2026-07-09, don't silently decide): active-weeks streak grace rule (currently: one rest week survives, 2+ consecutive end the run — `activeWeeks()` in `lib/sessions.ts`); Countries/Passport badges omitted for lack of country data ("Types tried" substituted); comments are a "soon" toast stub (proost is real).
+- **Decided (2026-07-17, #108):** the active-weeks **streak grace rule is signed off as-is** — one rest week survives, two-or-more consecutive rest weeks end the run (`activeWeeks()` in `lib/sessions.ts`, locked by `lib/sessions.test.ts`). Keep it unless a future product call changes it.
+- **Open product calls** (flagged 2026-07-09, don't silently decide): Countries/Passport badges omitted for lack of country data ("Types tried" substituted — tracked in #109); comments are a "soon" toast stub (proost is real).
 - Dev DB contains seeded demo users (`designtest`/`sarah_pours`/`niels_hop`, pw `designtest123`, plus `audit_user`) — Jairo's real account is `SlayerofBeers`; never modify it.
 
 ## Maps without a library
