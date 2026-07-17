@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { avatarSrc, cn } from "@/lib/utils";
 
 const TITLES: Array<[prefix: string, title: string]> = [
   ["/dashboard", "Home"],
@@ -23,12 +23,13 @@ const TITLES: Array<[prefix: string, title: string]> = [
 const BACK_PREFIXES = ["/sessions/", "/achievements", "/notifications", "/people", "/profile/", "/settings"];
 
 interface AppHeaderProps {
+  userId?: string;
   username?: string;
   avatarUrl?: string | null;
   unreadCount?: number;
 }
 
-export function AppHeader({ username, avatarUrl, unreadCount = 0 }: AppHeaderProps) {
+export function AppHeader({ userId, username, avatarUrl, unreadCount = 0 }: AppHeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -64,9 +65,9 @@ export function AppHeader({ username, avatarUrl, unreadCount = 0 }: AppHeaderPro
           </button>
         ) : (
           <Link className="hicon avatar-btn" href="/profile" aria-label="Your profile">
-            {avatarUrl ? (
+            {avatarUrl && userId ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarUrl} alt={username ?? "You"} />
+              <img src={avatarSrc(userId)} alt={username ?? "You"} />
             ) : (
               <svg viewBox="0 0 24 24">
                 <circle cx="12" cy="8" r="4"></circle>

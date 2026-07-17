@@ -16,6 +16,26 @@ export async function getProfileByUsername(username: string): Promise<ProfileDTO
   return user ? ProfileMapper.toDTO(user) : null;
 }
 
+const USER_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Resolve a user's avatar storage URL for serving — mirrors
+ * getViewableDrinkPhotoUrl (lib/queries/drinkEntryQueries.ts). No per-viewer
+ * visibility gate: an avatar is shown to every other user throughout the app
+ * (header, comments, crew leaderboards, sessions, …), so any authenticated
+ * viewer can see any user's avatar — the avatars route still requires a
+ * logged-in user via requireUser.
+ */
+export async function getViewableAvatarUrl(userId: string): Promise<string | null> {
+  if (!USER_ID_PATTERN.test(userId)) return null;
+
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { avatarUrl: true },
+  });
+  return user?.avatarUrl ?? null;
+}
+
 export async function searchUsers(excludeUserId: string, query: string): Promise<UserSummaryDTO[]> {
   const users = await db.user.findMany({
     where: {

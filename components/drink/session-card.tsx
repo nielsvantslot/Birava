@@ -7,7 +7,7 @@ import {
   sessionTitle,
 } from "@/lib/sessions";
 import { formatTime, relativeDayTime } from "@/lib/dates";
-import { drinkPhotoSrc } from "@/lib/utils";
+import { avatarSrc, drinkPhotoSrc } from "@/lib/utils";
 import { Minimap } from "@/components/drink/minimap";
 import { SocialActs } from "@/components/drink/social-row";
 import { CheckinExpander } from "@/components/drink/checkin-expander";
@@ -124,7 +124,7 @@ export function SessionCard({
         <div className="avatar">
           {session.avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={session.avatarUrl} alt={session.username} />
+            <img src={avatarSrc(session.userId)} alt={session.username} />
           ) : (
             initials(session.username)
           )}

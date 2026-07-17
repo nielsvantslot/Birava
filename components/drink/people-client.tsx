@@ -4,6 +4,7 @@ import { useState, useTransition, useCallback } from "react";
 import Link from "next/link";
 import { FollowButton } from "@/components/drink/follow-button";
 import { searchUsers } from "@/lib/controllers/socialController";
+import { avatarSrc } from "@/lib/utils";
 
 interface UserResult {
   id: string;
@@ -78,7 +79,7 @@ export function PeopleClient({
             <div className="avatar">
               {u.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={u.avatarUrl} alt={u.username} />
+                <img src={avatarSrc(u.id)} alt={u.username} />
               ) : (
                 u.username.slice(0, 2).toUpperCase()
               )}

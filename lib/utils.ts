@@ -41,3 +41,8 @@ export function generateInviteCode() {
 export function drinkPhotoSrc(entryId: string, size?: "thumb") {
   return size ? `/api/photos/${entryId}?size=${size}` : `/api/photos/${entryId}`;
 }
+
+/** Avatars are stored as private blobs (like check-in photos) — always render through this proxy, never the raw stored URL directly. */
+export function avatarSrc(userId: string) {
+  return `/api/avatars/${userId}`;
+}
