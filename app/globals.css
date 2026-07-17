@@ -1,20 +1,38 @@
 @import "tailwindcss";
 
+/* ================================================================
+   BIRAVA DESIGN TOKENS (from claude.ai/design birava.css)
+   ================================================================ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --card: #f9fafb;
-  --card-foreground: #171717;
-  --border: #e5e7eb;
-  --input: #e5e7eb;
-  --primary: #f97316;
-  --primary-foreground: #ffffff;
-  --muted: #f3f4f6;
-  --muted-foreground: #6b7280;
-  --accent: #f97316;
-  --accent-foreground: #ffffff;
-  --destructive: #ef4444;
-  --ring: #f97316;
+  --bg:        #0A0D09;   /* app background + section gaps */
+  --surface:   #111510;   /* section blocks */
+  --surface-2: #1A211A;   /* inputs, chips, inline callouts */
+  --line:      rgba(242, 238, 228, 0.10);
+
+  --ink:       #EEF2E7;
+  --ink-dim:   #88907F;
+
+  --accent:     #A9C641;  /* one job: actions + your data */
+  --accent-ink: #141A06;
+  --honey:      #E8C15A;  /* semantic only: achievements */
+
+  --font:  var(--font-archivo), -apple-system, "Segoe UI", sans-serif;
+  --serif: var(--font-source-serif), Georgia, serif;
+
+  /* Legacy semantic vars — kept so existing components inherit the theme */
+  --background: var(--bg);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --border: var(--line);
+  --input: var(--surface-2);
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-ink);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--ink-dim);
+  --accent-foreground: var(--accent-ink);
+  --destructive: #e5484d;
+  --ring: var(--accent);
   --radius: 0.75rem;
 }
 
@@ -33,43 +51,33 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-ring: var(--ring);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-dim: var(--ink-dim);
+  --color-honey: var(--honey);
+  --font-sans: var(--font);
+  --font-serif: var(--serif);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0f0f0f;
-    --foreground: #f5f5f5;
-    --card: #1a1a1a;
-    --card-foreground: #f5f5f5;
-    --border: #2a2a2a;
-    --input: #2a2a2a;
-    --muted: #1f1f1f;
-    --muted-foreground: #a1a1aa;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
 }
 
 * {
   border-color: var(--border);
 }
 
-/* Smooth scrolling */
 html {
   scroll-behavior: smooth;
 }
 
-/* Hide scrollbar for mobile */
 ::-webkit-scrollbar {
   width: 4px;
   height: 4px;
@@ -78,11 +86,607 @@ html {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--surface-2);
   border-radius: 2px;
 }
 
-/* Safe area for mobile */
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom, 1rem);
 }
+
+/* ================================================================
+   BIRAVA COMPONENT GRAMMAR (ported from birava.css)
+   ================================================================ */
+
+/* ---- header: avatar / centered title / actions ---- */
+.header {
+  display: grid;
+  grid-template-columns: 44px 1fr 88px;
+  align-items: center;
+  padding: 10px 16px;
+  background: var(--surface);
+}
+.header .title { text-align: center; font-size: 17px; font-weight: 700; }
+.header .left { justify-self: start; }
+.header .right { justify-self: end; display: flex; gap: 14px; }
+.hicon {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: grid; place-items: center;
+  color: var(--ink); background: transparent; border: none; cursor: pointer;
+}
+.hicon svg { width: 23px; height: 23px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.hicon.avatar-btn { background: var(--surface-2); color: var(--ink-dim); overflow: hidden; }
+.hicon.avatar-btn img { width: 100%; height: 100%; object-fit: cover; }
+.hicon { position: relative; }
+.hicon .badge {
+  position: absolute; top: 2px; right: 2px; min-width: 16px; height: 16px;
+  padding: 0 4px; border-radius: 999px; background: var(--accent); color: var(--bg);
+  font-size: 10px; font-weight: 700; line-height: 16px; text-align: center;
+}
+.sidebar-nav a { position: relative; }
+.sidebar-nav a .badge {
+  position: absolute; top: 6px; left: 26px; min-width: 16px; height: 16px;
+  padding: 0 4px; border-radius: 999px; background: var(--accent); color: var(--bg);
+  font-size: 10px; font-weight: 700; line-height: 16px; text-align: center;
+}
+.row.unread b { color: var(--ink); }
+.row.unread .rowmark { color: var(--accent); }
+
+/* ---- tab strip with underline indicator ---- */
+.tabs {
+  display: flex;
+  background: var(--surface);
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+.tabs button, .tabs a {
+  background: none; border: none; font: inherit; cursor: pointer;
+  font-size: 15.5px; font-weight: 700; color: var(--ink-dim);
+  padding: 14px 0 12px; margin-right: 28px; position: relative;
+  text-decoration: none;
+}
+.tabs button.on, .tabs a.on { color: var(--ink); }
+.tabs button.on::after, .tabs a.on::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px;
+  background: var(--accent); border-radius: 2px 2px 0 0;
+}
+
+/* Edge-to-edge sections separated by bg gaps — the Strava structure */
+.section { background: var(--surface); padding: 18px 16px; margin-bottom: 8px; }
+.section.flush { padding: 0; }
+
+.app-version { text-align: center; font-size: 11.5px; color: var(--ink-dim); font-variant-numeric: tabular-nums; margin: 6px 0; }
+
+.h-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
+.h-row h3 { font-family: var(--serif); font-size: 20px; font-weight: 600; letter-spacing: 0; }
+.h-row a, .h-row button.link { font-size: 13px; font-weight: 700; color: var(--accent); text-decoration: none; background: none; border: none; cursor: pointer; font-family: inherit; }
+
+/* ---- THE STAT GRAMMAR: flat, no boxes. label over number, in a row ---- */
+.stats { display: flex; gap: 0; }
+.stats .stat { flex: 1; }
+.stat .label { font-size: 12.5px; color: var(--ink-dim); margin-bottom: 3px; font-weight: 500; }
+.stat .num {
+  font-size: 24px; font-weight: 800; font-stretch: 108%;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1.15;
+}
+.stat .num small { font-size: 15px; font-weight: 700; color: var(--ink); }
+.stats.big .num { font-size: 30px; }
+
+/* ---- buttons: tall, full-width, confident ---- */
+.btn {
+  display: block; width: 100%; border: none; border-radius: 999px;
+  font: inherit; font-weight: 800; font-size: 16.5px; padding: 16px; cursor: pointer;
+  text-align: center; text-decoration: none;
+}
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
+.btn:disabled { opacity: 0.6; cursor: default; }
+.btn:focus-visible, .tabs button:focus-visible, .nav a:focus-visible,
+input:focus-visible, .chip:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+/* ---- chips ---- */
+.chips { display: flex; gap: 8px; padding: 12px 16px; background: var(--surface); overflow-x: auto; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  display: flex; align-items: center; gap: 7px; white-space: nowrap;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px;
+  font: inherit; font-size: 14px; font-weight: 600; color: var(--ink);
+  padding: 8px 15px; cursor: pointer;
+}
+.chip.on { border-color: var(--accent); color: var(--accent); background: transparent; }
+
+/* ---- feed activity (Strava anatomy) ---- */
+.who { display: flex; align-items: center; gap: 11px; padding: 16px 16px 12px; text-decoration: none; color: inherit; }
+.avatar {
+  width: 42px; height: 42px; border-radius: 50%; background: var(--surface-2);
+  display: grid; place-items: center; font-weight: 700; font-size: 14px; color: var(--ink-dim); flex: none;
+  overflow: hidden;
+}
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.who b { display: block; font-size: 14.5px; font-weight: 700; }
+.who .meta { font-size: 12.5px; color: var(--ink-dim); margin-top: 1px; }
+.who .more { margin-left: auto; color: var(--ink-dim); font-size: 20px; line-height: 0; background: none; border: none; cursor: pointer; }
+
+.act-title { font-family: var(--serif); font-size: 23px; font-weight: 600; letter-spacing: 0; padding: 2px 16px 12px; }
+.act-stats { padding: 0 16px 16px; }
+
+.act-title-row { display: flex; align-items: center; gap: 6px; padding: 2px 16px 12px; }
+.act-title-row .act-title { padding: 0; }
+.act-title-edit { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; color: var(--ink-dim); background: none; border: none; border-radius: 6px; cursor: pointer; }
+.act-title-edit:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.act-title-input { font-family: var(--serif); font-size: 23px; font-weight: 600; letter-spacing: 0; flex: 1; min-width: 0; background: none; border: none; border-bottom: 1.5px solid var(--accent); color: var(--foreground); padding: 0 0 2px; outline: none; }
+
+/* Achievement callout — quiet inline block */
+.callout {
+  display: flex; gap: 13px; align-items: flex-start;
+  background: var(--surface-2); border-radius: 12px; padding: 14px; margin: 0 16px 16px;
+}
+.callout .mark { color: var(--honey); flex: none; padding-top: 1px; }
+.callout b { display: block; font-size: 14.5px; font-weight: 700; line-height: 1.35; margin-bottom: 2px; }
+.callout p { font-size: 13px; color: var(--ink-dim); line-height: 1.45; }
+.callout.warn .mark { color: var(--destructive); }
+
+/* ---- settings row with a switch (push notifications, etc.) ---- */
+.switch-row { display: flex; align-items: center; gap: 13px; padding: 4px 0; }
+.switch-row .rowmark { flex: none; }
+.switch-row .grow { flex: 1; min-width: 0; }
+.switch-row .grow b { display: block; font-size: 15px; font-weight: 700; }
+.switch-row .grow p { font-size: 13px; color: var(--ink-dim); margin-top: 2px; line-height: 1.4; }
+.switch {
+  flex: none; width: 46px; height: 27px; border-radius: 999px; border: none;
+  background: var(--surface-2); position: relative; cursor: pointer; padding: 0;
+  transition: background 0.15s ease;
+}
+.switch::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 21px; height: 21px;
+  border-radius: 50%; background: var(--surface); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease;
+}
+.switch.on { background: var(--accent); }
+.switch.on::after { transform: translateX(19px); }
+.switch:disabled { opacity: 0.5; cursor: default; }
+
+/* Photo: full-bleed-ish */
+.act-photo { display: block; width: 100%; max-height: 320px; object-fit: cover; }
+
+.social {
+  display: flex; gap: 22px; padding: 13px 16px; border-top: 1px solid var(--line);
+  font-size: 13.5px; color: var(--ink-dim); font-weight: 600;
+}
+.social span { font-variant-numeric: tabular-nums; }
+.social button { background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 0; }
+
+/* ---- line chart (Stats) ---- */
+.linechart { display: block; width: 100%; height: auto; margin: 4px 0 2px; }
+.axis-label { font-size: 11.5px; fill: var(--ink-dim); font-family: var(--font); font-variant-numeric: tabular-nums; }
+
+/* ---- calendar streak ---- */
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; text-align: center; margin-top: 14px; }
+.cal .dow { font-size: 12px; color: var(--ink-dim); font-weight: 600; }
+.cal .day {
+  width: 36px; height: 36px; margin: 0 auto; border-radius: 50%;
+  display: grid; place-items: center; font-size: 13.5px; font-weight: 600;
+  font-variant-numeric: tabular-nums; background: var(--surface-2); color: var(--ink-dim);
+}
+.cal .day.hit { background: var(--accent); color: var(--accent-ink); font-weight: 800; }
+.cal .day.today { border: 1.5px solid var(--ink); background: transparent; color: var(--ink); }
+.cal .day.mute { background: transparent; color: rgba(147, 141, 126, 0.4); }
+
+/* ---- forms ---- */
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 12.5px; color: var(--ink-dim); font-weight: 600; margin-bottom: 7px; }
+.field input {
+  width: 100%; background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 14px; font: inherit; font-size: 15.5px; color: var(--ink);
+}
+.field input::placeholder { color: var(--ink-dim); }
+.seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.seg .chip { justify-content: center; }
+
+/* ---- rows ---- */
+.row { display: flex; align-items: center; gap: 13px; padding: 14px 0; }
+.row + .row { border-top: 1px solid var(--line); }
+.row .grow { flex: 1; min-width: 0; }
+.row b { display: block; font-size: 15px; font-weight: 700; }
+.row span { font-size: 13px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.row .chev { color: var(--ink-dim); font-size: 18px; }
+.code {
+  font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 800; letter-spacing: 0.08em;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px;
+}
+.rowmark {
+  width: 42px; height: 42px; border-radius: 50%; background: var(--surface-2);
+  display: grid; place-items: center; color: var(--accent); flex: none;
+}
+.rowmark svg { width: 19px; height: 19px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.rowmark.ach { color: var(--honey); }
+
+/* ---- profile ---- */
+.profile-head { display: flex; align-items: center; gap: 16px; padding: 20px 16px; }
+.profile-head .avatar { width: 64px; height: 64px; font-size: 20px; }
+.profile-head h1 { font-family: var(--serif); font-size: 23px; font-weight: 600; letter-spacing: 0; }
+.profile-head p { font-size: 13.5px; color: var(--ink-dim); margin-top: 3px; }
+
+/* ---- toast ---- */
+.toast {
+  position: fixed; left: 50%; bottom: 104px; transform: translateX(-50%) translateY(8px);
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--ink);
+  font-size: 13.5px; font-weight: 600; padding: 12px 20px; border-radius: 999px;
+  opacity: 0; pointer-events: none; transition: opacity 0.18s ease, transform 0.18s ease;
+  white-space: nowrap; z-index: 50;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---- bottom nav: filled accent when active ---- */
+.navwrap {
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.nav {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  max-width: 32rem; margin: 0 auto;
+  padding: 9px 4px calc(9px + env(safe-area-inset-bottom, 13px));
+}
+.nav a {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  text-decoration: none; color: var(--ink-dim); font-size: 11px; font-weight: 700;
+  cursor: pointer; border-radius: 8px;
+}
+.nav a svg { width: 25px; height: 25px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.nav a.active { color: var(--accent); }
+.nav a.active svg { stroke: var(--accent); }
+
+/* ---- sidebar nav (desktop): replaces header + bottom nav on primary tabs ---- */
+.sidebar {
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+  padding: 20px 12px;
+  gap: 4px;
+}
+.sidebar-brand {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 10px 22px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.sidebar-brand svg { width: 28px; height: 28px; stroke: var(--accent); fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.sidebar-brand span { font-family: var(--serif); font-size: 19px; font-weight: 600; display: none; white-space: nowrap; }
+
+.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+.sidebar-nav a {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px; border-radius: 10px;
+  color: var(--ink-dim); font-size: 15px; font-weight: 700;
+  text-decoration: none;
+}
+.sidebar-nav a svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.sidebar-nav a:hover { background: var(--surface-2); color: var(--ink); }
+.sidebar-nav a.active { color: var(--accent); }
+.sidebar-nav a.active svg { stroke: var(--accent); }
+.sidebar-avatar {
+  width: 24px; height: 24px; border-radius: 50%; overflow: hidden; flex: none;
+  display: grid; place-items: center; background: var(--surface-2);
+}
+.sidebar-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.sidebar-more { margin-top: auto; }
+.sidebar-more button {
+  display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
+  padding: 12px; border-radius: 10px; font: inherit;
+  color: var(--ink-dim); font-size: 15px; font-weight: 700;
+  background: none; border: none; cursor: pointer;
+}
+.sidebar-more button svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.sidebar-more button:hover { background: var(--surface-2); color: var(--ink); }
+
+.sidebar .label { display: none; }
+@media (min-width: 1280px) {
+  .sidebar-brand span, .sidebar .label { display: inline; }
+}
+
+/* ---- right rail (desktop, xl+): profile + light discovery, fills the third column ---- */
+.right-rail {
+  flex-direction: column;
+  width: 300px;
+  padding: 24px 16px;
+  gap: 16px;
+}
+.rail-profile {
+  display: flex; align-items: center; gap: 12px;
+  text-decoration: none; color: var(--ink);
+  padding-bottom: 4px;
+}
+.rail-profile .avatar { width: 44px; height: 44px; font-size: 15px; }
+.rail-profile b { display: block; font-size: 15px; font-weight: 700; }
+.rail-sub { font-size: 12.5px; color: var(--ink-dim); }
+
+.rail-card {
+  display: block; text-decoration: none;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+  padding: 14px 16px;
+}
+.rail-card b { display: block; font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 3px; }
+.rail-card p { font-size: 12.5px; color: var(--ink-dim); line-height: 1.4; }
+.rail-card:hover { border-color: rgba(242, 238, 228, 0.2); }
+
+/* ================================================================
+   2.0 ADDITIONS — session is the unit (from birava.css)
+   ================================================================ */
+
+/* ---- session card: title is the tap target into detail ---- */
+.act-title-link { display: block; text-decoration: none; color: inherit; }
+.act-title-link:hover .act-title { color: var(--ink); }
+.act-title .chev-in { color: var(--ink-dim); font-weight: 400; font-size: 19px; margin-left: 4px; }
+
+/* slim variant — a lone check-in, no fake session stats */
+.checkin-line { padding: 0 16px 14px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.checkin-line .meta { font-size: 13.5px; color: var(--ink-dim); }
+.checkin-note { font-size: 14.5px; line-height: 1.55; color: var(--ink); padding: 0 16px 16px; }
+
+/* ---- expander: reveal check-ins inline ---- */
+.expander {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  background: none; border: none; border-top: 1px solid var(--line);
+  font: inherit; font-size: 13.5px; font-weight: 700; color: var(--ink-dim);
+  padding: 13px 16px; cursor: pointer; text-align: left;
+}
+.expander .arrow { transition: transform 0.2s ease; font-size: 16px; line-height: 0; }
+.expander.open .arrow { transform: rotate(90deg); }
+.checkin-collapse { overflow: hidden; transition: height 0.22s ease; }
+
+/* ---- check-in splits (the Strava "splits" equivalent) ---- */
+.splits { padding: 0 16px; }
+.split { display: flex; align-items: center; gap: 13px; padding: 12px 0; }
+.split + .split { border-top: 1px solid var(--line); }
+.split .idx {
+  width: 26px; height: 26px; border-radius: 50%; background: var(--surface-2);
+  display: grid; place-items: center; font-size: 11.5px; font-weight: 800;
+  font-variant-numeric: tabular-nums; color: var(--ink-dim); flex: none;
+}
+.split .grow { flex: 1; min-width: 0; }
+.split b { display: block; font-size: 14.5px; font-weight: 700; }
+.split .sub { font-size: 12.5px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.splits.compact { padding-bottom: 8px; }
+
+/* ---- check-in grid (Explore-style) + lightbox ---- */
+.checkin-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
+}
+.grid-item {
+  position: relative; aspect-ratio: 1; border-radius: 0; overflow: hidden;
+  border: none; padding: 0; cursor: pointer; background: var(--surface-2);
+}
+.grid-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.grid-item-badge {
+  position: absolute; top: 6px; left: 6px; width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 10.5px; font-weight: 800;
+  font-variant-numeric: tabular-nums; display: grid; place-items: center; z-index: 1;
+}
+.grid-item-caption {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 8px 7px;
+  display: flex; flex-direction: column; gap: 1px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0) 100%);
+}
+.grid-item-caption b {
+  font-size: 12.5px; font-weight: 700; color: #fff; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.grid-item-caption span { font-size: 10.5px; color: rgba(255, 255, 255, 0.75); font-variant-numeric: tabular-nums; }
+
+.lightbox {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.92);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200; padding: 24px;
+}
+.lightbox figure { margin: 0; max-width: 92vw; max-height: 86vh; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.lightbox figure img { max-width: 100%; max-height: 78vh; object-fit: contain; border-radius: 12px; }
+.lightbox-card {
+  width: 260px; max-width: 80vw; aspect-ratio: 1; border-radius: 12px; background: var(--surface-2);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center;
+}
+.lightbox-card b { font-size: 17px; font-weight: 700; color: var(--ink); }
+.lightbox-card span { font-size: 13px; color: var(--ink-dim); }
+.lightbox figcaption { color: #eee; font-size: 13px; text-align: center; }
+.lightbox figcaption a { color: var(--accent); font-weight: 700; }
+.lightbox-close, .lightbox-nav {
+  position: absolute; border: none; background: rgba(255, 255, 255, 0.1); color: #fff;
+  border-radius: 50%; cursor: pointer; line-height: 0; display: grid; place-items: center;
+}
+.lightbox-close { top: 16px; right: 16px; width: 40px; height: 40px; font-size: 22px; }
+.lightbox-nav { top: 50%; transform: translateY(-50%); width: 44px; height: 44px; font-size: 26px; }
+.lightbox-nav.prev { left: 16px; }
+.lightbox-nav.next { right: 16px; }
+
+/* ---- share preview: bottom sheet, swipe between recap image variants (Strava-style) ---- */
+.sheet-backdrop {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6);
+  z-index: 200; display: flex; align-items: flex-end; justify-content: center;
+}
+.share-sheet {
+  width: 100%; max-width: 480px; max-height: 88vh;
+  background: var(--surface); border-radius: 24px 24px 0 0;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  padding: 10px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+}
+.sheet-handle { width: 36px; height: 4px; border-radius: 999px; background: var(--line); }
+.sheet-header {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  font-size: 15px; font-weight: 700; color: var(--ink);
+}
+.sheet-close {
+  border: none; background: none; color: var(--ink-dim); font-size: 22px;
+  line-height: 1; cursor: pointer; padding: 4px;
+}
+.share-track {
+  width: 100%; display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+.share-track::-webkit-scrollbar { display: none; }
+.share-slide {
+  flex: 0 0 100%; scroll-snap-align: center; display: flex;
+  align-items: center; justify-content: center; padding: 0 4px;
+}
+.share-preview {
+  width: auto; height: min(50vh, 460px); aspect-ratio: 9 / 16; object-fit: contain;
+  border-radius: 16px;
+  background:
+    linear-gradient(45deg, #2a2a2a 25%, transparent 25%) -8px 0/16px 16px,
+    linear-gradient(-45deg, #2a2a2a 25%, transparent 25%) -8px 0/16px 16px,
+    linear-gradient(45deg, transparent 75%, #2a2a2a 75%) -8px 0/16px 16px,
+    linear-gradient(-45deg, transparent 75%, #2a2a2a 75%) -8px 0/16px 16px,
+    #1c1c1c;
+}
+.share-preview-loading {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  padding: 24px; font-size: 14px; font-weight: 700; color: var(--ink-dim);
+}
+.share-picker { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.share-dots { display: flex; gap: 6px; }
+.share-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--line); border: none; padding: 0; cursor: pointer; }
+.share-dot.on { background: var(--accent); }
+.share-variant-label { font-size: 13px; font-weight: 700; color: var(--ink-dim); }
+.share-cta { width: 100%; }
+
+/* ---- first-time hint strip on the bg gap ---- */
+.hint {
+  padding: 13px 16px 15px; font-size: 13px; line-height: 1.5; color: var(--ink-dim);
+  display: flex; gap: 10px; align-items: flex-start;
+}
+.hint .mark { color: var(--ink-dim); flex: none; padding-top: 1px; }
+.hint b { color: var(--ink); font-weight: 700; }
+
+/* ---- real social row: icon affordances, no emoji ---- */
+.social.acts { gap: 0; justify-content: flex-start; align-items: center; }
+.social .act {
+  display: inline-flex; align-items: center; gap: 7px; background: none; border: none;
+  font: inherit; font-size: 13.5px; font-weight: 600; color: var(--ink-dim);
+  cursor: pointer; padding: 0; margin-right: 22px; min-height: 44px; text-decoration: none;
+}
+.social .act svg { width: 19px; height: 19px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.social .act.cheer.on { color: var(--accent); }
+.social .act.cheer.on svg { fill: var(--accent); stroke: var(--accent); }
+.social .act.share { margin-left: auto; margin-right: 0; }
+.social .act span { font-variant-numeric: tabular-nums; }
+
+/* ---- comments ---- */
+.comment-list { padding: 0 16px; }
+.comment-row { display: flex; gap: 11px; padding: 12px 0; }
+.comment-row + .comment-row { border-top: 1px solid var(--line); }
+.comment-row .avatar { width: 34px; height: 34px; font-size: 12px; }
+.comment-meta { display: flex; align-items: baseline; gap: 7px; }
+.comment-meta b { font-size: 13.5px; font-weight: 700; }
+.comment-meta span { font-size: 12px; color: var(--ink-dim); }
+.comment-body { font-size: 14px; line-height: 1.4; margin-top: 2px; word-break: break-word; }
+.comment-delete {
+  background: none; border: none; color: var(--ink-dim); font-size: 18px;
+  line-height: 1; cursor: pointer; padding: 4px; flex: none; align-self: flex-start;
+}
+.comment-form { display: flex; gap: 8px; padding: 12px 16px 16px; }
+.comment-form input {
+  flex: 1; background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 999px; padding: 11px 16px; font: inherit; font-size: 14px; color: var(--ink);
+}
+.comment-form input::placeholder { color: var(--ink-dim); }
+.comment-form button {
+  background: var(--accent); color: var(--accent-ink); border: none; border-radius: 999px;
+  font: inherit; font-size: 14px; font-weight: 700; padding: 0 18px; cursor: pointer;
+}
+.comment-form button:disabled { opacity: 0.5; cursor: default; }
+
+/* ---- card hero photo: the fun, front and centre ---- */
+.card-photo { padding: 2px 16px 14px; }
+/* Separate frame (not .card-photo itself) so it can carry the definite
+   height + position:relative next/image's fill mode needs as a containing
+   block — .card-photo also carries padding, which would eat into that box. */
+.card-photo-frame { position: relative; display: block; width: 100%; height: 288px; border-radius: 16px; overflow: hidden; }
+.card-photo img { object-fit: cover; }
+.card-photo.short .card-photo-frame { height: 230px; }
+
+/* ---- route chip: map demoted to a tappable summary that opens detail ---- */
+.routechip {
+  display: flex; align-items: center; gap: 12px; margin: 0 16px 14px;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px;
+  padding: 10px 12px; text-decoration: none; color: var(--ink); cursor: pointer;
+}
+.routechip:hover { border-color: rgba(242, 238, 228, 0.2); }
+.routechip .minimap { width: 60px; height: 44px; border-radius: 9px; overflow: hidden; flex: none; display: block; }
+.routechip .grow { flex: 1; min-width: 0; }
+.routechip b { display: block; font-size: 14px; font-weight: 700; }
+.routechip .rsub { font-size: 12.5px; color: var(--ink-dim); }
+.routechip .chev { color: var(--ink-dim); font-size: 19px; line-height: 0; }
+
+/* ---- back header (detail screens) ---- */
+.header .left .back { background: transparent; }
+.header .left .back svg { width: 24px; height: 24px; }
+
+/* ================================================================
+   2.0 — stats, crews, profile, achievements
+   ================================================================ */
+
+/* stat sublabel (e.g. streak explanation) */
+.stat .sub { font-size: 11px; color: var(--ink-dim); margin-top: 5px; font-weight: 500; line-height: 1.3; }
+
+/* ---- active-weeks strip: rest-week framing, not consecutive days ---- */
+.weeks { display: flex; gap: 6px; margin-top: 16px; }
+.weeks .cell { flex: 1; height: 40px; border-radius: 8px; background: var(--surface-2); }
+.weeks .cell.on { background: var(--accent); }
+.weeks .cell.rest { background: transparent; border: 1.5px dashed var(--line); }
+.weeks-legend { display: flex; gap: 16px; margin-top: 12px; font-size: 12px; color: var(--ink-dim); flex-wrap: wrap; }
+.weeks-legend span { display: flex; align-items: center; gap: 7px; }
+.weeks-legend i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+.weeks-legend i.on { background: var(--accent); }
+.weeks-legend i.rest { border: 1.5px dashed var(--line); }
+
+/* ---- discovery bars (types explored) ---- */
+.barrow { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.barrow .bl { width: 78px; font-size: 13.5px; color: var(--ink); font-weight: 600; }
+.barrow .track { flex: 1; height: 10px; border-radius: 6px; background: var(--surface-2); overflow: hidden; }
+.barrow .track i { display: block; height: 100%; background: var(--accent); border-radius: 6px; }
+.barrow .bn { width: 24px; text-align: right; font-size: 13.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* ---- achievements grid ---- */
+.ach-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ach-card { background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; padding: 15px; }
+.ach-card .ac-ic { width: 40px; height: 40px; border-radius: 11px; background: #20241b; display: grid; place-items: center; color: var(--honey); margin-bottom: 11px; }
+.ach-card .ac-ic svg { width: 21px; height: 21px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.ach-card b { font-size: 14px; font-weight: 800; display: block; letter-spacing: -0.01em; }
+.ach-card p { font-size: 12px; color: var(--ink-dim); line-height: 1.42; margin-top: 3px; }
+.ach-card .prog { margin-top: 11px; height: 5px; border-radius: 3px; background: #20241b; overflow: hidden; }
+.ach-card .prog i { display: block; height: 100%; background: var(--honey); border-radius: 3px; }
+.ach-card .pt { font-size: 11px; color: var(--ink-dim); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.ach-card.locked { opacity: 0.5; }
+.ach-card.locked .ac-ic { color: var(--ink-dim); }
+.ach-card.locked .prog i { background: var(--ink-dim); }
+
+/* ---- crew leaderboard: live scoreboard ---- */
+.lb .lr { display: flex; align-items: center; gap: 13px; padding: 13px 0; }
+.lb .lr + .lr { border-top: 1px solid var(--line); }
+.lb .rank { width: 24px; text-align: center; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink-dim); flex: none; }
+.lb .rank.top { color: var(--honey); }
+.lb .lr .grow { flex: 1; min-width: 0; }
+.lb .lr b { display: block; font-size: 14.5px; font-weight: 700; }
+.lb .lr span { font-size: 12.5px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.lb .score { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; flex: none; }
+.lb .lr.you b { color: var(--accent); }
+.lb .lr.you .score { color: var(--accent); }
+
+/* event banner (crew detail) */
+.event {
+  display: flex; align-items: center; gap: 12px; background: var(--surface-2);
+  border: 1px solid var(--line); border-radius: 12px; padding: 13px 14px; margin-bottom: 2px;
+}
+.event .ev-live { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 800; letter-spacing: 0.04em; color: var(--accent); text-transform: uppercase; }
+.event .ev-live .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.event .ev-end { margin-left: auto; font-size: 12.5px; color: var(--ink-dim); font-weight: 600; }
+
+/* member avatars stack */
+.members { display: flex; align-items: center; }
+.members .avatar { width: 30px; height: 30px; font-size: 11px; margin-left: -8px; border: 2px solid var(--surface); }
+.members .avatar:first-child { margin-left: 0; }
+
+/* segmented metric switch */
+.metric-seg { display: flex; gap: 8px; margin: 2px 0 8px; }
+.metric-seg .chip { flex: 1; justify-content: center; }

@@ -1,8 +1,15 @@
 {
-  "buildCommand": "npm run db:migrate && npm run build",
+  "buildCommand": "npm run version:generate && npm run prisma:generate && npm run db:migrate && npm run db:seed && npm run backfill:photos && npm run build",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "nextjs",
   "outputDirectory": ".next",
-  "regions": ["iad1"]
+  "regions": ["iad1"],
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "staging": true,
+      "**": false
+    }
+  }
 }

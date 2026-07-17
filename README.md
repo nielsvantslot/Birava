@@ -2,7 +2,7 @@
 
 > Strava, but for beer. Track your holiday beers, compete with friends, earn achievements.
 
-Birava is a mobile-first PWA built with Next.js, Supabase, and Tailwind CSS. Log beers, see stats, run a holiday leaderboard, and install it on your phone's home screen.
+Birava is a mobile-first PWA built with Next.js, Prisma, PostgreSQL, and Tailwind CSS. Log beers, see stats, run a holiday leaderboard, and install it on your phone's home screen.
 
 ---
 
@@ -27,7 +27,7 @@ Birava is a mobile-first PWA built with Next.js, Supabase, and Tailwind CSS. Log
 | Language | TypeScript |
 | Styling | Tailwind CSS v4 |
 | UI Components | Custom shadcn-style components |
-| Database | Supabase (Postgres + Auth + RLS) |
+| Database | PostgreSQL + Prisma ORM |
 | Charts | Recharts |
 | Animations | Framer Motion |
 | Confetti | canvas-confetti |
@@ -46,24 +46,7 @@ cd Brava
 npm install
 ```
 
-### 2. Create and link a Supabase project
-
-1. Go to [supabase.com](https://supabase.com) and create a new project
-2. Install and authenticate Supabase CLI:
-
-```bash
-npx supabase login
-```
-
-3. Link this repo to your project:
-
-```bash
-npx supabase link --project-ref your-project-ref
-```
-
-4. Copy your project URL and anon key from **Settings → API**
-
-### 3. Configure environment variables
+### 2. Configure environment variables
 
 ```bash
 cp .env.example .env
@@ -72,20 +55,42 @@ cp .env.example .env
 Edit `.env`:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+DATABASE_URL=postgresql://birava:birava@localhost:5432/birava?schema=public
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-### 4. Run locally
+### 3. Start local Postgres with Docker
 
 ```bash
+npm run db:up
+```
+
+### 4. Run migrations and start locally
+
+```bash
+npm run db:migrate:dev
 npm run dev
 ```
 
-`npm run dev` now automatically runs `supabase db push` first, so pending migrations in `supabase/migrations/` are applied without manually pasting SQL in the Supabase SQL editor.
-
 Open [http://localhost:3000](http://localhost:3000).
+
+### 5. Run app + database fully in Docker (with hot reload)
+
+```bash
+npm run docker:up
+```
+
+Then open [http://localhost:3000](http://localhost:3000).
+
+The app service bind-mounts your source code and runs Next.js in dev mode with polling enabled, so code changes auto-reload even when running in Docker Desktop.
+The first startup can take a bit longer because dependencies are installed in the container volume; subsequent starts reuse that cache and are much faster.
+
+Useful commands:
+
+```bash
+npm run docker:logs
+npm run docker:down
+```
 
 ---
 
@@ -102,9 +107,8 @@ Set the environment variables in Vercel dashboard under **Settings → Environme
 
 | Key | Value |
 |-----|-------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role key for server-side signup |
+| `DATABASE_URL` | Your production Postgres connection string |
+| `NEXT_PUBLIC_APP_URL` | Your app URL (e.g. `https://your-domain.com`) |
 
 ### Option B – GitHub Integration
 
@@ -162,7 +166,7 @@ beer_entries
   created_at    timestamptz
 ```
 
-All tables have Row Level Security enabled. Users can only read/write their own data, with exceptions for group members who can view each other's beer entries.
+Data access is handled in app logic and server actions using Prisma.
 
 ---
 
@@ -187,14 +191,16 @@ All tables have Row Level Security enabled. Users can only read/write their own 
 │   ├── beer/                    BeerCard, AddBeerDialog, StatCard, StatsCharts
 │   └── layout/                  TopBar, BottomNav, AddBeerFab
 ├── lib/
-│   ├── supabase/                client.ts, server.ts, middleware.ts
+│   ├── auth/                    session + password helpers
+│   ├── db.ts                    Prisma client singleton
 │   ├── types.ts                 TypeScript types
 │   ├── utils.ts                 Utility functions
 │   └── achievements.ts          Achievement logic + confetti
+├── prisma/
+│   ├── schema.prisma            Prisma schema
+│   └── migrations/              SQL migrations used by Prisma
+├── docker-compose.yml            Local PostgreSQL service
 ├── middleware.ts                 Auth redirect middleware
-├── supabase/
-│   ├── migrations/              Versioned SQL migrations used by Supabase CLI
-│   └── schema.sql               Canonical schema reference
 └── public/
     ├── manifest.json             PWA manifest
     └── icons/                   App icons (72–512px)

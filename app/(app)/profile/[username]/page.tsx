@@ -1,275 +1,242 @@
+import { Suspense } from "react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createClient, getUser } from "@/lib/supabase/server";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { FollowButton } from "@/components/beer/follow-button";
-import { getEarnedAchievements } from "@/lib/achievements";
-import { BeerEntry } from "@/lib/types";
-import { formatDate } from "@/lib/utils";
-import { Beer } from "lucide-react";
-
+import { getCurrentUser } from "@/lib/auth/session";
+import { getUserTimeZone } from "@/lib/timezone";
+import { getDrinkHistoryForUser, getRecentSessionsForUser } from "@/lib/controllers/drinkController";
+import { getProfileByUsername } from "@/lib/controllers/profileController";
+import { getFollowCounts, isFollowingUser } from "@/lib/controllers/socialController";
+import {
+  groupIntoSessions,
+  activeWeeks,
+  sessionTitle,
+} from "@/lib/sessions";
+import { computeAchievements } from "@/lib/achievements";
+import { relativeDay } from "@/lib/dates";
+import { avatarSrc } from "@/lib/utils";
+import { FollowButton } from "@/components/drink/follow-button";
+import { AchievementGlyph } from "@/components/drink/achievement-icon";
+import type { ProfileDTO, SessionUserDTO } from "@/lib/dtos";
+import { Skeleton, SkeletonAvatarRow } from "@/components/ui/skeleton";
 
 interface Props {
   params: Promise<{ username: string }>;
 }
 
-function getStreak(entries: { created_at: string }[]): number {
-  if (!entries.length) return 0;
-  const days = new Set(
-    entries.map((e) => new Date(e.created_at).toLocaleDateString())
-  );
-  const daysArr = Array.from(days).sort(
-    (a, b) => new Date(b).getTime() - new Date(a).getTime()
-  );
-  let streak = 0;
-  const check = new Date();
-  for (const day of daysArr) {
-    const d = new Date(day);
-    if (
-      d.getDate() === check.getDate() &&
-      d.getMonth() === check.getMonth() &&
-      d.getFullYear() === check.getFullYear()
-    ) {
-      streak++;
-      check.setDate(check.getDate() - 1);
-    } else {
-      break;
-    }
-  }
-  return streak;
-}
-
-function getAvgPerDay(entries: { created_at: string; amount: number }[]): string {
-  if (!entries.length) return "0";
-  const days = new Set(
-    entries.map((e) => new Date(e.created_at).toLocaleDateString())
-  );
-  const total = entries.reduce((sum, e) => sum + e.amount, 0);
-  return (total / days.size).toFixed(1);
-}
-
 export default async function PublicProfilePage({ params }: Props) {
   const { username } = await params;
-  const supabase = await createClient();
-  const currentUser = await getUser();
+  // targetUser has to resolve before anything can render at all (notFound(),
+  // and every section below needs its id/username/avatar) — currentUser is
+  // needed alongside it just to know whether this is the viewer's own
+  // profile. Everything else each section separately needs (tz, follow
+  // counts/state, history, recent sessions) streams in behind its own
+  // Suspense instead of gating on the whole set up front.
+  const [currentUser, targetUser] = await Promise.all([
+    getCurrentUser(),
+    getProfileByUsername({ username }),
+  ]);
+  if (!targetUser) notFound();
 
-  // Fetch the target profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, username, avatar_url, created_at")
-    .eq("username", username)
-    .single();
+  return (
+    <>
+      <Suspense fallback={<ProfileHeadSkeleton />}>
+        <PublicProfileMain currentUser={currentUser} targetUser={targetUser} />
+      </Suspense>
 
-  if (!profile) notFound();
+      <Suspense fallback={<RecentSessionsSkeleton />}>
+        <RecentSessionsLoader userId={targetUser.id} />
+      </Suspense>
+    </>
+  );
+}
 
-  // If viewing own profile, redirect to /profile
-  // (We still render the public view here for simplicity)
+async function PublicProfileMain({
+  currentUser,
+  targetUser,
+}: {
+  currentUser: SessionUserDTO | null;
+  targetUser: ProfileDTO;
+}) {
+  const isOwnProfile = currentUser?.id === targetUser.id;
 
-  const isOwnProfile = currentUser?.id === profile.id;
+  const [tz, isFollowing, counts, entries] = await Promise.all([
+    getUserTimeZone(),
+    currentUser && !isOwnProfile
+      ? isFollowingUser({ targetUserId: targetUser.id })
+      : Promise.resolve(false),
+    getFollowCounts({ profileId: targetUser.id }),
+    getDrinkHistoryForUser({ userId: targetUser.id }),
+  ]);
+  const { followers: followerCount, following: followingCount } = counts;
 
-  // Fetch follow status and counts in parallel
-  const [followCheckResult, followCountsResult, entriesResult] =
-    await Promise.all([
-      currentUser && !isOwnProfile
-        ? supabase
-            .from("follows")
-            .select("follower_id")
-            .eq("follower_id", currentUser.id)
-            .eq("following_id", profile.id)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-      supabase.rpc("get_follow_counts", { profile_id: profile.id }),
-      supabase
-        .from("beer_entries")
-        .select("id, beer_name, brewery, style, amount, notes, created_at, user_id")
-        .eq("user_id", profile.id)
-        .order("created_at", { ascending: false })
-        .limit(20),
-    ]);
+  const sessions = groupIntoSessions(entries);
+  const weeks = activeWeeks(sessions, tz);
+  const venues = new Set(
+    entries.map((e) => e.venue?.trim()).filter((v): v is string => !!v)
+  );
+  const types = new Set(entries.map((e) => e.drink_type).filter(Boolean));
+  const earned = computeAchievements(entries, tz).filter((a) => a.earned);
 
-  const isFollowing = followCheckResult.data !== null;
-  const followerCount = Number(followCountsResult.data?.[0]?.followers ?? 0);
-  const followingCount = Number(followCountsResult.data?.[0]?.following ?? 0);
-
-  const entries = (entriesResult.data ?? []) as BeerEntry[];
-  const totalBeers = entries.reduce((sum, e) => sum + e.amount, 0);
-  const streak = getStreak(entries);
-  const avgPerDay = getAvgPerDay(entries);
-  const achievements = getEarnedAchievements(totalBeers);
-  const memberSince = new Date(profile.created_at).toLocaleDateString("en-US", {
+  const memberSince = new Date(targetUser.createdAt).toLocaleDateString("en-GB", {
     month: "long",
     year: "numeric",
   });
 
   return (
-    <div className="space-y-6 py-4">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-black">Profile 👤</h1>
-        <p className="text-[var(--muted-foreground)] text-sm mt-0.5">
-          @{profile.username}
-        </p>
-      </div>
-
-      {/* Avatar + identity */}
-      <Card>
-        <CardContent className="pt-5 pb-5">
-          <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16 text-xl">
-              {profile.avatar_url && <AvatarImage src={profile.avatar_url} />}
-              <AvatarFallback className="bg-[var(--primary)]/20 text-[var(--primary)] font-black">
-                {profile.username[0]?.toUpperCase() ?? "?"}
-              </AvatarFallback>
-            </Avatar>
-
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-lg truncate">{profile.username}</p>
-              <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
-                Member since {memberSince}
-              </p>
-              <div className="flex gap-4 mt-1.5 text-xs text-[var(--muted-foreground)]">
-                <span>
-                  <span className="font-semibold text-[var(--foreground)]">
-                    {followerCount}
-                  </span>{" "}
-                  followers
-                </span>
-                <span>
-                  <span className="font-semibold text-[var(--foreground)]">
-                    {followingCount}
-                  </span>{" "}
-                  following
-                </span>
-              </div>
-            </div>
-
-            {!isOwnProfile && currentUser && (
-              <FollowButton
-                targetUserId={profile.id}
-                initialIsFollowing={isFollowing}
-              />
+    <>
+      <div className="section flush">
+        <div className="profile-head">
+          <div className="avatar">
+            {targetUser.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatarSrc(targetUser.id)} alt={targetUser.username} />
+            ) : (
+              targetUser.username.slice(0, 2).toUpperCase()
             )}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Stats */}
-      <div>
-        <h2 className="text-sm font-semibold text-[var(--muted-foreground)] uppercase tracking-wide mb-3">
-          Stats
-        </h2>
-        <div className="grid grid-cols-3 gap-3">
-          <Card className="border-[var(--primary)] bg-[var(--primary)]/5">
-            <CardContent className="pt-4 pb-4 text-center">
-              <p className="text-2xl font-black text-[var(--primary)]">
-                {totalBeers}
-              </p>
-              <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
-                Total 🍺
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 pb-4 text-center">
-              <p className="text-2xl font-black">{streak}d</p>
-              <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
-                Streak 🔥
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 pb-4 text-center">
-              <p className="text-2xl font-black">{avgPerDay}</p>
-              <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
-                Avg/day 📊
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Achievements */}
-      {achievements.length > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold text-[var(--muted-foreground)] uppercase tracking-wide mb-3">
-            Achievements
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {achievements.map((a) => (
-              <div
-                key={a.id}
-                className="flex items-center gap-1.5 rounded-full bg-[var(--primary)]/10 border border-[var(--primary)]/20 px-3 py-1.5"
-              >
-                <span className="text-lg">{a.emoji}</span>
-                <div>
-                  <p className="text-sm font-semibold text-[var(--primary)] leading-tight">
-                    {a.label}
-                  </p>
-                  <p className="text-xs text-[var(--muted-foreground)] leading-tight">
-                    {a.description}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Recent beers */}
-      <div>
-        <h2 className="text-sm font-semibold text-[var(--muted-foreground)] uppercase tracking-wide mb-3">
-          Recent Beers
-        </h2>
-        {entries.length > 0 ? (
-          <div className="space-y-2">
-            {entries.map((entry) => (
-              <Card key={entry.id}>
-                <CardContent className="py-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--primary)]/10 text-[var(--primary)]">
-                      <Beer className="h-5 w-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold">
-                          {entry.beer_name ?? "Beer"}
-                        </span>
-                        {entry.amount !== 1 && (
-                          <Badge variant="secondary">×{entry.amount}</Badge>
-                        )}
-                        {entry.style && (
-                          <Badge variant="outline">{entry.style}</Badge>
-                        )}
-                      </div>
-                      {entry.brewery && (
-                        <p className="text-sm text-[var(--muted-foreground)] mt-0.5">
-                          {entry.brewery}
-                        </p>
-                      )}
-                      {entry.notes && (
-                        <p className="text-sm text-[var(--foreground)]/70 mt-1 italic">
-                          &ldquo;{entry.notes}&rdquo;
-                        </p>
-                      )}
-                      <p className="text-xs text-[var(--muted-foreground)] mt-1">
-                        {formatDate(entry.created_at)}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-10 text-center">
-            <span className="text-4xl mb-2">🍺</span>
-            <p className="text-sm text-[var(--muted-foreground)]">
-              No beers logged yet.
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1>{targetUser.username}</h1>
+            <p>
+              member since {memberSince} · {followerCount} followers ·{" "}
+              {followingCount} following
             </p>
           </div>
-        )}
+          {!isOwnProfile && currentUser && (
+            <FollowButton
+              targetUserId={targetUser.id}
+              initialIsFollowing={isFollowing}
+            />
+          )}
+        </div>
+        <div style={{ padding: "0 16px 20px" }}>
+          <div className="stats">
+            <div className="stat">
+              <div className="label">Sessions</div>
+              <div className="num">{sessions.length}</div>
+            </div>
+            <div className="stat">
+              <div className="label">Venues</div>
+              <div className="num">{venues.size}</div>
+            </div>
+            <div className="stat">
+              <div className="label">Types tried</div>
+              <div className="num">{types.size}</div>
+            </div>
+            <div className="stat">
+              <div className="label">Active wks</div>
+              <div className="num">{weeks.current}</div>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {earned.length > 0 && (
+        <div className="section">
+          <div className="h-row">
+            <h3>Achievements</h3>
+          </div>
+          {earned.map((a) => (
+            <div key={a.id} className="row">
+              <div className="rowmark ach">
+                <AchievementGlyph icon={a.icon} />
+              </div>
+              <div className="grow">
+                <b>{a.label}</b>
+                <span>{a.progressText}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+async function RecentSessionsLoader({ userId }: { userId: string }) {
+  // Independent reads — run in parallel (F2). Fetched from the real
+  // DrinkSession rows, not re-derived from raw check-ins — a session's id
+  // is permanent once created, so recomputing it from raw check-ins could
+  // disagree with the stored id after a backdated (offline-sync) check-in
+  // became chronologically first.
+  const [tz, recentSessions] = await Promise.all([
+    getUserTimeZone(),
+    getRecentSessionsForUser({ userId, limit: 3 }),
+  ]);
+
+  return (
+    <div className="section">
+      <div className="h-row">
+        <h3>Recent sessions</h3>
+      </div>
+      {recentSessions.length === 0 ? (
+        <p style={{ fontSize: 14, color: "var(--ink-dim)" }}>
+          No sessions yet.
+        </p>
+      ) : (
+        recentSessions.map((session) => {
+          const meta = [
+            `${session.checkins.length} check-in${session.checkins.length === 1 ? "" : "s"}`,
+            session.venues.length
+              ? `${session.venues.length} venue${session.venues.length === 1 ? "" : "s"}`
+              : null,
+            relativeDay(new Date(session.start), tz).toLowerCase(),
+          ]
+            .filter(Boolean)
+            .join(" · ");
+          return (
+            <Link
+              key={session.id}
+              href={`/sessions/${session.id}`}
+              className="row"
+              style={{ textDecoration: "none", color: "inherit" }}
+            >
+              <div className="rowmark">
+                <svg viewBox="0 0 24 24">
+                  <path d="M9 3h6M12 3v4"></path>
+                  <path d="M7 21c-2 0-3-1.6-3-3.5C4 13 7 11 12 11s8 2 8 6.5c0 1.9-1 3.5-3 3.5z"></path>
+                </svg>
+              </div>
+              <div className="grow">
+                <b>{sessionTitle(session, tz)}</b>
+                <span>{meta}</span>
+              </div>
+              <span className="chev">›</span>
+            </Link>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+function ProfileHeadSkeleton() {
+  return (
+    <div className="space-y-4 py-4 px-1">
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-16 w-16 rounded-full shrink-0" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-3.5 w-48" />
+        </div>
+      </div>
+      <div className="grid grid-cols-4 gap-3">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="space-y-1.5 text-center">
+            <Skeleton className="h-6 w-8 mx-auto" />
+            <Skeleton className="h-3 w-12 mx-auto" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RecentSessionsSkeleton() {
+  return (
+    <div className="space-y-2 py-2">
+      {[...Array(3)].map((_, i) => (
+        <SkeletonAvatarRow key={i} line1Width="w-36" line2Width="w-20" />
+      ))}
     </div>
   );
 }

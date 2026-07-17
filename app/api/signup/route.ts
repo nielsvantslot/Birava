@@ -1,85 +1,17 @@
-import { createClient } from "@supabase/supabase-js";
-
-type SignupPayload = {
-  username?: unknown;
-  email?: unknown;
-  password?: unknown;
-};
+import { createUser } from "@/lib/commands/userCommands";
+import { JsonSerializer } from "@/lib/http/jsonSerializer";
+import { AuthResultDTO, CreateUserDTO } from "@/lib/dtos";
 
 export async function POST(request: Request) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return Response.json(
-      { error: "Signup is not configured yet. Missing Supabase server credentials." },
-      { status: 500 }
-    );
+  const input = await JsonSerializer.deserialize(request, CreateUserDTO);
+  if (!input) {
+    return Response.json({ error: "Invalid request body." } satisfies AuthResultDTO, { status: 400 });
   }
 
-  let body: SignupPayload;
-
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "Invalid request body." }, { status: 400 });
+  const result = await createUser(input);
+  if (result.error) {
+    return Response.json({ error: result.error } satisfies AuthResultDTO, { status: 400 });
   }
 
-  const username = typeof body.username === "string" ? body.username.trim() : "";
-  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-  const password = typeof body.password === "string" ? body.password : "";
-
-  if (username.length < 2 || username.length > 30) {
-    return Response.json(
-      { error: "Username must be between 2 and 30 characters." },
-      { status: 400 }
-    );
-  }
-
-  if (!email) {
-    return Response.json({ error: "Email is required." }, { status: 400 });
-  }
-
-  if (password.length < 8) {
-    return Response.json(
-      { error: "Password must be at least 8 characters." },
-      { status: 400 }
-    );
-  }
-
-  const supabase = createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-
-  let createError: unknown = null;
-  try {
-    const { error } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: {
-        username,
-      },
-    });
-    createError = error;
-  } catch (err) {
-    createError = err;
-  }
-
-  if (createError) {
-    const raw =
-      createError instanceof Error ? createError.message : String(createError);
-    // auth-js returns "{}" as the message when Supabase responds with a 5xx and
-    // the response body cannot be extracted from the raw Response object.
-    const message =
-      raw && raw !== "{}"
-        ? raw
-        : "Failed to create account. Please try again.";
-    return Response.json({ error: message }, { status: 400 });
-  }
-
-  return Response.json({ success: true });
+  return Response.json({ success: true } satisfies AuthResultDTO);
 }

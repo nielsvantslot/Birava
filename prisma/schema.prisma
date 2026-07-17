@@ -1,0 +1,188 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String             @id @default(uuid()) @db.Uuid
+  email             String             @unique
+  username          String             @unique
+  passwordHash      String
+  avatarUrl         String?
+  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
+  drinkEntries      DrinkEntry[]
+  drinkSessions     DrinkSession[]
+  ownedGroups       Group[]            @relation("GroupOwner")
+  groupMemberships  GroupMember[]
+  follows           Follow[]           @relation("FollowFollower")
+  followedBy        Follow[]           @relation("FollowFollowing")
+  sessions          Session[]
+  cheers            Cheer[]
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
+  comments          Comment[]
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @db.Uuid
+  sessionToken String   @unique
+  expiresAt    DateTime @db.Timestamptz(6)
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Group {
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String
+  inviteCode   String        @unique
+  ownerId      String        @db.Uuid
+  createdAt    DateTime      @default(now()) @db.Timestamptz(6)
+  owner        User          @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members      GroupMember[]
+
+  @@index([ownerId])
+}
+
+model GroupMember {
+  groupId  String   @db.Uuid
+  userId   String   @db.Uuid
+  joinedAt DateTime @default(now()) @db.Timestamptz(6)
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, userId])
+  @@index([userId])
+}
+
+model DrinkEntry {
+  id        String        @id @default(uuid()) @db.Uuid
+  userId    String        @db.Uuid
+  sessionId String        @db.Uuid
+  drinkName String?
+  drinkType String        @default("Beer")
+  venue     String?
+  lat       Decimal?      @db.Decimal(9, 6)
+  lng       Decimal?      @db.Decimal(9, 6)
+  notes     String?
+  photoUrl  String?
+  /// Tiny base64 blurred placeholder generated at upload time, rendered via
+  /// next/image's placeholder="blur" while the real photo streams in.
+  photoLqip String?
+  createdAt DateTime      @default(now()) @db.Timestamptz(6)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session   DrinkSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([sessionId])
+}
+
+/// A drink session: check-ins auto-grouped by a 4-hour inactivity gap
+/// (lib/sessions.ts's SESSION_GAP_MS). Its id is always its anchor (first)
+/// check-in's id, set explicitly at creation — never DB-generated — so
+/// existing /sessions/[id] links, share images, and Cheer/Comment rows stay
+/// valid across merges/splits without a redirect table.
+model DrinkSession {
+  id        String       @id @db.Uuid
+  userId    String       @db.Uuid
+  startedAt DateTime     @db.Timestamptz(6)
+  endedAt   DateTime     @db.Timestamptz(6)
+  name      String?
+  /// Cached rendered share-image variants (lib/shareImageCache.ts) — storage
+  /// keys/URLs, not the bytes themselves. Null means "not cached, or stale":
+  /// every command that changes this session's entries or name nulls both
+  /// out, and app/api/sessions/[id]/share-image/route.tsx regenerates and
+  /// re-populates them on the next request.
+  shareImageOpaqueUrl      String?
+  shareImageTransparentUrl String?
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries   DrinkEntry[]
+  cheers    Cheer[]
+  comments  Comment[]
+
+  @@index([userId, endedAt])
+}
+
+/// A "cheers" (kudos) on a session.
+model Cheer {
+  sessionId String       @db.Uuid
+  userId    String       @db.Uuid
+  createdAt DateTime     @default(now()) @db.Timestamptz(6)
+  session   DrinkSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([sessionId, userId])
+}
+
+/// A comment on a session.
+model Comment {
+  id        String       @id @default(uuid()) @db.Uuid
+  sessionId String       @db.Uuid
+  userId    String       @db.Uuid
+  body      String
+  createdAt DateTime     @default(now()) @db.Timestamptz(6)
+  session   DrinkSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+}
+
+model Follow {
+  followerId  String   @db.Uuid
+  followingId String   @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  follower    User     @relation("FollowFollower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("FollowFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+enum NotificationType {
+  CHEER
+  FOLLOW
+  CREW_JOIN
+  CREW_CHECKIN
+  ACHIEVEMENT
+  SESSION_START
+}
+
+/// An in-app + push notification event. Actor/group display text is frozen
+/// at write time (not joined live) so the feed reads correctly even after
+/// the actor renames or deletes their account.
+model Notification {
+  id               String           @id @default(uuid()) @db.Uuid
+  userId           String           @db.Uuid
+  type             NotificationType
+  actorId          String?          @db.Uuid
+  actorUsername    String?
+  actorAvatarUrl   String?
+  entryId          String?          @db.Uuid
+  groupId          String?          @db.Uuid
+  groupName        String?
+  achievementLabel String?
+  readAt           DateTime?
+  createdAt        DateTime         @default(now()) @db.Timestamptz(6)
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}

@@ -81,3 +81,49 @@ export function SkeletonInputRow({ buttonWidth = "w-20" }: { buttonWidth?: strin
     </div>
   );
 }
+
+// A dashboard-feed session card's shape — built from the app's own native
+// classes (.who, .act-title, .act-stats, .card-photo, .social.acts —
+// app/globals.css), not the generic Tailwind card shell the rest of this
+// file uses, since the real SessionCard doesn't use that shell either.
+// Shared between app/(app)/dashboard/loading.tsx and dashboard/page.tsx's
+// FeedSkeleton so the two can't drift apart the way stats's did.
+export function SessionCardSkeleton() {
+  return (
+    <div className="section flush">
+      <div className="who">
+        <Skeleton className="h-[42px] w-[42px] rounded-full shrink-0" />
+        <div className="flex-1 space-y-1.5">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-3 w-32" />
+        </div>
+      </div>
+      <div style={{ padding: "2px 16px 12px" }}>
+        <Skeleton className="h-6 w-48" />
+      </div>
+      <div className="act-stats">
+        <div className="stats">
+          {[0, 1, 2].map((i) => (
+            <div className="stat" key={i}>
+              <Skeleton className="h-3 w-14 mb-1.5" />
+              <Skeleton className="h-5 w-10" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="card-photo">
+        <div className="card-photo-frame">
+          <Skeleton className="absolute inset-0 rounded-none" />
+        </div>
+      </div>
+      <div className="social acts">
+        {/* .act's own margin-right creates the real gap between icons — this
+            row isn't built from .act elements, so the spacing is added here
+            explicitly instead of relying on .social.acts's gap:0. */}
+        <Skeleton className="h-5 w-16 mr-6" />
+        <Skeleton className="h-5 w-20 mr-6" />
+        <Skeleton className="h-5 w-14" />
+      </div>
+    </div>
+  );
+}

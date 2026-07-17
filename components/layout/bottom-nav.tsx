@@ -1,44 +1,38 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, BarChart2, Trophy, Rss } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const navItems = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Home" },
-  { href: "/stats", icon: BarChart2, label: "Stats" },
-  { href: "/leaderboard", icon: Trophy, label: "Board" },
-  { href: "/feed", icon: Rss, label: "Feed" },
-];
+import { NAV_ITEMS } from "@/components/layout/nav-items";
 
 export function BottomNav() {
-  const pathname = usePathname();
-
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border)] bg-[var(--card)] safe-bottom">
-      <div className="flex items-center justify-around px-2 py-2">
-        {navItems.map(({ href, icon: Icon, label }) => {
-          const active = pathname === href;
+    <Suspense fallback={<NavInner pathname="" />}>
+      <NavInnerWithPathname />
+    </Suspense>
+  );
+}
+
+function NavInnerWithPathname() {
+  const pathname = usePathname();
+  return <NavInner pathname={pathname} />;
+}
+
+function NavInner({ pathname }: { pathname: string }) {
+  return (
+    <div className="navwrap fixed bottom-0 left-0 right-0 z-40 md:hidden">
+      <nav className="nav">
+        {NAV_ITEMS.map(({ href, label, icon }) => {
+          const active = pathname === href || pathname.startsWith(href + "/");
           return (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all",
-                active
-                  ? "text-[var(--primary)]"
-                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-              )}
-            >
-              <Icon
-                className={cn("h-5 w-5", active && "stroke-[2.5px]")}
-              />
-              <span className="text-[10px] font-medium">{label}</span>
+            <Link key={href} href={href} className={cn(active && "active")}>
+              {icon}
+              {label}
             </Link>
           );
         })}
-      </div>
-    </nav>
+      </nav>
+    </div>
   );
 }

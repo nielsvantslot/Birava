@@ -1,29 +1,19 @@
-import { createClient, getUser } from "@/lib/supabase/server";
-import { PeopleClient } from "@/components/beer/people-client";
-
+import { getCurrentUser } from "@/lib/auth/session";
+import { getMyFollowingIds } from "@/lib/controllers/socialController";
+import { PeopleClient } from "@/components/drink/people-client";
 
 export default async function PeoplePage() {
-  const supabase = await createClient();
-  const user = await getUser();
+  const user = await getCurrentUser();
   if (!user) return null;
 
-  // Load the IDs the current user already follows
-  const { data: follows } = await supabase
-    .from("follows")
-    .select("following_id")
-    .eq("follower_id", user.id);
-
-  const followingIds = new Set((follows ?? []).map((f) => f.following_id));
+  const followingIds = await getMyFollowingIds();
 
   return (
-    <div className="space-y-6 py-4">
-      <div>
-        <h1 className="text-2xl font-black">People 🤝</h1>
-        <p className="text-[var(--muted-foreground)] text-sm mt-0.5">
-          Find and follow friends
-        </p>
+    <div className="section">
+      <div className="h-row" style={{ marginBottom: 6 }}>
+        <h3>Find people</h3>
       </div>
-      <PeopleClient followingIds={[...followingIds]} currentUserId={user.id} />
+      <PeopleClient followingIds={followingIds} currentUserId={user.id} />
     </div>
   );
 }

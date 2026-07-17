@@ -4,25 +4,32 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Beer } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import type { AuthResultDTO } from "@/lib/dtos";
 
 export default function SignupPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
-    const supabase = createClient();
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
 
     const response = await fetch("/api/signup", {
       method: "POST",
@@ -36,7 +43,7 @@ export default function SignupPage() {
       }),
     });
 
-    const result = (await response.json().catch(() => null)) as { error?: string } | null;
+    const result = (await response.json().catch(() => null)) as AuthResultDTO | null;
 
     if (!response.ok) {
       setError(result?.error ?? "Unable to create account.");
@@ -44,13 +51,19 @@ export default function SignupPage() {
       return;
     }
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
-      password,
+    const loginResponse = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+        password,
+      }),
     });
 
-    if (signInError) {
-      setError(signInError.message);
+    const loginResult = (await loginResponse.json().catch(() => null)) as AuthResultDTO | null;
+
+    if (!loginResponse.ok) {
+      setError(loginResult?.error ?? "Unable to sign in.");
       setLoading(false);
       return;
     }
@@ -64,11 +77,11 @@ export default function SignupPage() {
     <div className="space-y-6">
       <div className="text-center space-y-2">
         <div className="flex justify-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--primary)] shadow-lg shadow-orange-500/30">
-            <Beer className="h-8 w-8 text-white" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--primary)] shadow-lg">
+            <Beer className="h-8 w-8 text-[var(--accent-ink)]" />
           </div>
         </div>
-        <h1 className="text-3xl font-black">Birava 🍺</h1>
+        <h1 className="text-3xl font-black">Birava</h1>
         <p className="text-[var(--muted-foreground)] text-sm">
           Create your account
         </p>
@@ -77,7 +90,7 @@ export default function SignupPage() {
       <Card>
         <CardHeader>
           <CardTitle>Sign up</CardTitle>
-          <CardDescription>Start tracking your holiday beers</CardDescription>
+          <CardDescription>Log your first check-in tonight</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignup} className="space-y-4">
@@ -85,7 +98,7 @@ export default function SignupPage() {
               <Label htmlFor="username">Username</Label>
               <Input
                 id="username"
-                placeholder="beerlover42"
+                placeholder="drinklover42"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
@@ -107,12 +120,23 @@ export default function SignupPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="password">Password</Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 placeholder="At least 8 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="confirmPassword">Confirm password</Label>
+              <PasswordInput
+                id="confirmPassword"
+                placeholder="Repeat your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 minLength={8}
                 autoComplete="new-password"
@@ -126,7 +150,7 @@ export default function SignupPage() {
             )}
 
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? "Creating account..." : "Create account 🍺"}
+              {loading ? "Creating account..." : "Create account"}
             </Button>
           </form>
         </CardContent>

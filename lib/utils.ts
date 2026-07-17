@@ -12,6 +12,7 @@ export function formatDate(date: string | Date) {
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    timeZone: "UTC",
   }).format(new Date(date));
 }
 
@@ -19,6 +20,7 @@ export function formatDateShort(date: string | Date) {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
+    timeZone: "UTC",
   }).format(new Date(date));
 }
 
@@ -34,4 +36,13 @@ export function isToday(date: string | Date) {
 
 export function generateInviteCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+export function drinkPhotoSrc(entryId: string, size?: "thumb") {
+  return size ? `/api/photos/${entryId}?size=${size}` : `/api/photos/${entryId}`;
+}
+
+/** Avatars are stored as private blobs (like check-in photos) — always render through this proxy, never the raw stored URL directly. */
+export function avatarSrc(userId: string) {
+  return `/api/avatars/${userId}`;
 }

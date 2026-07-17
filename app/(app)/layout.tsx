@@ -1,10 +1,15 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { createClient, getUser } from "@/lib/supabase/server";
-import { TopBar } from "@/components/layout/top-bar";
+import { getCurrentUser } from "@/lib/auth/session";
+import { getMyUnreadNotificationCount } from "@/lib/controllers/notificationController";
+import { AppHeader } from "@/components/layout/app-header";
 import { BottomNav } from "@/components/layout/bottom-nav";
-import { AddBeerFab } from "@/components/beer/add-beer-fab";
-import { Beer, LayoutDashboard, BarChart2, Trophy, Rss } from "lucide-react";
+import { SidebarNav } from "@/components/layout/sidebar-nav";
+import { RightRail } from "@/components/layout/right-rail";
+import { ToastPill } from "@/components/ui/toast-pill";
+import { TimezoneSync } from "@/components/timezone-sync";
+import { PendingCheckinsSync } from "@/components/drink/pending-checkins-sync";
+import { drinkPhotoService } from "@/lib/photoUpload";
 
 export default function AppLayout({
   children,
@@ -12,81 +17,83 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col min-h-screen bg-[var(--background)]">
-      <Suspense fallback={<TopBarSkeleton />}>
-        <TopBarLoader />
+    <div className="flex flex-col min-h-screen bg-[var(--bg)]">
+      {/* usePathname reads request data — must sit inside Suspense under cacheComponents.
+          Fixed to the viewport edge, outside the centered block below. */}
+      <Suspense fallback={null}>
+        <SidebarNavLoader />
       </Suspense>
-      <main className="flex-1 overflow-y-auto pb-24 pt-2">
-        <div className="max-w-2xl mx-auto px-4">{children}</div>
-      </main>
-      <Suspense fallback={<BottomNavFallback />}>
+      <div className="flex flex-col md:flex-row md:gap-10 flex-1 w-full">
+        <div
+          className="w-full max-w-lg mx-auto md:mr-0 flex flex-col flex-1 md:flex-none min-w-0
+            md:max-w-2xl
+            md:ml-[max(76px,calc((100%-672px)/2))]
+            xl:ml-[max(240px,calc((100%-672px)/2))]"
+        >
+          <Suspense fallback={<HeaderSkeleton />}>
+            <AppHeaderLoader />
+          </Suspense>
+          {/* Pages read cookies (getCurrentUser) at render; under cacheComponents
+              that dynamic access must stream inside a Suspense boundary. Routes
+              with their own loading.tsx use that nested boundary instead. */}
+          <main className="flex-1 pb-28">
+            <Suspense fallback={null}>{children}</Suspense>
+          </main>
+        </div>
+        <Suspense fallback={null}>
+          <RightRailLoader />
+        </Suspense>
+      </div>
+      <Suspense fallback={null}>
         <BottomNav />
       </Suspense>
+      <ToastPill />
+      <TimezoneSync />
       <Suspense fallback={null}>
-        <AddBeerFab />
+        <PendingCheckinsSyncLoader />
       </Suspense>
     </div>
   );
 }
 
-async function TopBarLoader() {
-  const user = await getUser();
+async function PendingCheckinsSyncLoader() {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  return <PendingCheckinsSync userId={user.id} supportsDirectUpload={drinkPhotoService.supportsDirectUpload} />;
+}
+
+async function AppHeaderLoader() {
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("username, avatar_url")
-    .eq("id", user.id)
-    .single();
-
-  return (
-    <TopBar
-      username={profile?.username ?? user.email?.split("@")[0]}
-      avatarUrl={profile?.avatar_url}
-    />
-  );
+  const unreadCount = await getMyUnreadNotificationCount();
+  return <AppHeader userId={user.id} username={user.username} avatarUrl={user.avatarUrl} unreadCount={unreadCount} />;
 }
 
-function TopBarSkeleton() {
+async function SidebarNavLoader() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const unreadCount = await getMyUnreadNotificationCount();
+  return <SidebarNav userId={user.id} username={user.username} avatarUrl={user.avatarUrl} unreadCount={unreadCount} />;
+}
+
+async function RightRailLoader() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  return <RightRail userId={user.id} username={user.username} avatarUrl={user.avatarUrl} />;
+}
+
+function HeaderSkeleton() {
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-lg">
-      <div className="flex items-center justify-between px-4 py-3 max-w-2xl mx-auto">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--primary)]">
-            <Beer className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-xl font-black tracking-tight text-[var(--foreground)]">
-            Birava
-          </span>
-        </div>
-        <div className="h-8 w-8 rounded-full bg-[var(--muted)] animate-pulse" />
+    <header className="header sticky top-0 z-40 md:!hidden">
+      <div className="left">
+        <div className="hicon avatar-btn" />
       </div>
+      <div className="title" />
+      <div className="right" />
     </header>
-  );
-}
-
-const NAV_ITEMS = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Home" },
-  { href: "/stats", icon: BarChart2, label: "Stats" },
-  { href: "/leaderboard", icon: Trophy, label: "Board" },
-  { href: "/feed", icon: Rss, label: "Feed" },
-];
-
-function BottomNavFallback() {
-  return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border)] bg-[var(--card)] safe-bottom">
-      <div className="flex items-center justify-around px-2 py-2">
-        {NAV_ITEMS.map(({ href, icon: Icon, label }) => (
-          <div
-            key={href}
-            className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-[var(--muted-foreground)]"
-          >
-            <Icon className="h-5 w-5" />
-            <span className="text-[10px] font-medium">{label}</span>
-          </div>
-        ))}
-      </div>
-    </nav>
   );
 }
