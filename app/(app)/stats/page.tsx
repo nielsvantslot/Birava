@@ -7,7 +7,6 @@ import { groupIntoSessions, activeWeeks } from "@/lib/sessions";
 import { computeAchievements } from "@/lib/achievements";
 import { weekIndex } from "@/lib/dates";
 import { DRINK_TYPES } from "@/lib/types";
-import { ScreenTabs } from "@/components/ui/screen-tabs";
 import { AchievementGlyph } from "@/components/drink/achievement-icon";
 import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 
@@ -84,20 +83,9 @@ export default async function StatsPage() {
   if (!user) return null;
 
   return (
-    <>
-      {/* Tabs need none of the stats data below — render immediately
-          instead of waiting behind the same fetch as everything else. */}
-      <ScreenTabs
-        tabs={[
-          { label: "Overview", active: true },
-          { label: "Sessions", toast: "Full session history — soon" },
-          { label: "Records", toast: "Personal records — soon" },
-        ]}
-      />
-      <Suspense fallback={<StatsBodySkeleton />}>
-        <StatsBody />
-      </Suspense>
-    </>
+    <Suspense fallback={<StatsBodySkeleton />}>
+      <StatsBody />
+    </Suspense>
   );
 }
 
