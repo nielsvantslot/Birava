@@ -8,6 +8,8 @@ export interface DirectUploadEndpoints {
   readonly finalizeUrl: string;
   /** Must match the service's `keyPrefix(ownerId)` for this caller. */
   readonly keyPrefix: string;
+  /** Must match the service's storage adapter access mode. @default "private" */
+  readonly access?: "public" | "private";
   /** @default new VercelBlobDirectUploadTransport() — swap for a different provider's transport. */
   readonly transport?: IDirectUploadTransport;
 }

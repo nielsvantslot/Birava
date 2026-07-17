@@ -2,6 +2,7 @@ import path from "path";
 import { LocalDiskStorageAdapter } from "@/modules/photo-upload/adapters/LocalDiskStorageAdapter";
 import { VercelBlobStorageAdapter } from "@/modules/photo-upload/adapters/VercelBlobStorageAdapter";
 import type { IStorageAdapter } from "@/modules/photo-upload/adapters/IStorageAdapter";
+import { DRINK_PHOTO_BLOB_ACCESS } from "@/lib/photoUploadConfig";
 
 /**
  * The env-branching storage backend decision every composition root in this
@@ -15,7 +16,7 @@ import type { IStorageAdapter } from "@/modules/photo-upload/adapters/IStorageAd
 export class StorageAdapterFactory {
   static create(): IStorageAdapter {
     if (process.env.NODE_ENV === "production") {
-      return new VercelBlobStorageAdapter({ access: "private" });
+      return new VercelBlobStorageAdapter({ access: DRINK_PHOTO_BLOB_ACCESS });
     }
     return new LocalDiskStorageAdapter({
       rootDir: path.join(process.cwd(), "public", "uploads"),
