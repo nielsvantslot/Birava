@@ -6,6 +6,15 @@ name: Tag version
 # file so promotion merges (dev->staging->main) never conflict on a version
 # line, and pushing a tag doesn't match `branches:` below, so this can't
 # retrigger itself.
+#
+# For staging/main (the only branches Vercel deploys, per vercel.json's
+# deploymentEnabled), the resolved version is also pushed directly to a
+# Vercel project environment variable (APP_VERSION) — Vercel's build
+# sandbox has no .git directory at all (confirmed: `git rev-parse HEAD`
+# fails with "fatal: not a git repository" inside `vercel build`), so
+# scripts/write-version.ts can never resolve the tag by reading git at
+# build time there; this is the only way the deployed app can know its
+# own version.
 on:
   push:
     branches: [dev, staging, main]
@@ -26,6 +35,7 @@ jobs:
           fetch-depth: 0
 
       - name: Compute and push next tag
+        id: tag
         run: |
           set -euo pipefail
           git fetch --tags origin
@@ -52,7 +62,33 @@ jobs:
               ;;
           esac
 
-          new_tag="v${major}.${minor}.${patch}"
+          new_version="${major}.${minor}.${patch}"
+          new_tag="v${new_version}"
           echo "Tagging $new_tag on ${{ github.ref_name }} (was $latest)"
           git tag "$new_tag"
           git push origin "$new_tag"
+          echo "version=$new_version" >> "$GITHUB_OUTPUT"
+
+      - name: Push version to Vercel (staging/main only — the only branches Vercel deploys)
+        if: github.ref_name == 'staging' || github.ref_name == 'main'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: prj_kE2GvT3TLBL9MwzQCOUvSWgMCpxm
+          VERCEL_TEAM_ID: team_oBDE4zjI5WNUiheu21i8Eo5S
+          APP_VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          # upsert=true creates the var on the first run and just updates its
+          # value on every one after — no need to look up an existing id first.
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            body="{\"key\":\"APP_VERSION\",\"value\":\"${APP_VERSION}\",\"type\":\"plain\",\"target\":[\"production\"]}"
+          else
+            body="{\"key\":\"APP_VERSION\",\"value\":\"${APP_VERSION}\",\"type\":\"plain\",\"target\":[\"preview\"],\"gitBranch\":\"staging\"}"
+          fi
+
+          curl -sf -X POST \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            -H "Content-Type: application/json" \
+            "https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/env?teamId=${VERCEL_TEAM_ID}&upsert=true" \
+            -d "$body"
