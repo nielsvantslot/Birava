@@ -8,22 +8,28 @@ import { AvatarUploadResultDTO } from "@/lib/dtos";
 // sharp + storage need Node, not edge.
 export const runtime = "nodejs";
 
+// Hand-rolled rather than PhotoUploadRouteFactory.createFinalizeRoute — that
+// factory only knows the generic store/return-url contract, not this app's
+// avatar-specific side effect of also pointing User.avatarUrl at the result.
+// Mirrors ../route.ts's plain-upload path, which needs the exact same step.
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) {
     return Response.json({ error: "Not signed in." } satisfies AvatarUploadResultDTO, { status: 401 });
   }
 
-  const form = await request.formData().catch(() => null);
-  const file = form?.get("file");
-  if (!(file instanceof File)) {
-    return Response.json({ error: "No image provided." } satisfies AvatarUploadResultDTO, { status: 400 });
+  const body = await request.json().catch(() => null);
+  const rawUrl = typeof body?.url === "string" ? body.url : "";
+  if (!rawUrl) {
+    return Response.json({ error: "Invalid upload." } satisfies AvatarUploadResultDTO, { status: 400 });
+  }
+
+  if (request.signal.aborted) {
+    return Response.json({ error: "Upload cancelled." } satisfies AvatarUploadResultDTO, { status: 499 });
   }
 
   try {
-    // Square-crops + re-encodes to WebP and stores publicly; then point the
-    // user's avatarUrl at it. Every avatar read site already reads avatarUrl.
-    const { url } = await avatarPhotoService.processAndStore(file, user.id);
+    const { url } = await avatarPhotoService.finalizeDirectUpload(rawUrl, user.id);
     const result = await updateProfileAvatar(user.id, url);
     if (result.error) {
       return Response.json({ error: result.error } satisfies AvatarUploadResultDTO, { status: 500 });
@@ -31,12 +37,7 @@ export async function POST(request: Request) {
     revalidatePath("/profile");
     return Response.json({ url } satisfies AvatarUploadResultDTO);
   } catch (e) {
-    if (e instanceof PhotoUploadError) {
-      return Response.json({ error: e.message } satisfies AvatarUploadResultDTO, { status: 400 });
-    }
-    return Response.json(
-      { error: "Couldn't upload that image. Try another." } satisfies AvatarUploadResultDTO,
-      { status: 500 }
-    );
+    const message = e instanceof PhotoUploadError ? e.message : "Failed to process photo.";
+    return Response.json({ error: message } satisfies AvatarUploadResultDTO, { status: 400 });
   }
 }
