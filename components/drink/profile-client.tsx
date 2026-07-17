@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateProfileUsername } from "@/lib/controllers/profileController";
+import type { AvatarUploadResultDTO } from "@/lib/dtos";
 
 interface ProfileHeadProps {
   username: string;
@@ -32,6 +33,32 @@ export function ProfileHead({
   const [isEditing, setIsEditing] = useState(false);
   const [editedUsername, setEditedUsername] = useState(username);
   const [error, setError] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // let the same file be re-picked after an error
+    if (!file) return;
+
+    setAvatarUploading(true);
+    setError(null);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch("/api/uploads/avatar", { method: "POST", body });
+      const result = (await res.json().catch(() => null)) as AvatarUploadResultDTO | null;
+      if (!res.ok) {
+        setError(result?.error ?? "Couldn't upload that image.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Couldn't upload that image.");
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
 
   const handleSaveUsername = () => {
     const trimmed = editedUsername.trim();
@@ -63,13 +90,59 @@ export function ProfileHead({
   return (
     <div className="section flush">
       <div className="profile-head">
-        <div className="avatar">
-          {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarUrl} alt={username} />
-          ) : (
-            username.slice(0, 2).toUpperCase()
-          )}
+        <div style={{ position: "relative", flex: "none" }}>
+          <div
+            className="avatar"
+            role="button"
+            tabIndex={0}
+            aria-label="Change profile picture"
+            title="Change profile picture"
+            onClick={() => !avatarUploading && avatarInputRef.current?.click()}
+            onKeyDown={(e) => {
+              if ((e.key === "Enter" || e.key === " ") && !avatarUploading) {
+                e.preventDefault();
+                avatarInputRef.current?.click();
+              }
+            }}
+            style={{ cursor: avatarUploading ? "default" : "pointer", opacity: avatarUploading ? 0.6 : 1 }}
+          >
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatarUrl} alt={username} />
+            ) : (
+              username.slice(0, 2).toUpperCase()
+            )}
+          </div>
+          <span
+            aria-hidden
+            style={{
+              position: "absolute",
+              right: -2,
+              bottom: -2,
+              width: 22,
+              height: 22,
+              borderRadius: "50%",
+              background: "var(--accent)",
+              color: "var(--accent-ink)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: "2px solid var(--bg)",
+              pointerEvents: "none",
+            }}
+          >
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="3.2"></circle>
+            </svg>
+          </span>
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={handleAvatarChange}
+          />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           {isEditing ? (

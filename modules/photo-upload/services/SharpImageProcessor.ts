@@ -62,9 +62,18 @@ export class SharpImageProcessor implements IImageProcessor {
     let lqipBuffer: Buffer | null = null;
     try {
       const rotated = sharp(inputBuffer).rotate();
+      const fit = this.config.fit ?? "inside";
       const resized = rotated
         .clone()
-        .resize({ width: this.config.maxDimension, height: this.config.maxDimension, fit: "inside", withoutEnlargement: true });
+        .resize({
+          width: this.config.maxDimension,
+          height: this.config.maxDimension,
+          fit,
+          // "cover" center-crops to a square; only "inside" (aspect-preserving)
+          // should skip upscaling — a "cover" avatar must fill the square even
+          // when the source is smaller than maxDimension.
+          withoutEnlargement: fit === "inside",
+        });
 
       const encoded = format === "webp"
         ? resized.webp({ quality: this.config.quality })
