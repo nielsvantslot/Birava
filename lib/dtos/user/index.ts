@@ -6,3 +6,4 @@ export * from "./searchUsersDTO";
 export * from "./getProfileByUsernameDTO";
 export * from "./createUserDTO";
 export * from "./loginDTO";
+export * from "./authResultDTO";
