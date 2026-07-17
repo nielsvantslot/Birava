@@ -1,11 +1,6 @@
 export default function CrewsLoading() {
   return (
     <>
-      <div className="tabs">
-        <button className="on">Active</button>
-        <button>Leaderboards</button>
-        <button>Discover</button>
-      </div>
       <div className="section" style={{ minHeight: 140 }}>
         <div className="h-row">
           <h3>Your crews</h3>
@@ -38,6 +33,11 @@ export default function CrewsLoading() {
       <div className="section" style={{ minHeight: 200 }}>
         <div className="h-row" style={{ marginBottom: 6 }}>
           <h3>Start a crew</h3>
+        </div>
+      </div>
+      <div className="section" style={{ minHeight: 120 }}>
+        <div className="h-row" style={{ marginBottom: 6 }}>
+          <h3>Join with a code</h3>
         </div>
       </div>
     </>
