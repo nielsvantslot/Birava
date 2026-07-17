@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/password";
+import { avatarPhotoService } from "@/lib/avatarPhoto";
 import { ActionResultDTO, CreateUserDTO, UpdateProfileDTO } from "@/lib/dtos";
 
 export async function createUser(input: CreateUserDTO): Promise<ActionResultDTO> {
@@ -81,6 +82,11 @@ export async function updateProfileAvatar(
   userId: string,
   avatarUrl: string
 ): Promise<ActionResultDTO> {
+  const existing = await db.user.findUnique({
+    where: { id: userId },
+    select: { avatarUrl: true },
+  });
+
   try {
     await db.user.update({
       where: { id: userId },
@@ -88,6 +94,12 @@ export async function updateProfileAvatar(
     });
   } catch {
     return { error: "Failed to update profile picture." };
+  }
+
+  // Mirrors updateDrinkEntry (lib/commands/drinkEntryCommands.ts) — only
+  // clean up the old blob once the new one is durably saved, never before.
+  if (existing?.avatarUrl && existing.avatarUrl !== avatarUrl) {
+    await avatarPhotoService.remove(existing.avatarUrl, userId);
   }
 
   return {};
