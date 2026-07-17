@@ -6,7 +6,7 @@ import { getLocalLegendVenue } from "@/lib/sessions";
 import { getMyFeedSessions, getMyDrinkHistory } from "@/lib/controllers/drinkController";
 import { ScreenTabs } from "@/components/ui/screen-tabs";
 import { DashboardFeed } from "@/components/drink/dashboard-feed";
-import { Skeleton, SkeletonAvatarRow } from "@/components/ui/skeleton";
+import { SessionCardSkeleton } from "@/components/ui/skeleton";
 
 export default async function DashboardPage({
   searchParams,
@@ -97,10 +97,8 @@ async function FeedLoader({ userId, showOnlyOwn }: { userId: string; showOnlyOwn
 function FeedSkeleton() {
   return (
     <div className="space-y-2 py-4">
-      {[...Array(3)].map((_, i) => (
-        <SkeletonAvatarRow key={i} line1Width="w-40" line2Width="w-24" />
-      ))}
-      <Skeleton className="h-40 w-full rounded-xl" />
+      <SessionCardSkeleton />
+      <SessionCardSkeleton />
     </div>
   );
 }

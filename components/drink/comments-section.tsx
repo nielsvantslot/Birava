@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createComment, deleteComment } from "@/lib/controllers/socialController";
 import { showToast } from "@/components/ui/toast-pill";
@@ -20,6 +21,7 @@ export function CommentsSection({
   currentUserId: string;
   initial: CommentDTO[];
 }) {
+  const router = useRouter();
   const [comments, setComments] = useState(initial);
   const [body, setBody] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -49,6 +51,10 @@ export function CommentsSection({
       }
       setComments((c) => [...c, result.comment!]);
       setBody("");
+      // SocialActs's "N comments" pill (components/drink/social-row.tsx) is
+      // a server-fetched count from a sibling Suspense boundary, not local
+      // state here — without this it goes stale for the rest of the visit.
+      router.refresh();
     });
   };
 
@@ -60,7 +66,9 @@ export function CommentsSection({
       if (result.error) {
         setComments(prev);
         showToast(result.error);
+        return;
       }
+      router.refresh();
     });
   };
 

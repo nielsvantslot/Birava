@@ -2,9 +2,18 @@ export default function LogLoading() {
   return (
     <>
       <div className="section" style={{ minHeight: 420 }}>
-        <div className="h-row" style={{ marginBottom: 4 }}>
-          <h3>Log a drink</h3>
-        </div>
+        {/* Not "Log a drink" — this fallback has no access to ?edit=<id>, so
+            it can't know yet whether the real heading will be that or "Edit
+            check-in". A neutral pulsing bar avoids flashing the wrong one. */}
+        <div
+          style={{
+            height: 20,
+            width: 150,
+            background: "var(--surface-2)",
+            borderRadius: 8,
+            marginBottom: 10,
+          }}
+        />
         <div
           style={{
             height: 14,

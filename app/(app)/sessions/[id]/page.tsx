@@ -338,8 +338,8 @@ async function CommentsLoader({
 
 function MapSkeleton() {
   return (
-    <div className="section flush" style={{ padding: "16px" }}>
-      <Skeleton className="h-48 w-full rounded-xl" />
+    <div className="section flush">
+      <Skeleton className="h-[250px] w-full rounded-none" />
     </div>
   );
 }

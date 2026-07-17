@@ -10,6 +10,7 @@ export class NotificationMapper {
       type: row.type,
       message,
       href,
+      actorId: row.actorId,
       actorAvatarUrl: row.actorAvatarUrl,
       read: row.readAt !== null,
       createdAt: row.createdAt.toISOString(),
