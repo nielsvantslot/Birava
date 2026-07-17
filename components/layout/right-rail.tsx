@@ -1,18 +1,20 @@
 import Link from "next/link";
+import { avatarSrc } from "@/lib/utils";
 
 interface RightRailProps {
+  userId: string;
   username: string;
   avatarUrl?: string | null;
 }
 
-export function RightRail({ username, avatarUrl }: RightRailProps) {
+export function RightRail({ userId, username, avatarUrl }: RightRailProps) {
   return (
     <aside className="right-rail hidden xl:flex flex-none sticky top-0 h-screen">
       <Link href="/profile" className="rail-profile">
         <span className="avatar">
           {avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarUrl} alt="" />
+            <img src={avatarSrc(userId)} alt="" />
           ) : (
             username.slice(0, 2).toUpperCase()
           )}

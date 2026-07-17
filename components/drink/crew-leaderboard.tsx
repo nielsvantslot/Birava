@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { avatarSrc, cn } from "@/lib/utils";
 
 export type LeaderboardRow = {
   userId: string;
@@ -48,7 +48,7 @@ export function CrewLeaderboard({ rows }: { rows: LeaderboardRow[] }) {
             <div className="avatar">
               {row.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={row.avatarUrl} alt={row.username} />
+                <img src={avatarSrc(row.userId)} alt={row.username} />
               ) : (
                 row.username.slice(0, 2).toUpperCase()
               )}

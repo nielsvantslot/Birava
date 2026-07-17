@@ -13,6 +13,7 @@ import {
 } from "@/lib/sessions";
 import { computeAchievements } from "@/lib/achievements";
 import { relativeDay } from "@/lib/dates";
+import { avatarSrc } from "@/lib/utils";
 import { FollowButton } from "@/components/drink/follow-button";
 import { AchievementGlyph } from "@/components/drink/achievement-icon";
 import type { ProfileDTO, SessionUserDTO } from "@/lib/dtos";
@@ -88,7 +89,7 @@ async function PublicProfileMain({
           <div className="avatar">
             {targetUser.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={targetUser.avatarUrl} alt={targetUser.username} />
+              <img src={avatarSrc(targetUser.id)} alt={targetUser.username} />
             ) : (
               targetUser.username.slice(0, 2).toUpperCase()
             )}

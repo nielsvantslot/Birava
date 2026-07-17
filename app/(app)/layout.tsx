@@ -68,7 +68,7 @@ async function AppHeaderLoader() {
   if (!user) redirect("/login");
 
   const unreadCount = await getMyUnreadNotificationCount();
-  return <AppHeader username={user.username} avatarUrl={user.avatarUrl} unreadCount={unreadCount} />;
+  return <AppHeader userId={user.id} username={user.username} avatarUrl={user.avatarUrl} unreadCount={unreadCount} />;
 }
 
 async function SidebarNavLoader() {
@@ -76,14 +76,14 @@ async function SidebarNavLoader() {
   if (!user) redirect("/login");
 
   const unreadCount = await getMyUnreadNotificationCount();
-  return <SidebarNav username={user.username} avatarUrl={user.avatarUrl} unreadCount={unreadCount} />;
+  return <SidebarNav userId={user.id} username={user.username} avatarUrl={user.avatarUrl} unreadCount={unreadCount} />;
 }
 
 async function RightRailLoader() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  return <RightRail username={user.username} avatarUrl={user.avatarUrl} />;
+  return <RightRail userId={user.id} username={user.username} avatarUrl={user.avatarUrl} />;
 }
 
 function HeaderSkeleton() {

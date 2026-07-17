@@ -5,6 +5,7 @@ import { getUserTimeZone } from "@/lib/timezone";
 import { getCrew } from "@/lib/controllers/groupController";
 import { sessionTitle } from "@/lib/sessions";
 import { formatDate, timeAgo } from "@/lib/dates";
+import { avatarSrc } from "@/lib/utils";
 import { CrewLeaderboard } from "@/components/drink/crew-leaderboard";
 import { CopyCodeChip } from "@/components/drink/crews-forms";
 
@@ -80,7 +81,7 @@ export default async function CrewDetailPage({
               <div className="avatar" key={s.userId}>
                 {s.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={s.avatarUrl} alt={s.username} />
+                  <img src={avatarSrc(s.userId)} alt={s.username} />
                 ) : (
                   s.username.slice(0, 2).toUpperCase()
                 )}
@@ -133,7 +134,7 @@ export default async function CrewDetailPage({
               <div className="avatar">
                 {session.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={session.avatarUrl} alt={session.username} />
+                  <img src={avatarSrc(session.userId)} alt={session.username} />
                 ) : (
                   (usernameById.get(session.userId) ?? session.username)
                     .slice(0, 2)

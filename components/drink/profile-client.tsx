@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { updateProfileUsername } from "@/lib/controllers/profileController";
 import { PhotoUploadPreparer, PhotoUploader } from "@/modules/photo-upload/client";
 import { AVATAR_MAX_DIMENSION, avatarUploadEndpoints } from "@/lib/avatarPhotoConfig";
+import { avatarSrc } from "@/lib/utils";
 
 // Canvas-encode quality (0-1) is a client-only concern — the server's WebP
 // quality (0-100, lib/avatarPhoto.ts) is a different encoder/scale.
@@ -120,7 +121,7 @@ export function ProfileHead({
           >
             {avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarUrl} alt={username} />
+              <img src={avatarSrc(userId)} alt={username} />
             ) : (
               username.slice(0, 2).toUpperCase()
             )}
