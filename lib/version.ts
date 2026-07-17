@@ -1,30 +1,10 @@
-import { execSync } from "node:child_process";
-import packageJson from "../package.json";
-
-// Vercel bakes VERCEL_GIT_COMMIT_SHA into every build/runtime env — it changes
-// on every deploy with zero manual bumping. The `git` fallback only fires in
-// local dev, where .git is actually present; never at runtime in production
-// (Vercel's serverless bundle doesn't ship .git).
-function getCommitSha(): string {
-  const vercelSha = process.env.VERCEL_GIT_COMMIT_SHA;
-  if (vercelSha) return vercelSha.slice(0, 7);
-  try {
-    return execSync("git rev-parse --short HEAD").toString().trim();
-  } catch {
-    return "dev";
-  }
-}
-
-function getEnvironmentLabel(): string {
-  if (process.env.VERCEL_ENV === "production") return "Production";
-  if (process.env.VERCEL_ENV === "preview") return "Staging";
-  return "Development";
-}
+// lib/version.json is regenerated at build time by scripts/write-version.ts
+// from the latest git tag (see .github/workflows/tag-version.yml). It's
+// committed with a "0.0.0" placeholder so this static import always resolves
+// (including local dev/typecheck without running that script) and Next's
+// serverless file tracing can follow it.
+import versionData from "./version.json";
 
 export function getAppVersion() {
-  return {
-    version: packageJson.version,
-    commitSha: getCommitSha(),
-    environment: getEnvironmentLabel(),
-  };
+  return { version: versionData.version };
 }

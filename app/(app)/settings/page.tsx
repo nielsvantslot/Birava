@@ -7,7 +7,7 @@ export default async function SettingsPage() {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  const { version, commitSha, environment } = getAppVersion();
+  const { version } = getAppVersion();
 
   return (
     <>
@@ -19,9 +19,7 @@ export default async function SettingsPage() {
         <SignOutButton />
       </div>
 
-      <p className="app-version">
-        v{version} · build {commitSha} · {environment}
-      </p>
+      <p className="app-version">v{version}</p>
     </>
   );
 }
