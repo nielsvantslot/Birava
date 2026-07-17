@@ -11,6 +11,7 @@ import { computeAchievements } from "@/lib/achievements";
 import { relativeDay } from "@/lib/dates";
 import { getMyDrinkHistory, getRecentSessionsForUser } from "@/lib/controllers/drinkController";
 import { getFollowCounts } from "@/lib/controllers/socialController";
+import { avatarPhotoService } from "@/lib/avatarPhoto";
 import { ProfileHead, ProfileActions } from "@/components/drink/profile-client";
 import { AchievementGlyph } from "@/components/drink/achievement-icon";
 import { Skeleton, SkeletonAvatarRow } from "@/components/ui/skeleton";
@@ -73,11 +74,13 @@ async function ProfileMain({
   return (
     <>
       <ProfileHead
+        userId={user.id}
         username={user.username}
         avatarUrl={user.avatarUrl}
         memberSince={memberSince}
         followers={followCounts.followers}
         following={followCounts.following}
+        supportsDirectUpload={avatarPhotoService.supportsDirectUpload}
         stats={{
           sessions: sessions.length,
           venues: venues.size,

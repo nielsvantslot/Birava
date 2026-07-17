@@ -17,6 +17,17 @@ export function drinkPhotoKeyPrefix(userId: string): string {
 }
 
 /**
+ * Blob access level check-in photos are stored/uploaded with — private,
+ * served only through the auth-gated /api/photos route (unlike avatars'
+ * public blob, see AVATAR_BLOB_ACCESS in lib/avatarPhotoConfig.ts). Single
+ * source of truth: `lib/storageAdapterFactory.ts`'s storage adapter (also
+ * shared by lib/shareImageCache.ts, which has no client direct-upload path
+ * to keep in sync) and `drinkPhotoUploadEndpoints` below both read it from
+ * here, so the two can't drift out of sync with each other.
+ */
+export const DRINK_PHOTO_BLOB_ACCESS = "private" as const;
+
+/**
  * Picks the upload endpoints a `PhotoUploader.upload` call needs for check-in
  * photos — shared between the log form (uploading fresh) and the offline
  * sync flush (uploading a queued photo later), so both agree on routes.
@@ -28,6 +39,7 @@ export function drinkPhotoUploadEndpoints(userId: string, supportsDirectUpload: 
         tokenUrl: "/api/uploads/drink-photo/blob-token",
         finalizeUrl: "/api/uploads/drink-photo/finalize",
         keyPrefix: drinkPhotoKeyPrefix(userId),
+        access: DRINK_PHOTO_BLOB_ACCESS,
       }
     : { mode: "server" as const, uploadUrl: "/api/uploads/drink-photo" };
 }

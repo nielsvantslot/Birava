@@ -13,3 +13,28 @@ export const AVATAR_MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 export function avatarKeyPrefix(userId: string): string {
   return `avatars/${userId}`;
 }
+
+/**
+ * Blob access level avatars are stored/uploaded with — public, since avatars
+ * render as plain `<img>` everywhere, unlike check-in photos' private blob.
+ * The single source of truth for this: both `lib/avatarPhoto.ts`'s storage
+ * adapter and `avatarUploadEndpoints` below read it from here, so the two
+ * can't drift out of sync with each other.
+ */
+export const AVATAR_BLOB_ACCESS = "public" as const;
+
+/**
+ * Picks the upload endpoints a `PhotoUploader.upload` call needs for
+ * avatars — mirrors `drinkPhotoUploadEndpoints` (lib/photoUploadConfig.ts).
+ */
+export function avatarUploadEndpoints(userId: string, supportsDirectUpload: boolean) {
+  return supportsDirectUpload
+    ? {
+        mode: "direct" as const,
+        tokenUrl: "/api/uploads/avatar/blob-token",
+        finalizeUrl: "/api/uploads/avatar/finalize",
+        keyPrefix: avatarKeyPrefix(userId),
+        access: AVATAR_BLOB_ACCESS,
+      }
+    : { mode: "server" as const, uploadUrl: "/api/uploads/avatar" };
+}

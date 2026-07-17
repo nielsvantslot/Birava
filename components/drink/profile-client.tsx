@@ -4,14 +4,21 @@ import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateProfileUsername } from "@/lib/controllers/profileController";
-import type { AvatarUploadResultDTO } from "@/lib/dtos";
+import { PhotoUploadPreparer, PhotoUploader } from "@/modules/photo-upload/client";
+import { AVATAR_MAX_DIMENSION, avatarUploadEndpoints } from "@/lib/avatarPhotoConfig";
+
+// Canvas-encode quality (0-1) is a client-only concern — the server's WebP
+// quality (0-100, lib/avatarPhoto.ts) is a different encoder/scale.
+const AVATAR_COMPRESS_CONFIG = { maxDimension: AVATAR_MAX_DIMENSION, quality: 0.85 };
 
 interface ProfileHeadProps {
+  userId: string;
   username: string;
   avatarUrl: string | null;
   memberSince: string;
   followers: number;
   following: number;
+  supportsDirectUpload: boolean;
   stats: {
     sessions: number;
     venues: number;
@@ -21,11 +28,13 @@ interface ProfileHeadProps {
 }
 
 export function ProfileHead({
+  userId,
   username,
   avatarUrl,
   memberSince,
   followers,
   following,
+  supportsDirectUpload,
   stats,
 }: ProfileHeadProps) {
   const router = useRouter();
@@ -44,12 +53,15 @@ export function ProfileHead({
     setAvatarUploading(true);
     setError(null);
     try {
-      const body = new FormData();
-      body.append("file", file);
-      const res = await fetch("/api/uploads/avatar", { method: "POST", body });
-      const result = (await res.json().catch(() => null)) as AvatarUploadResultDTO | null;
-      if (!res.ok) {
-        setError(result?.error ?? "Couldn't upload that image.");
+      // Resized/compressed client-side same as check-in photos — the server
+      // always re-processes regardless, this just shrinks what travels over
+      // the wire. mustStripMetadata=supportsDirectUpload: only the direct-
+      // upload path writes bytes to durable storage before the server ever
+      // touches them.
+      const { file: prepared } = await PhotoUploadPreparer.prepare(file, AVATAR_COMPRESS_CONFIG, supportsDirectUpload);
+      const result = await PhotoUploader.upload(prepared, avatarUploadEndpoints(userId, supportsDirectUpload));
+      if ("error" in result) {
+        setError(result.error);
         return;
       }
       router.refresh();

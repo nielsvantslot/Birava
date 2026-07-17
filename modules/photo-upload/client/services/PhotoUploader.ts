@@ -37,7 +37,13 @@ export class PhotoUploader {
       // keeps that detection working when a HEIC file skips client conversion.
       const ext = /\.([a-z0-9]+)$/i.exec(file.name)?.[1] ?? "jpg";
       const pathname = `${endpoints.keyPrefix}/${crypto.randomUUID()}.${ext}`;
-      const { url: rawUrl } = await transport.putDirect(pathname, file, endpoints.tokenUrl, signal);
+      const { url: rawUrl } = await transport.putDirect({
+        pathname,
+        file,
+        tokenUrl: endpoints.tokenUrl,
+        signal,
+        access: endpoints.access,
+      });
 
       const res = await fetch(endpoints.finalizeUrl, {
         method: "POST",
