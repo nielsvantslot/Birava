@@ -1,10 +1,13 @@
 import { getCurrentUser } from "@/lib/auth/session";
 import { PushSubscribeToggle } from "@/components/notifications/push-subscribe-toggle";
 import { SignOutButton } from "@/components/drink/profile-client";
+import { getAppVersion } from "@/lib/version";
 
 export default async function SettingsPage() {
   const user = await getCurrentUser();
   if (!user) return null;
+
+  const { version, commitSha, environment } = getAppVersion();
 
   return (
     <>
@@ -15,6 +18,10 @@ export default async function SettingsPage() {
       <div className="section">
         <SignOutButton />
       </div>
+
+      <p className="app-version">
+        v{version} · build {commitSha} · {environment}
+      </p>
     </>
   );
 }
