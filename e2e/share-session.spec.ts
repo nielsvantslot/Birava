@@ -47,6 +47,15 @@ test("share sheet: pre-fetches both variants, swipes between them, shares files-
   // check-in to actually be on the dashboard (same as log-drink.spec.ts).
   await expect(logPage.pendingPanel()).toBeHidden({ timeout: 60_000 });
 
+  // Registered before navigating to the session page: the recap image is
+  // now prefetched the moment that page loads (SocialActs's
+  // prefetchShareImage), not on the Share tap — so the request can fire
+  // before the share sheet, or even the Share button, exists yet.
+  const shareImageRequests: string[] = [];
+  page.on("request", (req) => {
+    if (req.url().includes("/share-image")) shareImageRequests.push(req.url());
+  });
+
   const sessionPage = new SessionDetailPage(page);
   // Cold next-dev compile of /dashboard + /sessions/[id] can take a while the
   // first time a fresh process serves them — generous timeout on purpose
@@ -59,20 +68,17 @@ test("share sheet: pre-fetches both variants, swipes between them, shares files-
     await sessionPage.openMostRecent();
   }).toPass({ timeout: 60_000 });
 
-  const shareImageRequests: string[] = [];
-  page.on("request", (req) => {
-    if (req.url().includes("/share-image")) shareImageRequests.push(req.url());
-  });
-
   await sessionPage.openShareSheet();
   const sheet = new ShareSheetPage(page);
   await expect(sheet.root()).toBeVisible();
 
-  // The prefetch fires as soon as the sheet opens, not on the eventual Share
-  // tap — the Share button starts disabled ("Preparing…") until it resolves.
-  await expect(sheet.shareCta()).toBeDisabled();
+  // The Share button starts disabled ("Preparing…") until the prefetch
+  // resolves, then becomes usable.
   await sheet.waitUntilReady();
-  await expect(shareImageRequests.length).toBeGreaterThan(0);
+  // Exactly one real request for the whole flow — page load's prefetch,
+  // opening the sheet, and (checked below) the eventual Share tap must never
+  // add a second one, in dev (React StrictMode) or otherwise.
+  expect(shareImageRequests.length).toBe(1);
 
   await expect(sheet.currentLabel()).toHaveText("Card");
   await sheet.goToSlide(1);
