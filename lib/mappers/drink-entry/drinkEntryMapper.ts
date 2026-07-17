@@ -6,13 +6,8 @@ export class DrinkEntryMapper {
     return {
       id: entry.id,
       userId: entry.userId,
-      groupId: entry.groupId,
       drinkName: entry.drinkName,
-      brewery: entry.brewery,
-      style: entry.style,
       drinkType: entry.drinkType,
-      amount: Number(entry.amount),
-      rating: entry.rating,
       venue: entry.venue,
       lat: entry.lat === null ? null : Number(entry.lat),
       lng: entry.lng === null ? null : Number(entry.lng),
