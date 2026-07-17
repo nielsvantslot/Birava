@@ -1,4 +1,3 @@
-import { Prisma } from "@prisma/client";
 import type { DrinkEntry as DrinkEntryRow } from "@prisma/client";
 import { describe, expect, it } from "vitest";
 import { scoreCrew, type CrewMemberInput } from "./crews";
@@ -9,14 +8,9 @@ function row(overrides: Partial<DrinkEntryRow> & { userId: string; createdAt: Da
   idCounter += 1;
   return {
     id: `row-${idCounter}`,
-    groupId: null,
     sessionId: `session-${idCounter}`,
     drinkName: null,
-    brewery: null,
-    style: null,
     drinkType: "Beer",
-    amount: new Prisma.Decimal(1),
-    rating: null,
     venue: null,
     lat: null,
     lng: null,

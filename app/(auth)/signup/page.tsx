@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import type { AuthResultDTO } from "@/lib/dtos";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -42,7 +43,7 @@ export default function SignupPage() {
       }),
     });
 
-    const result = (await response.json().catch(() => null)) as { error?: string } | null;
+    const result = (await response.json().catch(() => null)) as AuthResultDTO | null;
 
     if (!response.ok) {
       setError(result?.error ?? "Unable to create account.");
@@ -59,9 +60,7 @@ export default function SignupPage() {
       }),
     });
 
-    const loginResult = (await loginResponse.json().catch(() => null)) as
-      | { error?: string }
-      | null;
+    const loginResult = (await loginResponse.json().catch(() => null)) as AuthResultDTO | null;
 
     if (!loginResponse.ok) {
       setError(loginResult?.error ?? "Unable to sign in.");

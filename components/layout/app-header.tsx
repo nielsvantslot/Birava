@@ -16,10 +16,11 @@ const TITLES: Array<[prefix: string, title: string]> = [
   ["/profile/", "Profile"],
   ["/profile", "You"],
   ["/people", "Find people"],
+  ["/settings", "Settings"],
 ];
 
 /** Detail screens show a back arrow instead of the avatar. */
-const BACK_PREFIXES = ["/sessions/", "/achievements", "/notifications", "/people", "/profile/"];
+const BACK_PREFIXES = ["/sessions/", "/achievements", "/notifications", "/people", "/profile/", "/settings"];
 
 interface AppHeaderProps {
   username?: string;
@@ -77,6 +78,13 @@ export function AppHeader({ username, avatarUrl, unreadCount = 0 }: AppHeaderPro
       </div>
       <div className="title">{title}</div>
       <div className="right">
+        <Link className="hicon" href="/people" aria-label="Find people">
+          <svg viewBox="0 0 24 24">
+            <circle cx="9" cy="8" r="4"></circle>
+            <path d="M2 21c0-4 3-6 7-6 1.2 0 2.3.15 3.2.5"></path>
+            <path d="M17 14v6M14 17h6"></path>
+          </svg>
+        </Link>
         <Link className="hicon" href="/notifications" aria-label="Notifications">
           <svg viewBox="0 0 24 24">
             <path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>

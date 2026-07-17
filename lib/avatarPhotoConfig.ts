@@ -1,0 +1,15 @@
+/**
+ * Plain config for profile-avatar uploads — no server-only imports, so it can
+ * be shared with the client if needed (mirrors lib/photoUploadConfig.ts).
+ */
+
+/** Square edge, in px, avatars are cropped/encoded to — small; avatars never render large. */
+export const AVATAR_MAX_DIMENSION = 512;
+
+/** Upload size cap for an avatar (generous for a phone photo; server re-encodes it down anyway). */
+export const AVATAR_MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
+/** Storage layout + ownership convention for a given user's avatar. */
+export function avatarKeyPrefix(userId: string): string {
+  return `avatars/${userId}`;
+}

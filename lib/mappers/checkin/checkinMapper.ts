@@ -9,13 +9,8 @@ export function toDrinkEntry(
   return {
     id: entry.id,
     user_id: entry.userId,
-    group_id: entry.groupId,
     drink_name: entry.drinkName,
-    brewery: entry.brewery,
-    style: entry.style,
     drink_type: entry.drinkType,
-    amount: Number(entry.amount),
-    rating: entry.rating,
     venue: entry.venue,
     lat: entry.lat === null ? null : Number(entry.lat),
     lng: entry.lng === null ? null : Number(entry.lng),
