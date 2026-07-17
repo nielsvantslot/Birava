@@ -76,3 +76,19 @@ export async function updateProfileUsername(
 
   return {};
 }
+
+export async function updateProfileAvatar(
+  userId: string,
+  avatarUrl: string
+): Promise<ActionResultDTO> {
+  try {
+    await db.user.update({
+      where: { id: userId },
+      data: { avatarUrl },
+    });
+  } catch {
+    return { error: "Failed to update profile picture." };
+  }
+
+  return {};
+}
