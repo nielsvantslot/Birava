@@ -1,45 +1,34 @@
+import { Skeleton, SkeletonAvatarRow, SkeletonInputRow } from "@/components/ui/skeleton";
+
 export default function CrewsLoading() {
   return (
-    <>
-      <div className="tabs">
-        <button className="on">Active</button>
-        <button>Leaderboards</button>
-        <button>Discover</button>
-      </div>
-      <div className="section" style={{ minHeight: 140 }}>
+    <div className="space-y-6 py-4">
+      <div className="section">
         <div className="h-row">
           <h3>Your crews</h3>
         </div>
-        {[0, 1].map((i) => (
-          <div key={i} className="row">
-            <div className="avatar" />
-            <div className="grow">
-              <div
-                style={{
-                  height: 14,
-                  width: 140,
-                  background: "var(--surface-2)",
-                  borderRadius: 7,
-                  marginBottom: 6,
-                }}
-              />
-              <div
-                style={{
-                  height: 11,
-                  width: 180,
-                  background: "var(--surface-2)",
-                  borderRadius: 6,
-                }}
-              />
-            </div>
-          </div>
-        ))}
+        <div className="space-y-2">
+          {[0, 1].map((i) => (
+            <SkeletonAvatarRow key={i} line1Width="w-28" line2Width="w-36" right={<Skeleton className="h-4 w-16" />} />
+          ))}
+        </div>
       </div>
-      <div className="section" style={{ minHeight: 200 }}>
+
+      <div className="section">
         <div className="h-row" style={{ marginBottom: 6 }}>
           <h3>Start a crew</h3>
         </div>
+        <Skeleton className="h-4 w-full mb-2" />
+        <Skeleton className="h-4 w-2/3 mb-4" />
+        <SkeletonInputRow buttonWidth="w-16" />
       </div>
-    </>
+
+      <div className="section">
+        <div className="h-row" style={{ marginBottom: 6 }}>
+          <h3>Join with a code</h3>
+        </div>
+        <SkeletonInputRow buttonWidth="w-16" />
+      </div>
+    </div>
   );
 }

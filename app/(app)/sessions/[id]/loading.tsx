@@ -21,11 +21,17 @@ export default function SessionLoading() {
       <div className="section flush">
         <Skeleton className="h-[250px] w-full rounded-none" />
       </div>
-      <div className="section">
-        <Skeleton className="h-6 w-28 mb-4" />
-        <Skeleton className="h-12 w-full mb-2" />
-        <Skeleton className="h-12 w-full mb-2" />
-        <Skeleton className="h-12 w-full" />
+      <div className="section flush" style={{ padding: "6px 0 14px" }}>
+        <div style={{ padding: "12px 16px 2px" }}>
+          <Skeleton className="h-6 w-28" />
+        </div>
+        <div className="checkin-grid">
+          {[...Array(6)].map((_, i) => (
+            <div className="grid-item" key={i}>
+              <Skeleton className="absolute inset-0 rounded-none" />
+            </div>
+          ))}
+        </div>
       </div>
     </>
   );
