@@ -16,10 +16,11 @@ const TITLES: Array<[prefix: string, title: string]> = [
   ["/profile/", "Profile"],
   ["/profile", "You"],
   ["/people", "Find people"],
+  ["/settings", "Settings"],
 ];
 
 /** Detail screens show a back arrow instead of the avatar. */
-const BACK_PREFIXES = ["/sessions/", "/achievements", "/notifications", "/people", "/profile/"];
+const BACK_PREFIXES = ["/sessions/", "/achievements", "/notifications", "/people", "/profile/", "/settings"];
 
 interface AppHeaderProps {
   username?: string;
