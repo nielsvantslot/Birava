@@ -13,7 +13,6 @@ import { getMyDrinkHistory, getRecentSessionsForUser } from "@/lib/controllers/d
 import { getFollowCounts } from "@/lib/controllers/socialController";
 import { ProfileHead, ProfileActions } from "@/components/drink/profile-client";
 import { AchievementGlyph } from "@/components/drink/achievement-icon";
-import { PushSubscribeToggle } from "@/components/notifications/push-subscribe-toggle";
 import { Skeleton, SkeletonAvatarRow } from "@/components/ui/skeleton";
 
 export default async function ProfilePage() {
@@ -86,8 +85,6 @@ async function ProfileMain({
           activeWeeks: weeks.current,
         }}
       />
-
-      <PushSubscribeToggle />
 
       <div className="section">
         <div className="h-row">

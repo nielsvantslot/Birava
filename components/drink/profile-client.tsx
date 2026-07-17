@@ -1,9 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateProfileUsername } from "@/lib/controllers/profileController";
-import { showToast } from "@/components/ui/toast-pill";
 
 interface ProfileHeadProps {
   username: string;
@@ -168,6 +168,16 @@ export function ProfileHead({
 }
 
 export function ProfileActions() {
+  return (
+    <div className="section">
+      <Link href="/settings" className="btn btn-ghost">
+        Settings
+      </Link>
+    </div>
+  );
+}
+
+export function SignOutButton() {
   const router = useRouter();
 
   const handleSignOut = async () => {
@@ -177,17 +187,8 @@ export function ProfileActions() {
   };
 
   return (
-    <div className="section">
-      <button
-        className="btn btn-ghost"
-        style={{ marginBottom: 10 }}
-        onClick={() => showToast("Settings — soon")}
-      >
-        Settings
-      </button>
-      <button className="btn btn-ghost" onClick={handleSignOut}>
-        Sign out
-      </button>
-    </div>
+    <button className="btn btn-ghost" onClick={handleSignOut}>
+      Sign out
+    </button>
   );
 }
