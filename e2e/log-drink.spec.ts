@@ -2,6 +2,7 @@ import path from "path";
 import { expect, test } from "@playwright/test";
 import { LoginPage } from "./pages/LoginPage";
 import { LogDrinkPage } from "./pages/LogDrinkPage";
+import { SessionDetailPage } from "./pages/SessionDetailPage";
 import { TestUserFactory } from "./support/TestUserFactory";
 
 const TEST_PHOTO = path.join(__dirname, "fixtures", "test-photo.jpg");
@@ -44,12 +45,18 @@ test("logs a drink with a photo, and it renders once synced", async ({ page }) =
   // + WebP re-encode.
   await expect(logPage.pendingPanel()).toBeHidden({ timeout: 60_000 });
 
-  // Also this run's first hit of /dashboard — same cold-compile cost as
-  // any other route the first time a fresh next-dev process serves it.
-  await page.goto("/dashboard", { waitUntil: "networkidle" });
-  const card = page.locator(`text=${drinkName}`).first();
-  await expect(card).toBeVisible({ timeout: 30_000 });
-  // session-card.tsx captions the hero photo `${title} photo` — the title
-  // for a lone check-in is its drink name.
-  await expect(page.locator(`img[alt="${drinkName} photo"]`)).toBeVisible();
+  // Not matched by drink name on the dashboard feed card, and opened via
+  // openMostRecent() rather than a title match — the e2e suite shares one
+  // fixed account across specs (other specs log their own drinks too), so
+  // this check-in can merge into an existing multi-check-in session whose
+  // card/title no longer headlines this exact drink name (same reasoning
+  // as SessionDetailPage.openMostRecent()'s own doc comment). The photo
+  // tile's alt (checkin-grid.tsx's `item.caption`) always includes the
+  // drink name regardless of merge state, so it's what's asserted on
+  // instead of the session-level title/hero photo.
+  const sessionPage = new SessionDetailPage(page);
+  await expect(async () => {
+    await sessionPage.openMostRecent();
+  }).toPass({ timeout: 60_000 });
+  await expect(page.locator(`img[alt*="${drinkName}"]`)).toBeVisible({ timeout: 30_000 });
 });

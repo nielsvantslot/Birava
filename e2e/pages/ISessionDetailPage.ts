@@ -12,4 +12,9 @@ export interface ISessionDetailPage {
   openMostRecent(): Promise<void>;
   shareButton(): Locator;
   openShareSheet(): Promise<void>;
+  /** The "N comments" pill above the check-ins grid (components/drink/social-row.tsx) — fed by a separate Suspense boundary from the comment thread below, so it only stays in sync if posting/deleting calls router.refresh(). */
+  commentCountPill(): Locator;
+  /** The comment thread's own "Comments N" header count (components/drink/comments-section.tsx) — driven by local state, always up to date the instant a comment posts. */
+  commentsHeaderCount(): Locator;
+  postComment(body: string): Promise<void>;
 }

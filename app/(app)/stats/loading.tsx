@@ -3,14 +3,7 @@ import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 export default function StatsLoading() {
   return (
     <div className="space-y-6 py-4">
-      {/* Tab strip */}
-      <div className="flex gap-6 px-1">
-        <Skeleton className="h-4 w-16" />
-        <Skeleton className="h-4 w-14" />
-        <Skeleton className="h-4 w-14" />
-      </div>
-
-      {/* Last 24h recap */}
+      {/* All time */}
       <SkeletonCard className="space-y-3">
         <Skeleton className="h-5 w-36" />
         <div className="grid grid-cols-3 gap-3">

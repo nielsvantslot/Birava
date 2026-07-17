@@ -7,9 +7,9 @@ import {
   getMyHasPushSubscription,
 } from "@/lib/controllers/notificationController";
 import { timeAgo } from "@/lib/dates";
-import { cn } from "@/lib/utils";
+import { avatarSrc, cn } from "@/lib/utils";
 import { MarkReadOnView } from "@/components/notifications/mark-read-on-view";
-import { SkeletonAvatarRow } from "@/components/ui/skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default async function NotificationsPage() {
   const user = await getCurrentUser();
@@ -78,10 +78,10 @@ async function NotificationListLoader() {
             style={{ textDecoration: "none", color: "inherit" }}
           >
             <div className="rowmark">
-              {n.actorAvatarUrl ? (
+              {n.actorAvatarUrl && n.actorId ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={n.actorAvatarUrl}
+                  src={avatarSrc(n.actorId)}
                   alt=""
                   style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
                 />
@@ -106,9 +106,17 @@ async function NotificationListLoader() {
 
 function NotificationListSkeleton() {
   return (
-    <div className="space-y-2 py-4">
+    <div className="section">
       {[...Array(6)].map((_, i) => (
-        <SkeletonAvatarRow key={i} line1Width="w-40" line2Width="w-24" />
+        <div className="row" key={i}>
+          <div className="rowmark">
+            <Skeleton className="h-full w-full rounded-full" />
+          </div>
+          <div className="grow space-y-1.5">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+        </div>
       ))}
     </div>
   );

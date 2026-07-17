@@ -17,4 +17,17 @@ export class SessionDetailPage implements ISessionDetailPage {
   async openShareSheet(): Promise<void> {
     await this.shareButton().click();
   }
+
+  commentCountPill(): Locator {
+    return this.page.locator('[aria-label="Comments"]');
+  }
+
+  commentsHeaderCount(): Locator {
+    return this.page.locator("#comments .h-row span");
+  }
+
+  async postComment(body: string): Promise<void> {
+    await this.page.locator(".comment-form input[type='text']").fill(body);
+    await this.page.locator(".comment-form button[type='submit']").click();
+  }
 }
