@@ -307,6 +307,9 @@ async function SocialLoader({
       commentCount={commentCount}
       shareText={shareText}
       isOwner={isOwner}
+      // The one session on screen on its own detail page — safe to warm the
+      // recap image eagerly, unlike a feed/list of many session cards.
+      prefetchShareImage
     />
   );
 }
