@@ -254,34 +254,34 @@ export async function createDrinkEntry(
         entryId: created.sessionId,
       }))
     );
-  }
 
-  const memberships = await db.groupMember.findMany({
-    where: { userId },
-    select: { groupId: true, group: { select: { name: true } } },
-  });
-  if (memberships.length > 0) {
-    const groupIds = memberships.map((m) => m.groupId);
-    const otherMembers = await db.groupMember.findMany({
-      where: { groupId: { in: groupIds }, userId: { not: userId } },
-      select: { userId: true, groupId: true },
+    const memberships = await db.groupMember.findMany({
+      where: { userId },
+      select: { groupId: true, group: { select: { name: true } } },
     });
-    const groupNames = new Map(memberships.map((m) => [m.groupId, m.group.name]));
-    events.push(
-      ...otherMembers.map((m) => ({
-        userId: m.userId,
-        type: "CREW_CHECKIN" as const,
-        actorId: userId,
-        actorUsername: actor.username,
-        actorAvatarUrl: actor.avatarUrl,
-        // The session's id — this check-in may have attached to an
-        // existing session rather than started a new one, in which case
-        // created.id itself isn't a valid /sessions/[id] target.
-        entryId: created.sessionId,
-        groupId: m.groupId,
-        groupName: groupNames.get(m.groupId),
-      }))
-    );
+    if (memberships.length > 0) {
+      const groupIds = memberships.map((m) => m.groupId);
+      const otherMembers = await db.groupMember.findMany({
+        where: { groupId: { in: groupIds }, userId: { not: userId } },
+        select: { userId: true, groupId: true },
+      });
+      const groupNames = new Map(memberships.map((m) => [m.groupId, m.group.name]));
+      events.push(
+        ...otherMembers.map((m) => ({
+          userId: m.userId,
+          type: "CREW_SESSION_START" as const,
+          actorId: userId,
+          actorUsername: actor.username,
+          actorAvatarUrl: actor.avatarUrl,
+          // The session's id, not the entry's own id — they only coincide
+          // when this check-in started a brand-new session (always true
+          // here), but Notification.entryId is what /sessions/[id] links use.
+          entryId: created.sessionId,
+          groupId: m.groupId,
+          groupName: groupNames.get(m.groupId),
+        }))
+      );
+    }
   }
 
   queueNotifications(events);

@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
 import { createDrinkEntry, deleteDrinkEntry, updateDrinkEntry } from "@/lib/commands/drinkEntryCommands";
@@ -47,6 +48,35 @@ describe("createDrinkEntry", () => {
     const entry = await db.drinkEntry.findUniqueOrThrow({ where: { id: result.id! } });
     expect(entry.userId).toBe(userA.id);
     expect(entry.userId).not.toBe(userB.id);
+  });
+
+  it("notifies crew members once per session, not once per check-in (#158)", async () => {
+    const member = await fixtures.createUser();
+    const crewmate = await fixtures.createUser();
+    const actor = { username: member.username, avatarUrl: member.avatarUrl };
+
+    const group = await db.group.create({
+      data: { name: "Fixture Crew", inviteCode: `fixture-${randomUUID()}`, ownerId: crewmate.id },
+    });
+    await db.groupMember.createMany({
+      data: [
+        { groupId: group.id, userId: member.id },
+        { groupId: group.id, userId: crewmate.id },
+      ],
+    });
+
+    const first = await createDrinkEntry(member.id, emptyPayload, actor);
+    const second = await createDrinkEntry(member.id, emptyPayload, actor); // same session, no gap
+
+    const firstEntry = await db.drinkEntry.findUniqueOrThrow({ where: { id: first.id! } });
+    const secondEntry = await db.drinkEntry.findUniqueOrThrow({ where: { id: second.id! } });
+    expect(secondEntry.sessionId).toBe(firstEntry.sessionId); // same session, confirms the no-gate scenario
+
+    const notifications = await db.notification.findMany({
+      where: { userId: crewmate.id, type: "CREW_SESSION_START" },
+    });
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0].entryId).toBe(firstEntry.sessionId);
   });
 });
 

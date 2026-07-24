@@ -22,7 +22,7 @@ export function describeNotification(
       return { message: `${actor} started following you`, href: `/profile/${actor}` };
     case "CREW_JOIN":
       return { message: `${actor} joined ${content.groupName}`, href: `/crews/${content.groupId}` };
-    case "CREW_CHECKIN":
+    case "CREW_SESSION_START":
       return {
         message: `${actor} logged a check-in in ${content.groupName}`,
         href: `/crews/${content.groupId}`,
