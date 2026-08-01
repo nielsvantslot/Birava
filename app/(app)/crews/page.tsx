@@ -37,6 +37,7 @@ export default async function CrewsPage() {
                 <b>{crew.name}</b>
                 <span>
                   {crew.memberCount} member{crew.memberCount === 1 ? "" : "s"}
+                  {crew.closed ? " · Closed" : ""}
                   {crew.rank
                     ? ` · you're ${ordinal(crew.rank)} since you joined`
                     : ""}

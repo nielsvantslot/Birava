@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createGroup, joinGroupByInvite, leaveGroup } from "@/lib/controllers/groupController";
+import { createGroup, joinGroupByInvite, leaveGroup, closeGroup } from "@/lib/controllers/groupController";
 import { showToast } from "@/components/ui/toast-pill";
 
 export function CreateCrewForm() {
@@ -128,6 +128,36 @@ export function LeaveCrewButton({ crewId }: { crewId: string }) {
   return (
     <button className="btn btn-ghost" onClick={handleClick} disabled={isPending}>
       {isPending ? "Leaving…" : "Leave crew"}
+    </button>
+  );
+}
+
+/** Owner-only: stop new check-ins from counting toward the leaderboard and block new joins. */
+export function CloseCrewButton({ crewId }: { crewId: string }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  const handleClick = () => {
+    if (
+      !window.confirm(
+        "Close this crew? Existing stats stay visible, but check-ins after this point won't count, and no one new can join."
+      )
+    )
+      return;
+    startTransition(async () => {
+      const result = await closeGroup({ groupId: crewId });
+      if (result.error) {
+        showToast(result.error);
+        return;
+      }
+      showToast("Crew closed");
+      router.refresh();
+    });
+  };
+
+  return (
+    <button className="btn btn-ghost" onClick={handleClick} disabled={isPending}>
+      {isPending ? "Closing…" : "Close crew"}
     </button>
   );
 }

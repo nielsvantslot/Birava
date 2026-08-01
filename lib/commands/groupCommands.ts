@@ -8,6 +8,7 @@ import {
   JoinGroupDTO,
   JoinGroupResultDTO,
   LeaveGroupDTO,
+  CloseGroupDTO,
 } from "@/lib/dtos";
 
 export async function createGroup(
@@ -47,6 +48,10 @@ export async function joinGroup(
   });
   const alreadyMember = existingMembers.some((m) => m.userId === userId);
 
+  if (group.closedAt && !alreadyMember) {
+    return { error: "This crew is closed and isn't accepting new members." };
+  }
+
   await db.groupMember.upsert({
     where: { groupId_userId: { groupId: group.id, userId } },
     update: {},
@@ -79,6 +84,28 @@ export async function leaveGroup(userId: string, input: LeaveGroupDTO): Promise<
 
   await db.groupMember.deleteMany({
     where: { groupId: input.groupId, userId },
+  });
+
+  return {};
+}
+
+/**
+ * Owner-only: stops new check-ins from counting toward the crew's
+ * leaderboard from this point on (scoreCrew's closedAt upper bound) and
+ * blocks new members from joining. Doesn't touch existing stats/members —
+ * everyone keeps logging normally everywhere else in the app.
+ */
+export async function closeGroup(userId: string, input: CloseGroupDTO): Promise<ActionResultDTO> {
+  const group = await db.group.findUnique({ where: { id: input.groupId } });
+  if (!group) return { error: "Crew not found" };
+  if (group.ownerId !== userId) {
+    return { error: "Only the crew owner can close it" };
+  }
+  if (group.closedAt) return { error: "Crew is already closed" };
+
+  await db.group.update({
+    where: { id: input.groupId },
+    data: { closedAt: new Date() },
   });
 
   return {};
