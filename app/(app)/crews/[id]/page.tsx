@@ -7,7 +7,7 @@ import { sessionTitle } from "@/lib/sessions";
 import { formatDate, timeAgo } from "@/lib/dates";
 import { avatarSrc } from "@/lib/utils";
 import { CrewLeaderboard } from "@/components/drink/crew-leaderboard";
-import { CopyCodeChip, CloseCrewButton } from "@/components/drink/crews-forms";
+import { CopyCodeChip, LeaveCrewButton, CloseCrewButton } from "@/components/drink/crews-forms";
 
 export default async function CrewDetailPage({
   params,
@@ -116,6 +116,7 @@ export default async function CrewDetailPage({
             avatarUrl: s.avatarUrl,
             sessions: s.sessions,
             venues: s.venues,
+            drinks: s.drinks,
             you: s.userId === user.id,
           }))}
         />
@@ -157,6 +158,12 @@ export default async function CrewDetailPage({
               <span className="chev">›</span>
             </Link>
           ))}
+        </div>
+      )}
+
+      {!isOwner && (
+        <div className="section">
+          <LeaveCrewButton crewId={crew.id} />
         </div>
       )}
 
