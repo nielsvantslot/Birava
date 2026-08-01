@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { db } from "@/lib/db";
 import { NotificationMapper } from "@/lib/mappers";
-import type { NotificationDTO } from "@/lib/dtos";
+import type { NotificationDTO, NotificationPreferencesDTO } from "@/lib/dtos";
 
 export async function getNotifications(
   userId: string,
@@ -27,4 +27,17 @@ export const getUnreadCount = cache(async (userId: string): Promise<number> => {
 export async function hasAnyPushSubscription(userId: string): Promise<boolean> {
   const count = await db.pushSubscription.count({ where: { userId } });
   return count > 0;
+}
+
+export async function getNotificationPreferences(userId: string): Promise<NotificationPreferencesDTO> {
+  return db.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: {
+      notifyCrewCheckin: true,
+      notifyCheer: true,
+      notifyCrewActivity: true,
+      notifyAchievement: true,
+      notifyFollowing: true,
+    },
+  });
 }
