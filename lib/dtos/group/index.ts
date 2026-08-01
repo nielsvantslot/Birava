@@ -12,3 +12,4 @@ export * from "./unbanMemberDTO";
 export * from "./sendCrewInviteDTO";
 export * from "./respondToCrewInviteDTO";
 export * from "./getCrewInviteCandidatesDTO";
+export * from "./closeGroupDTO";

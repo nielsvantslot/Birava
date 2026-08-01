@@ -11,6 +11,7 @@ import {
   setMemberRole as setMemberRoleCommand,
   kickMember as kickMemberCommand,
   unbanMember as unbanMemberCommand,
+  closeGroup as closeGroupCommand,
 } from "@/lib/commands/groupCommands";
 import {
   sendCrewInvite as sendCrewInviteCommand,
@@ -38,6 +39,7 @@ import {
   SendCrewInviteDTO,
   RespondToCrewInviteDTO,
   GetCrewInviteCandidatesDTO,
+  CloseGroupDTO,
 } from "@/lib/dtos";
 
 function revalidateGroupPaths() {
@@ -142,6 +144,15 @@ export async function getCrewInviteCandidates(input: GetCrewInviteCandidatesDTO)
   if (!user) return null;
 
   return getCrewInviteCandidatesQuery(user.id, input.groupId);
+}
+
+export async function closeGroup(input: CloseGroupDTO): Promise<ActionResultDTO> {
+  const user = await getCurrentUser();
+  if (!user) return NOT_AUTHENTICATED;
+
+  const result = await closeGroupCommand(user.id, input);
+  if (!result.error) revalidateGroupPaths();
+  return result;
 }
 
 /** The current user's crews with their rank in each (one bulk read, no N+1). */

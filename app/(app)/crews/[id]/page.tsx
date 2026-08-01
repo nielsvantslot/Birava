@@ -7,7 +7,7 @@ import { sessionTitle } from "@/lib/sessions";
 import { formatDate, timeAgo } from "@/lib/dates";
 import { avatarSrc } from "@/lib/utils";
 import { CrewLeaderboard } from "@/components/drink/crew-leaderboard";
-import { CopyCodeChip, LeaveCrewButton } from "@/components/drink/crews-forms";
+import { CopyCodeChip, LeaveCrewButton, CloseCrewButton } from "@/components/drink/crews-forms";
 import { CrewSettingsPanel } from "@/components/drink/crew-settings";
 import { CrewInvitePanel } from "@/components/drink/crew-invite-panel";
 
@@ -30,6 +30,7 @@ export default async function CrewDetailPage({
   const you = scores.find((s) => s.userId === user.id);
   const usernameById = new Map(scores.map((s) => [s.userId, s.username]));
   const isOwner = crew.ownerId === user.id;
+  const isClosed = !!crew.closedAt;
   // Same rule gates sharing the invite code and sending an in-app invite —
   // any member when PUBLIC, owner/admin only when PRIVATE (#162).
   const canInvite = crew.visibility === "PUBLIC" || crew.viewerRole !== "MEMBER";
@@ -85,7 +86,8 @@ export default async function CrewDetailPage({
         </div>
         <div className="event">
           <span className="ev-live">
-            <span className="dot"></span>Live
+            {!isClosed && <span className="dot"></span>}
+            {isClosed ? "Closed" : "Live"}
           </span>
           <div className="members">
             {scores.slice(0, 5).map((s) => (
@@ -172,6 +174,12 @@ export default async function CrewDetailPage({
       {!isOwner && (
         <div className="section">
           <LeaveCrewButton crewId={crew.id} />
+        </div>
+      )}
+
+      {isOwner && !isClosed && (
+        <div className="section">
+          <CloseCrewButton crewId={crew.id} />
         </div>
       )}
 
