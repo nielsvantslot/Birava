@@ -6,7 +6,11 @@ import { DrinkSession, groupIntoSessions } from "@/lib/sessions";
 /**
  * Crew scoring: everyone is ranked from the day they joined — never
  * lifetime totals, so joining a crew with history doesn't auto-win it.
- * Metrics are sessions and venues (variety), never drink counts.
+ * Primary metric is sessions; ties break on total drinks logged since
+ * joining. Drink counts are otherwise excluded app-wide ("celebrate variety,
+ * never volume") — crew leaderboards are a deliberate, scoped exception,
+ * since crews are private/opt-in/time-boxed rather than the ambient
+ * feed/stats screens that rule targets. See CLAUDE.md.
  */
 export type CrewMemberScore = {
   userId: string;
@@ -15,6 +19,7 @@ export type CrewMemberScore = {
   joinedAt: string; // ISO
   sessions: number;
   venues: number;
+  drinks: number;
 };
 
 export type CrewBoard = {
@@ -66,10 +71,11 @@ export function scoreCrew(
       joinedAt: m.joinedAt.toISOString(),
       sessions: ownSessions.length,
       venues: venues.size,
+      drinks: own.length,
     };
   });
 
-  scores.sort((a, b) => b.sessions - a.sessions || b.venues - a.venues);
+  scores.sort((a, b) => b.sessions - a.sessions || b.drinks - a.drinks);
 
   // Identity isn't carried on the projected rows, so stamp it from members.
   const recentSessions = sessions.slice(0, 4).map((s) => ({

@@ -9,6 +9,7 @@ export type LeaderboardRow = {
   avatarUrl: string | null;
   sessions: number;
   venues: number;
+  drinks: number;
   you: boolean;
 };
 
@@ -21,7 +22,7 @@ export function CrewLeaderboard({ rows }: { rows: LeaderboardRow[] }) {
 
   const ranked = [...rows].sort((a, b) =>
     metric === "sessions"
-      ? b.sessions - a.sessions || b.venues - a.venues
+      ? b.sessions - a.sessions || b.drinks - a.drinks
       : b.venues - a.venues || b.sessions - a.sessions
   );
 
@@ -57,7 +58,7 @@ export function CrewLeaderboard({ rows }: { rows: LeaderboardRow[] }) {
               <b>{row.you ? "You" : row.username}</b>
               <span>
                 {row.sessions} session{row.sessions === 1 ? "" : "s"} ·{" "}
-                {row.venues} venue{row.venues === 1 ? "" : "s"}
+                {row.drinks} drink{row.drinks === 1 ? "" : "s"}
               </span>
             </div>
             <div className="score">
