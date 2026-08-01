@@ -7,7 +7,7 @@ import { sessionTitle } from "@/lib/sessions";
 import { formatDate, timeAgo } from "@/lib/dates";
 import { avatarSrc } from "@/lib/utils";
 import { CrewLeaderboard } from "@/components/drink/crew-leaderboard";
-import { CopyCodeChip } from "@/components/drink/crews-forms";
+import { CopyCodeChip, LeaveCrewButton } from "@/components/drink/crews-forms";
 
 export default async function CrewDetailPage({
   params,
@@ -27,6 +27,7 @@ export default async function CrewDetailPage({
   const { scores, recentSessions } = crew;
   const you = scores.find((s) => s.userId === user.id);
   const usernameById = new Map(scores.map((s) => [s.userId, s.username]));
+  const isOwner = crew.ownerId === user.id;
 
   return (
     <>
@@ -113,6 +114,7 @@ export default async function CrewDetailPage({
             avatarUrl: s.avatarUrl,
             sessions: s.sessions,
             venues: s.venues,
+            drinks: s.drinks,
             you: s.userId === user.id,
           }))}
         />
@@ -154,6 +156,12 @@ export default async function CrewDetailPage({
               <span className="chev">›</span>
             </Link>
           ))}
+        </div>
+      )}
+
+      {!isOwner && (
+        <div className="section">
+          <LeaveCrewButton crewId={crew.id} />
         </div>
       )}
     </>

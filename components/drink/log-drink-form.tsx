@@ -15,7 +15,7 @@ import { flushPendingCheckins } from "@/lib/offline/syncPendingCheckins";
 
 type Coords = { lat: number; lng: number };
 
-function getPosition(): Promise<Coords> {
+function getPosition(options: PositionOptions): Promise<Coords> {
   return new Promise((resolve, reject) => {
     navigator.geolocation.getCurrentPosition(
       (pos) =>
@@ -24,7 +24,7 @@ function getPosition(): Promise<Coords> {
           lng: Number(pos.coords.longitude.toFixed(6)),
         }),
       reject,
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+      options
     );
   });
 }
@@ -34,11 +34,18 @@ function getPosition(): Promise<Coords> {
 // the same number, so it isn't shared here.
 const PHOTO_COMPRESS_CONFIG = { maxDimension: DRINK_PHOTO_MAX_DIMENSION, quality: 0.85 };
 
+// nominatim.openstreetmap.org has no request timeout of its own — on a bad
+// connection it can hang far longer than the location fix it's just
+// prefilling a venue name for, so this bounds it independently.
+const REVERSE_GEOCODE_TIMEOUT_MS = 5000;
+
 async function reverseGeocode(coords: Coords): Promise<string | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REVERSE_GEOCODE_TIMEOUT_MS);
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${coords.lat}&lon=${coords.lng}&zoom=18`,
-      { headers: { Accept: "application/json" } }
+      { headers: { Accept: "application/json" }, signal: controller.signal }
     );
     if (!res.ok) return null;
     const data = await res.json();
@@ -52,6 +59,8 @@ async function reverseGeocode(coords: Coords): Promise<string | null> {
     );
   } catch {
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -107,12 +116,24 @@ export function CheckinForm({
   const captureLocation = async (announce: boolean) => {
     setLocating(true);
     try {
-      const position = await getPosition();
+      let position: Coords;
+      try {
+        position = await getPosition({ enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 });
+      } catch (err) {
+        // Permission denial won't change on a retry; a weak/slow high-accuracy
+        // fix (timeout or position-unavailable) might succeed with a coarser one.
+        if ((err as GeolocationPositionError)?.code === 1) throw err;
+        position = await getPosition({ enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 });
+      }
       setCoords(position);
-      const suggestion = await reverseGeocode(position);
-      // Only prefill the venue if the user hasn't typed one meanwhile
-      if (suggestion) setVenue((v) => (v.trim() ? v : suggestion));
       if (announce) showToast("Location attached");
+      // Not awaited: the venue-name lookup can hang far longer than the
+      // location fix itself on a bad connection, and coords are already
+      // captured/submittable — don't let it hold up `locating`.
+      reverseGeocode(position).then((suggestion) => {
+        // Only prefill the venue if the user hasn't typed one meanwhile
+        if (suggestion) setVenue((v) => (v.trim() ? v : suggestion));
+      });
     } catch {
       if (announce) showToast("Couldn't get your location");
     } finally {
