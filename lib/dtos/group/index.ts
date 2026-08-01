@@ -5,3 +5,7 @@ export * from "./createGroupResultDTO";
 export * from "./joinGroupDTO";
 export * from "./joinGroupResultDTO";
 export * from "./leaveGroupDTO";
+export * from "./setCrewVisibilityDTO";
+export * from "./setMemberRoleDTO";
+export * from "./kickMemberDTO";
+export * from "./unbanMemberDTO";
