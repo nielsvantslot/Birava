@@ -113,6 +113,7 @@ export default async function CrewDetailPage({
             avatarUrl: s.avatarUrl,
             sessions: s.sessions,
             venues: s.venues,
+            drinks: s.drinks,
             you: s.userId === user.id,
           }))}
         />
