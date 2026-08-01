@@ -87,6 +87,7 @@ export type CrewDetail = {
   name: string;
   inviteCode: string;
   createdAt: string; // ISO
+  ownerId: string;
   memberCount: number;
   scores: CrewMemberScore[];
   recentSessions: DrinkSession[];
@@ -112,6 +113,7 @@ export async function getCrewDetailForViewer(
     name: crew.name,
     inviteCode: crew.inviteCode,
     createdAt: crew.createdAt.toISOString(),
+    ownerId: crew.ownerId,
     memberCount: crew.members.length,
     scores,
     recentSessions,
