@@ -38,17 +38,20 @@ export type CrewMemberInput = {
  */
 export function scoreCrew(
   members: CrewMemberInput[],
-  rows: DrinkEntry[]
+  rows: DrinkEntry[],
+  closedAt: Date | null = null
 ): CrewBoard {
   if (members.length === 0) return { scores: [], recentSessions: [] };
 
+  const cutoff = closedAt ?? new Date();
   const joinedAt = new Map(members.map((m) => [m.userId, m.joinedAt]));
   const info = new Map(members.map((m) => [m.userId, m]));
 
-  // Only what a member logged after joining counts toward the crew.
+  // Only what a member logged after joining, and before the crew closed
+  // (if it has), counts toward the crew.
   const counted = rows.filter((r) => {
     const joined = joinedAt.get(r.userId);
-    return joined !== undefined && r.createdAt >= joined;
+    return joined !== undefined && r.createdAt >= joined && r.createdAt <= cutoff;
   });
   const entries = counted.map(toDrinkEntry);
   const sessions = groupIntoSessions(entries);
@@ -87,7 +90,8 @@ export function scoreCrew(
  * which has already loaded it (so no per-crew re-query of members).
  */
 export async function getCrewBoard(
-  members: CrewMemberInput[]
+  members: CrewMemberInput[],
+  closedAt: Date | null = null
 ): Promise<CrewBoard> {
   if (members.length === 0) return { scores: [], recentSessions: [] };
 
@@ -97,10 +101,10 @@ export async function getCrewBoard(
   const rows = await db.drinkEntry.findMany({
     where: {
       userId: { in: members.map((m) => m.userId) },
-      createdAt: { gte: earliest },
+      createdAt: { gte: earliest, ...(closedAt ? { lte: closedAt } : {}) },
     },
     orderBy: { createdAt: "asc" },
   });
 
-  return scoreCrew(members, rows);
+  return scoreCrew(members, rows, closedAt);
 }

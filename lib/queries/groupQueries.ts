@@ -36,6 +36,7 @@ export type CrewSummary = {
   inviteCode: string;
   memberCount: number;
   rank: number | null;
+  closed: boolean;
 };
 
 /**
@@ -70,7 +71,7 @@ export async function getCrewSummariesForUser(
         });
 
   return memberships.map((m) => {
-    const { scores } = scoreCrew(toMemberInputs(m.group.members), rows);
+    const { scores } = scoreCrew(toMemberInputs(m.group.members), rows, m.group.closedAt);
     const rank = 1 + scores.findIndex((s) => s.userId === userId);
     return {
       id: m.group.id,
@@ -78,6 +79,7 @@ export async function getCrewSummariesForUser(
       inviteCode: m.group.inviteCode,
       memberCount: m.group.members.length,
       rank: rank > 0 ? rank : null,
+      closed: !!m.group.closedAt,
     };
   });
 }
@@ -87,6 +89,8 @@ export type CrewDetail = {
   name: string;
   inviteCode: string;
   createdAt: string; // ISO
+  closedAt: string | null; // ISO
+  ownerId: string;
   memberCount: number;
   scores: CrewMemberScore[];
   recentSessions: DrinkSession[];
@@ -105,13 +109,16 @@ export async function getCrewDetailForViewer(
   if (!crew.members.some((m) => m.userId === viewerId)) return null;
 
   const { scores, recentSessions } = await getCrewBoard(
-    toMemberInputs(crew.members)
+    toMemberInputs(crew.members),
+    crew.closedAt
   );
   return {
     id: crew.id,
     name: crew.name,
     inviteCode: crew.inviteCode,
     createdAt: crew.createdAt.toISOString(),
+    closedAt: crew.closedAt ? crew.closedAt.toISOString() : null,
+    ownerId: crew.ownerId,
     memberCount: crew.members.length,
     scores,
     recentSessions,

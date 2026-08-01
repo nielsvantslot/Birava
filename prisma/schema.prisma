@@ -44,6 +44,7 @@ model Group {
   inviteCode   String        @unique
   ownerId      String        @db.Uuid
   createdAt    DateTime      @default(now()) @db.Timestamptz(6)
+  closedAt     DateTime?     @db.Timestamptz(6)
   owner        User          @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members      GroupMember[]
 

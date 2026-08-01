@@ -7,6 +7,7 @@ import {
   createGroup as createGroupCommand,
   joinGroup,
   leaveGroup as leaveGroupCommand,
+  closeGroup as closeGroupCommand,
 } from "@/lib/commands/groupCommands";
 import {
   getCrewSummariesForUser,
@@ -22,6 +23,7 @@ import {
   JoinGroupDTO,
   JoinGroupResultDTO,
   LeaveGroupDTO,
+  CloseGroupDTO,
 } from "@/lib/dtos";
 
 function revalidateGroupPaths() {
@@ -55,6 +57,15 @@ export async function leaveGroup(input: LeaveGroupDTO): Promise<ActionResultDTO>
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await leaveGroupCommand(user.id, input);
+  if (!result.error) revalidateGroupPaths();
+  return result;
+}
+
+export async function closeGroup(input: CloseGroupDTO): Promise<ActionResultDTO> {
+  const user = await getCurrentUser();
+  if (!user) return NOT_AUTHENTICATED;
+
+  const result = await closeGroupCommand(user.id, input);
   if (!result.error) revalidateGroupPaths();
   return result;
 }
