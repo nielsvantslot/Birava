@@ -9,6 +9,7 @@ import { avatarSrc } from "@/lib/utils";
 import { CrewLeaderboard } from "@/components/drink/crew-leaderboard";
 import { CopyCodeChip, LeaveCrewButton, CloseCrewButton } from "@/components/drink/crews-forms";
 import { CrewSettingsPanel } from "@/components/drink/crew-settings";
+import { CrewInvitePanel } from "@/components/drink/crew-invite-panel";
 
 export default async function CrewDetailPage({
   params,
@@ -181,6 +182,8 @@ export default async function CrewDetailPage({
           <CloseCrewButton crewId={crew.id} />
         </div>
       )}
+
+      {canInvite && <CrewInvitePanel crewId={crew.id} />}
 
       <CrewSettingsPanel
         crewId={crew.id}

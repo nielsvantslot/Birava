@@ -14,11 +14,16 @@ import {
   closeGroup as closeGroupCommand,
 } from "@/lib/commands/groupCommands";
 import {
+  sendCrewInvite as sendCrewInviteCommand,
+  respondToCrewInvite as respondToCrewInviteCommand,
+} from "@/lib/commands/groupInviteCommands";
+import {
   getCrewSummariesForUser,
   getCrewDetailForViewer,
   type CrewSummary,
   type CrewDetail,
 } from "@/lib/queries/groupQueries";
+import { getCrewInviteCandidates as getCrewInviteCandidatesQuery } from "@/lib/queries/groupInviteQueries";
 import {
   ActionResultDTO,
   CreateGroupDTO,
@@ -31,6 +36,9 @@ import {
   SetMemberRoleDTO,
   KickMemberDTO,
   UnbanMemberDTO,
+  SendCrewInviteDTO,
+  RespondToCrewInviteDTO,
+  GetCrewInviteCandidatesDTO,
   CloseGroupDTO,
 } from "@/lib/dtos";
 
@@ -103,6 +111,39 @@ export async function unbanMember(input: UnbanMemberDTO): Promise<ActionResultDT
   const result = await unbanMemberCommand(user.id, input);
   if (!result.error) revalidateGroupPaths();
   return result;
+}
+
+export async function sendCrewInvite(input: SendCrewInviteDTO): Promise<ActionResultDTO> {
+  const user = await getCurrentUser();
+  if (!user) return NOT_AUTHENTICATED;
+
+  return sendCrewInviteCommand(user.id, input, {
+    username: user.username,
+    avatarUrl: user.avatarUrl,
+  });
+}
+
+export async function respondToCrewInvite(input: RespondToCrewInviteDTO): Promise<ActionResultDTO> {
+  const user = await getCurrentUser();
+  if (!user) return NOT_AUTHENTICATED;
+
+  const result = await respondToCrewInviteCommand(user.id, input, {
+    username: user.username,
+    avatarUrl: user.avatarUrl,
+  });
+  if (!result.error) {
+    revalidatePath("/notifications");
+    revalidateGroupPaths();
+  }
+  return result;
+}
+
+/** Who the current user can invite into a crew — null if they can't invite at all right now. */
+export async function getCrewInviteCandidates(input: GetCrewInviteCandidatesDTO) {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  return getCrewInviteCandidatesQuery(user.id, input.groupId);
 }
 
 export async function closeGroup(input: CloseGroupDTO): Promise<ActionResultDTO> {

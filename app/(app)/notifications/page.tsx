@@ -9,6 +9,7 @@ import {
 import { timeAgo } from "@/lib/dates";
 import { avatarSrc, cn } from "@/lib/utils";
 import { MarkReadOnView } from "@/components/notifications/mark-read-on-view";
+import { CrewInviteActions } from "@/components/notifications/crew-invite-actions";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default async function NotificationsPage() {
@@ -70,13 +71,8 @@ async function NotificationListLoader() {
           No notifications yet.
         </p>
       ) : (
-        notifications.map((n) => (
-          <Link
-            key={n.id}
-            href={n.href}
-            className={cn("row", !n.read && "unread")}
-            style={{ textDecoration: "none", color: "inherit" }}
-          >
+        notifications.map((n) => {
+          const avatar = (
             <div className="rowmark">
               {n.actorAvatarUrl && n.actorId ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -92,13 +88,37 @@ async function NotificationListLoader() {
                 </svg>
               )}
             </div>
-            <div className="grow">
-              <b>{n.message}</b>
-              <span>{timeAgo(new Date(n.createdAt), tz)}</span>
-            </div>
-            <span className="chev">›</span>
-          </Link>
-        ))
+          );
+
+          if (n.type === "CREW_INVITE" && n.inviteId) {
+            return (
+              <div key={n.id} className={cn("row", !n.read && "unread")}>
+                {avatar}
+                <div className="grow">
+                  <b>{n.message}</b>
+                  <span>{timeAgo(new Date(n.createdAt), tz)}</span>
+                </div>
+                <CrewInviteActions inviteId={n.inviteId} />
+              </div>
+            );
+          }
+
+          return (
+            <Link
+              key={n.id}
+              href={n.href}
+              className={cn("row", !n.read && "unread")}
+              style={{ textDecoration: "none", color: "inherit" }}
+            >
+              {avatar}
+              <div className="grow">
+                <b>{n.message}</b>
+                <span>{timeAgo(new Date(n.createdAt), tz)}</span>
+              </div>
+              <span className="chev">›</span>
+            </Link>
+          );
+        })
       )}
     </div>
   );

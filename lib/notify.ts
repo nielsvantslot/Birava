@@ -24,6 +24,11 @@ const PREFERENCE_KEY_BY_TYPE: Record<NotificationType, NotificationPreferenceKey
   CREW_CHECKIN: "notifyCrewCheckin",
   CHEER: "notifyCheer",
   CREW_JOIN: "notifyCrewActivity",
+  // Bucketed with CREW_JOIN — an invite is crew-membership activity, same
+  // category as joining. Not its own toggle: neither #159 nor #163 asked
+  // for one, and this repo's notification settings only cover the four
+  // categories #159 defined.
+  CREW_INVITE: "notifyCrewActivity",
   ACHIEVEMENT: "notifyAchievement",
   FOLLOW: "notifyFollowing",
   SESSION_START: "notifyFollowing",
