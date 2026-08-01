@@ -8,6 +8,7 @@ import { formatDate, timeAgo } from "@/lib/dates";
 import { avatarSrc } from "@/lib/utils";
 import { CrewLeaderboard } from "@/components/drink/crew-leaderboard";
 import { CopyCodeChip, LeaveCrewButton, CloseCrewButton } from "@/components/drink/crews-forms";
+import { CrewSettingsPanel } from "@/components/drink/crew-settings";
 
 export default async function CrewDetailPage({
   params,
@@ -29,6 +30,9 @@ export default async function CrewDetailPage({
   const usernameById = new Map(scores.map((s) => [s.userId, s.username]));
   const isOwner = crew.ownerId === user.id;
   const isClosed = !!crew.closedAt;
+  // Same rule gates sharing the invite code and sending an in-app invite —
+  // any member when PUBLIC, owner/admin only when PRIVATE (#162).
+  const canInvite = crew.visibility === "PUBLIC" || crew.viewerRole !== "MEMBER";
 
   return (
     <>
@@ -69,8 +73,13 @@ export default async function CrewDetailPage({
               }}
             >
               {crew.memberCount} member
-              {crew.memberCount === 1 ? "" : "s"} ·{" "}
-              <CopyCodeChip code={crew.inviteCode} />
+              {crew.memberCount === 1 ? "" : "s"}
+              {canInvite && (
+                <>
+                  {" "}
+                  · <CopyCodeChip code={crew.inviteCode} />
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -172,6 +181,15 @@ export default async function CrewDetailPage({
           <CloseCrewButton crewId={crew.id} />
         </div>
       )}
+
+      <CrewSettingsPanel
+        crewId={crew.id}
+        visibility={crew.visibility}
+        viewerRole={crew.viewerRole}
+        viewerId={user.id}
+        members={crew.members}
+        bannedMembers={crew.bannedMembers}
+      />
     </>
   );
 }

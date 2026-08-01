@@ -7,6 +7,10 @@ import {
   createGroup as createGroupCommand,
   joinGroup,
   leaveGroup as leaveGroupCommand,
+  setCrewVisibility as setCrewVisibilityCommand,
+  setMemberRole as setMemberRoleCommand,
+  kickMember as kickMemberCommand,
+  unbanMember as unbanMemberCommand,
   closeGroup as closeGroupCommand,
 } from "@/lib/commands/groupCommands";
 import {
@@ -23,6 +27,10 @@ import {
   JoinGroupDTO,
   JoinGroupResultDTO,
   LeaveGroupDTO,
+  SetCrewVisibilityDTO,
+  SetMemberRoleDTO,
+  KickMemberDTO,
+  UnbanMemberDTO,
   CloseGroupDTO,
 } from "@/lib/dtos";
 
@@ -57,6 +65,42 @@ export async function leaveGroup(input: LeaveGroupDTO): Promise<ActionResultDTO>
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await leaveGroupCommand(user.id, input);
+  if (!result.error) revalidateGroupPaths();
+  return result;
+}
+
+export async function setCrewVisibility(input: SetCrewVisibilityDTO): Promise<ActionResultDTO> {
+  const user = await getCurrentUser();
+  if (!user) return NOT_AUTHENTICATED;
+
+  const result = await setCrewVisibilityCommand(user.id, input);
+  if (!result.error) revalidateGroupPaths();
+  return result;
+}
+
+export async function setMemberRole(input: SetMemberRoleDTO): Promise<ActionResultDTO> {
+  const user = await getCurrentUser();
+  if (!user) return NOT_AUTHENTICATED;
+
+  const result = await setMemberRoleCommand(user.id, input);
+  if (!result.error) revalidateGroupPaths();
+  return result;
+}
+
+export async function kickMember(input: KickMemberDTO): Promise<ActionResultDTO> {
+  const user = await getCurrentUser();
+  if (!user) return NOT_AUTHENTICATED;
+
+  const result = await kickMemberCommand(user.id, input);
+  if (!result.error) revalidateGroupPaths();
+  return result;
+}
+
+export async function unbanMember(input: UnbanMemberDTO): Promise<ActionResultDTO> {
+  const user = await getCurrentUser();
+  if (!user) return NOT_AUTHENTICATED;
+
+  const result = await unbanMemberCommand(user.id, input);
   if (!result.error) revalidateGroupPaths();
   return result;
 }
