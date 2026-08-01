@@ -12,6 +12,7 @@ import {
   kickMember as kickMemberCommand,
   unbanMember as unbanMemberCommand,
   closeGroup as closeGroupCommand,
+  deleteGroup as deleteGroupCommand,
 } from "@/lib/commands/groupCommands";
 import {
   sendCrewInvite as sendCrewInviteCommand,
@@ -40,6 +41,7 @@ import {
   RespondToCrewInviteDTO,
   GetCrewInviteCandidatesDTO,
   CloseGroupDTO,
+  DeleteGroupDTO,
 } from "@/lib/dtos";
 
 function revalidateGroupPaths() {
@@ -151,6 +153,15 @@ export async function closeGroup(input: CloseGroupDTO): Promise<ActionResultDTO>
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await closeGroupCommand(user.id, input);
+  if (!result.error) revalidateGroupPaths();
+  return result;
+}
+
+export async function deleteGroup(input: DeleteGroupDTO): Promise<ActionResultDTO> {
+  const user = await getCurrentUser();
+  if (!user) return NOT_AUTHENTICATED;
+
+  const result = await deleteGroupCommand(user.id, input);
   if (!result.error) revalidateGroupPaths();
   return result;
 }

@@ -13,6 +13,7 @@ import {
   KickMemberDTO,
   UnbanMemberDTO,
   CloseGroupDTO,
+  DeleteGroupDTO,
 } from "@/lib/dtos";
 
 export async function createGroup(
@@ -201,6 +202,23 @@ export async function unbanMember(userId: string, input: UnbanMemberDTO): Promis
   if (group.ownerId !== userId) return { error: "Only the crew owner can lift a removal" };
 
   await db.groupBan.deleteMany({ where: { groupId: input.groupId, userId: input.userId } });
+
+  return {};
+}
+
+/**
+ * Owner-only: permanently deletes the crew. GroupMember/GroupBan/GroupInvite
+ * cascade-delete via their onDelete: Cascade relations to Group — nobody's
+ * check-in history (DrinkEntry) is crew-owned, so this never touches anyone's
+ * logged drinks, only the crew's roster/roles/bans/invites and the crew
+ * itself. Unlike closeGroup, there's no undo.
+ */
+export async function deleteGroup(userId: string, input: DeleteGroupDTO): Promise<ActionResultDTO> {
+  const group = await db.group.findUnique({ where: { id: input.groupId } });
+  if (!group) return { error: "Crew not found" };
+  if (group.ownerId !== userId) return { error: "Only the crew owner can delete it" };
+
+  await db.group.delete({ where: { id: input.groupId } });
 
   return {};
 }
