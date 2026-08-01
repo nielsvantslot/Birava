@@ -7,6 +7,7 @@ import { BottomNav } from "@/components/layout/bottom-nav";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 import { RightRail } from "@/components/layout/right-rail";
 import { ToastPill } from "@/components/ui/toast-pill";
+import { ConfirmModalHost } from "@/components/ui/confirm-modal";
 import { TimezoneSync } from "@/components/timezone-sync";
 import { PendingCheckinsSync } from "@/components/drink/pending-checkins-sync";
 import { drinkPhotoService } from "@/lib/photoUpload";
@@ -48,6 +49,7 @@ export default function AppLayout({
         <BottomNav />
       </Suspense>
       <ToastPill />
+      <ConfirmModalHost />
       <TimezoneSync />
       <Suspense fallback={null}>
         <PendingCheckinsSyncLoader />

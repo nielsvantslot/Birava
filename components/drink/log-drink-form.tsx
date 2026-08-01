@@ -6,6 +6,7 @@ import { PhotoUploadPreparer, PhotoUploader } from "@/modules/photo-upload/clien
 import type { PhotoUploadResultDto } from "@/modules/photo-upload/client";
 import { editDrink, deleteDrink } from "@/lib/controllers/drinkController";
 import { showToast } from "@/components/ui/toast-pill";
+import { confirmModal } from "@/components/ui/confirm-modal";
 import { DrinkEntry, DRINK_TYPES } from "@/lib/types";
 import { drinkPhotoSrc, cn } from "@/lib/utils";
 import { DRINK_PHOTO_MAX_DIMENSION, DRINK_PHOTO_MAX_UPLOAD_BYTES, drinkPhotoUploadEndpoints } from "@/lib/photoUploadConfig";
@@ -212,8 +213,15 @@ export function CheckinForm({
     clearPhotoUi();
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!editEntry) return;
+    const confirmed = await confirmModal({
+      title: "Delete this check-in?",
+      message: "There's no undo.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!confirmed) return;
     startTransition(async () => {
       const result = await deleteDrink({ id: editEntry.id });
       if (result.error) {
