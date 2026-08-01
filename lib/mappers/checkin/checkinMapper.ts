@@ -9,6 +9,7 @@ export function toDrinkEntry(
   return {
     id: entry.id,
     user_id: entry.userId,
+    session_id: entry.sessionId,
     drink_name: entry.drinkName,
     drink_type: entry.drinkType,
     venue: entry.venue,

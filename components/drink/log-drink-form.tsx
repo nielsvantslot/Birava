@@ -230,6 +230,11 @@ export function CheckinForm({
     e.preventDefault();
     setError(null);
 
+    if (!name.trim()) {
+      setError("Give it a name.");
+      return;
+    }
+
     startTransition(async () => {
       try {
         if (editEntry) {
@@ -285,7 +290,7 @@ export function CheckinForm({
       return;
     }
     showToast("Check-in updated");
-    router.push(`/sessions/${entry.id}`);
+    router.push(`/sessions/${entry.session_id}`);
     router.refresh();
   };
 
@@ -509,7 +514,7 @@ export function CheckinForm({
         </p>
       )}
 
-      <button className="btn btn-primary" type="submit" disabled={isPending}>
+      <button className="btn btn-primary" type="submit" disabled={isPending || !name.trim()}>
         {isPending
           ? editing
             ? "Saving…"
