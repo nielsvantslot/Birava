@@ -14,10 +14,22 @@ model User {
   passwordHash      String
   avatarUrl         String?
   createdAt         DateTime           @default(now()) @db.Timestamptz(6)
+  /// Per-category notification preferences — each gates whether
+  /// queueNotifications (lib/notify.ts) even creates the Notification row
+  /// for that category, not just whether push fires. The master
+  /// PushSubscription on/off (above) is a separate, coarser switch.
+  notifyCrewCheckin  Boolean           @default(true)
+  notifyCheer        Boolean           @default(true)
+  notifyCrewActivity Boolean           @default(true)
+  notifyAchievement  Boolean           @default(true)
+  notifyFollowing    Boolean           @default(true)
   drinkEntries      DrinkEntry[]
   drinkSessions     DrinkSession[]
   ownedGroups       Group[]            @relation("GroupOwner")
   groupMemberships  GroupMember[]
+  groupBans         GroupBan[]
+  receivedGroupInvites GroupInvite[]   @relation("GroupInviteInvitee")
+  sentGroupInvites     GroupInvite[]   @relation("GroupInviteInviter")
   follows           Follow[]           @relation("FollowFollower")
   followedBy        Follow[]           @relation("FollowFollowing")
   sessions          Session[]
@@ -38,27 +50,83 @@ model Session {
   @@index([userId])
 }
 
+enum GroupVisibility {
+  PUBLIC
+  PRIVATE
+}
+
 model Group {
-  id           String        @id @default(uuid()) @db.Uuid
+  id           String          @id @default(uuid()) @db.Uuid
   name         String
-  inviteCode   String        @unique
-  ownerId      String        @db.Uuid
-  createdAt    DateTime      @default(now()) @db.Timestamptz(6)
-  owner        User          @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  inviteCode   String          @unique
+  ownerId      String          @db.Uuid
+  visibility   GroupVisibility @default(PUBLIC)
+  createdAt    DateTime        @default(now()) @db.Timestamptz(6)
+  closedAt     DateTime?       @db.Timestamptz(6)
+  owner        User            @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members      GroupMember[]
+  bans         GroupBan[]
+  invites      GroupInvite[]
 
   @@index([ownerId])
 }
 
+enum GroupMemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
 model GroupMember {
+  groupId  String          @db.Uuid
+  userId   String          @db.Uuid
+  role     GroupMemberRole @default(MEMBER)
+  joinedAt DateTime        @default(now()) @db.Timestamptz(6)
+  group    Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, userId])
+  @@index([userId])
+}
+
+/// A kicked member is blocked from rejoining via the group's still-known
+/// invite code (checked by joinGroup) until an owner/admin explicitly
+/// removes the ban (or re-invites them, once #163 lands).
+model GroupBan {
   groupId  String   @db.Uuid
   userId   String   @db.Uuid
-  joinedAt DateTime @default(now()) @db.Timestamptz(6)
+  bannedAt DateTime @default(now()) @db.Timestamptz(6)
   group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([groupId, userId])
   @@index([userId])
+}
+
+enum GroupInviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+/// An in-app invite to join a crew, sent to a mutual follow. A pending row,
+/// not an immediate membership — accepting it goes through the same
+/// joinGroup path (and GroupBan check) as entering an invite code by hand.
+/// Declining/re-inviting has no cooldown, and declining doesn't notify the
+/// inviter — only acceptance does (reusing CREW_JOIN).
+model GroupInvite {
+  id            String            @id @default(uuid()) @db.Uuid
+  groupId       String            @db.Uuid
+  invitedUserId String            @db.Uuid
+  invitedById   String            @db.Uuid
+  status        GroupInviteStatus @default(PENDING)
+  createdAt     DateTime          @default(now()) @db.Timestamptz(6)
+  group         Group             @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  invitedUser   User              @relation("GroupInviteInvitee", fields: [invitedUserId], references: [id], onDelete: Cascade)
+  invitedBy     User              @relation("GroupInviteInviter", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
+  @@index([invitedUserId, status])
 }
 
 model DrinkEntry {
@@ -152,6 +220,7 @@ enum NotificationType {
   CREW_CHECKIN
   ACHIEVEMENT
   SESSION_START
+  CREW_INVITE
 }
 
 /// An in-app + push notification event. Actor/group display text is frozen

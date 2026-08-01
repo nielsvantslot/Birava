@@ -72,7 +72,39 @@ describe("scoreCrew", () => {
     expect(board.scores[1].venues).toBe(2);
   });
 
+  it("breaks a sessions tie by total drinks, not venues", () => {
+    const joinedAt = new Date("2026-01-01T00:00:00.000Z");
+    const members = [member({ userId: "alice", joinedAt }), member({ userId: "bob", joinedAt })];
+    const rows = [
+      // alice: 1 session, 3 drinks, 1 venue
+      row({ userId: "alice", createdAt: new Date("2026-02-01T18:00:00.000Z"), venue: "Taphouse" }),
+      row({ userId: "alice", createdAt: new Date("2026-02-01T18:30:00.000Z"), venue: "Taphouse" }),
+      row({ userId: "alice", createdAt: new Date("2026-02-01T19:00:00.000Z"), venue: "Taphouse" }),
+      // bob: 1 session, 1 drink, 1 venue — fewer drinks despite equal sessions/venues
+      row({ userId: "bob", createdAt: new Date("2026-02-01T08:00:00.000Z"), venue: "Gollem" }),
+    ];
+
+    const board = scoreCrew(members, rows);
+    expect(board.scores[0].userId).toBe("alice");
+    expect(board.scores[0].drinks).toBe(3);
+    expect(board.scores[1].userId).toBe("bob");
+    expect(board.scores[1].drinks).toBe(1);
+  });
+
   it("returns an empty board for a crew with no members", () => {
     expect(scoreCrew([], [])).toEqual({ scores: [], recentSessions: [] });
+  });
+
+  it("excludes check-ins logged after the crew closed", () => {
+    const joinedAt = new Date("2026-01-01T00:00:00.000Z");
+    const closedAt = new Date("2026-02-01T00:00:00.000Z");
+    const members = [member({ userId: "alice", joinedAt })];
+    const rows = [
+      row({ userId: "alice", createdAt: new Date("2026-01-15T00:00:00.000Z") }), // before close — counted
+      row({ userId: "alice", createdAt: new Date("2026-02-15T00:00:00.000Z") }), // after close — ignored
+    ];
+
+    const board = scoreCrew(members, rows, closedAt);
+    expect(board.scores[0].sessions).toBe(1);
   });
 });

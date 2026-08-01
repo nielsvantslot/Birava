@@ -31,5 +31,10 @@ export function describeNotification(
       return { message: `You earned ${content.achievementLabel}`, href: "/achievements" };
     case "SESSION_START":
       return { message: `${actor} started a session`, href: `/sessions/${content.entryId}` };
+    case "CREW_INVITE":
+      // Not /crews/[id]: the invitee isn't a member yet, so that page would
+      // 404 for them until they accept — the notifications list renders
+      // accept/decline actions inline instead of relying on this link.
+      return { message: `${actor} invited you to join ${content.groupName}`, href: `/profile/${actor}` };
   }
 }

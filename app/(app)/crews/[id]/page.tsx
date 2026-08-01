@@ -7,7 +7,9 @@ import { sessionTitle } from "@/lib/sessions";
 import { formatDate, timeAgo } from "@/lib/dates";
 import { avatarSrc } from "@/lib/utils";
 import { CrewLeaderboard } from "@/components/drink/crew-leaderboard";
-import { CopyCodeChip } from "@/components/drink/crews-forms";
+import { CopyCodeChip, LeaveCrewButton, CloseCrewButton } from "@/components/drink/crews-forms";
+import { CrewSettingsPanel } from "@/components/drink/crew-settings";
+import { CrewInvitePanel } from "@/components/drink/crew-invite-panel";
 
 export default async function CrewDetailPage({
   params,
@@ -27,6 +29,11 @@ export default async function CrewDetailPage({
   const { scores, recentSessions } = crew;
   const you = scores.find((s) => s.userId === user.id);
   const usernameById = new Map(scores.map((s) => [s.userId, s.username]));
+  const isOwner = crew.ownerId === user.id;
+  const isClosed = !!crew.closedAt;
+  // Same rule gates sharing the invite code and sending an in-app invite —
+  // any member when PUBLIC, owner/admin only when PRIVATE (#162).
+  const canInvite = crew.visibility === "PUBLIC" || crew.viewerRole !== "MEMBER";
 
   return (
     <>
@@ -67,14 +74,20 @@ export default async function CrewDetailPage({
               }}
             >
               {crew.memberCount} member
-              {crew.memberCount === 1 ? "" : "s"} ·{" "}
-              <CopyCodeChip code={crew.inviteCode} />
+              {crew.memberCount === 1 ? "" : "s"}
+              {canInvite && (
+                <>
+                  {" "}
+                  · <CopyCodeChip code={crew.inviteCode} />
+                </>
+              )}
             </p>
           </div>
         </div>
         <div className="event">
           <span className="ev-live">
-            <span className="dot"></span>Live
+            {!isClosed && <span className="dot"></span>}
+            {isClosed ? "Closed" : "Live"}
           </span>
           <div className="members">
             {scores.slice(0, 5).map((s) => (
@@ -113,6 +126,7 @@ export default async function CrewDetailPage({
             avatarUrl: s.avatarUrl,
             sessions: s.sessions,
             venues: s.venues,
+            drinks: s.drinks,
             you: s.userId === user.id,
           }))}
         />
@@ -156,6 +170,29 @@ export default async function CrewDetailPage({
           ))}
         </div>
       )}
+
+      {!isOwner && (
+        <div className="section">
+          <LeaveCrewButton crewId={crew.id} />
+        </div>
+      )}
+
+      {isOwner && !isClosed && (
+        <div className="section">
+          <CloseCrewButton crewId={crew.id} />
+        </div>
+      )}
+
+      {canInvite && <CrewInvitePanel crewId={crew.id} />}
+
+      <CrewSettingsPanel
+        crewId={crew.id}
+        visibility={crew.visibility}
+        viewerRole={crew.viewerRole}
+        viewerId={user.id}
+        members={crew.members}
+        bannedMembers={crew.bannedMembers}
+      />
     </>
   );
 }

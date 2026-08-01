@@ -6,7 +6,11 @@ import { DrinkSession, groupIntoSessions } from "@/lib/sessions";
 /**
  * Crew scoring: everyone is ranked from the day they joined — never
  * lifetime totals, so joining a crew with history doesn't auto-win it.
- * Metrics are sessions and venues (variety), never drink counts.
+ * Primary metric is sessions; ties break on total drinks logged since
+ * joining. Drink counts are otherwise excluded app-wide ("celebrate variety,
+ * never volume") — crew leaderboards are a deliberate, scoped exception,
+ * since crews are private/opt-in/time-boxed rather than the ambient
+ * feed/stats screens that rule targets. See CLAUDE.md.
  */
 export type CrewMemberScore = {
   userId: string;
@@ -15,6 +19,7 @@ export type CrewMemberScore = {
   joinedAt: string; // ISO
   sessions: number;
   venues: number;
+  drinks: number;
 };
 
 export type CrewBoard = {
@@ -38,17 +43,20 @@ export type CrewMemberInput = {
  */
 export function scoreCrew(
   members: CrewMemberInput[],
-  rows: DrinkEntry[]
+  rows: DrinkEntry[],
+  closedAt: Date | null = null
 ): CrewBoard {
   if (members.length === 0) return { scores: [], recentSessions: [] };
 
+  const cutoff = closedAt ?? new Date();
   const joinedAt = new Map(members.map((m) => [m.userId, m.joinedAt]));
   const info = new Map(members.map((m) => [m.userId, m]));
 
-  // Only what a member logged after joining counts toward the crew.
+  // Only what a member logged after joining, and before the crew closed
+  // (if it has), counts toward the crew.
   const counted = rows.filter((r) => {
     const joined = joinedAt.get(r.userId);
-    return joined !== undefined && r.createdAt >= joined;
+    return joined !== undefined && r.createdAt >= joined && r.createdAt <= cutoff;
   });
   const entries = counted.map(toDrinkEntry);
   const sessions = groupIntoSessions(entries);
@@ -66,10 +74,11 @@ export function scoreCrew(
       joinedAt: m.joinedAt.toISOString(),
       sessions: ownSessions.length,
       venues: venues.size,
+      drinks: own.length,
     };
   });
 
-  scores.sort((a, b) => b.sessions - a.sessions || b.venues - a.venues);
+  scores.sort((a, b) => b.sessions - a.sessions || b.drinks - a.drinks);
 
   // Identity isn't carried on the projected rows, so stamp it from members.
   const recentSessions = sessions.slice(0, 4).map((s) => ({
@@ -87,7 +96,8 @@ export function scoreCrew(
  * which has already loaded it (so no per-crew re-query of members).
  */
 export async function getCrewBoard(
-  members: CrewMemberInput[]
+  members: CrewMemberInput[],
+  closedAt: Date | null = null
 ): Promise<CrewBoard> {
   if (members.length === 0) return { scores: [], recentSessions: [] };
 
@@ -97,10 +107,10 @@ export async function getCrewBoard(
   const rows = await db.drinkEntry.findMany({
     where: {
       userId: { in: members.map((m) => m.userId) },
-      createdAt: { gte: earliest },
+      createdAt: { gte: earliest, ...(closedAt ? { lte: closedAt } : {}) },
     },
     orderBy: { createdAt: "asc" },
   });
 
-  return scoreCrew(members, rows);
+  return scoreCrew(members, rows, closedAt);
 }

@@ -38,4 +38,14 @@ describe("NotificationMapper.toDTO", () => {
     expect(NotificationMapper.toDTO(row({ readAt: null })).read).toBe(false);
     expect(NotificationMapper.toDTO(row({ readAt: new Date() })).read).toBe(true);
   });
+
+  it("surfaces entryId as inviteId only for CREW_INVITE, not other entryId-bearing types", () => {
+    const invite = NotificationMapper.toDTO(
+      row({ type: "CREW_INVITE", entryId: "invite-1", groupId: "group-1", groupName: "Tuscany" })
+    );
+    expect(invite.inviteId).toBe("invite-1");
+
+    const cheer = NotificationMapper.toDTO(row({ type: "CHEER", entryId: "session-1" }));
+    expect(cheer.inviteId).toBeNull();
+  });
 });

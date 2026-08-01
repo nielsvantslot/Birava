@@ -10,6 +10,7 @@ import type { DrinkSession } from "@/lib/sessions";
 const memberSelect = {
   select: {
     userId: true,
+    role: true,
     joinedAt: true,
     user: { select: { username: true, avatarUrl: true } },
   },
@@ -36,6 +37,7 @@ export type CrewSummary = {
   inviteCode: string;
   memberCount: number;
   rank: number | null;
+  closed: boolean;
 };
 
 /**
@@ -70,7 +72,7 @@ export async function getCrewSummariesForUser(
         });
 
   return memberships.map((m) => {
-    const { scores } = scoreCrew(toMemberInputs(m.group.members), rows);
+    const { scores } = scoreCrew(toMemberInputs(m.group.members), rows, m.group.closedAt);
     const rank = 1 + scores.findIndex((s) => s.userId === userId);
     return {
       id: m.group.id,
@@ -78,16 +80,39 @@ export async function getCrewSummariesForUser(
       inviteCode: m.group.inviteCode,
       memberCount: m.group.members.length,
       rank: rank > 0 ? rank : null,
+      closed: !!m.group.closedAt,
     };
   });
 }
+
+export type CrewRole = "OWNER" | "ADMIN" | "MEMBER";
+
+export type CrewMemberInfo = {
+  userId: string;
+  username: string;
+  avatarUrl: string | null;
+  role: CrewRole;
+};
+
+export type BannedCrewMember = {
+  userId: string;
+  username: string;
+  avatarUrl: string | null;
+};
 
 export type CrewDetail = {
   id: string;
   name: string;
   inviteCode: string;
   createdAt: string; // ISO
+  closedAt: string | null; // ISO
+  ownerId: string;
+  visibility: "PUBLIC" | "PRIVATE";
+  /** The viewer's own role in this crew — drives which settings/actions they see. */
+  viewerRole: CrewRole;
   memberCount: number;
+  members: CrewMemberInfo[];
+  bannedMembers: BannedCrewMember[];
   scores: CrewMemberScore[];
   recentSessions: DrinkSession[];
 };
@@ -102,17 +127,38 @@ export async function getCrewDetailForViewer(
     include: { members: memberSelect },
   });
   if (!crew) return null;
-  if (!crew.members.some((m) => m.userId === viewerId)) return null;
+  const viewer = crew.members.find((m) => m.userId === viewerId);
+  if (!viewer) return null;
 
-  const { scores, recentSessions } = await getCrewBoard(
-    toMemberInputs(crew.members)
-  );
+  const [{ scores, recentSessions }, bans] = await Promise.all([
+    getCrewBoard(toMemberInputs(crew.members), crew.closedAt),
+    db.groupBan.findMany({
+      where: { groupId: crewId },
+      include: { user: { select: { username: true, avatarUrl: true } } },
+    }),
+  ]);
+
   return {
     id: crew.id,
     name: crew.name,
     inviteCode: crew.inviteCode,
     createdAt: crew.createdAt.toISOString(),
+    closedAt: crew.closedAt ? crew.closedAt.toISOString() : null,
+    ownerId: crew.ownerId,
+    visibility: crew.visibility,
+    viewerRole: viewer.role,
     memberCount: crew.members.length,
+    members: crew.members.map((m) => ({
+      userId: m.userId,
+      username: m.user.username,
+      avatarUrl: m.user.avatarUrl,
+      role: m.role,
+    })),
+    bannedMembers: bans.map((b) => ({
+      userId: b.userId,
+      username: b.user.username,
+      avatarUrl: b.user.avatarUrl,
+    })),
     scores,
     recentSessions,
   };

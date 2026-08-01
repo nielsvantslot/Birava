@@ -8,4 +8,6 @@ export class NotificationDTO {
   declare actorAvatarUrl: string | null;
   declare read: boolean;
   declare createdAt: string;
+  /** CREW_INVITE only: the GroupInvite id (entryId repurposed), for accept/decline. */
+  declare inviteId: string | null;
 }

@@ -14,6 +14,7 @@ export class NotificationMapper {
       actorAvatarUrl: row.actorAvatarUrl,
       read: row.readAt !== null,
       createdAt: row.createdAt.toISOString(),
+      inviteId: row.type === "CREW_INVITE" ? row.entryId : null,
     };
   }
 }
