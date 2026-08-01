@@ -18,11 +18,13 @@ const nextConfig: NextConfig = {
     // (large) image for those candidates instead of a small one.
     imageSizes: [],
   },
-  // Client router cache: reuse a visited route for 30s before refetching, so
-  // tab switches render instantly from memory instead of a skeleton round-trip.
-  // Pull-to-refresh / reload bypasses it.
+  // Client router cache: dynamic routes always refetch on navigation (dynamic: 0).
+  // A 30s reuse window previously let tab switches (e.g. bottom nav back to
+  // /dashboard or /crews) serve a client-cached page from before a check-in,
+  // even though revalidatePath had already busted the server-side cache —
+  // the new check-in only appeared after a full app reload. See #160.
   experimental: {
-    staleTimes: { dynamic: 30, static: 300 },
+    staleTimes: { dynamic: 0, static: 300 },
   },
   watchOptions: {
     pollIntervalMs: 1000,

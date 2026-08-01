@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createGroup, joinGroupByInvite } from "@/lib/controllers/groupController";
+import { createGroup, joinGroupByInvite, leaveGroup } from "@/lib/controllers/groupController";
 import { showToast } from "@/components/ui/toast-pill";
 
 export function CreateCrewForm() {
@@ -103,6 +103,32 @@ export function JoinCrewForm() {
         {isPending ? "Joining…" : "Join crew"}
       </button>
     </form>
+  );
+}
+
+/** Non-owner members can leave; the crew owner has no such action (leaveGroup blocks it). */
+export function LeaveCrewButton({ crewId }: { crewId: string }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  const handleClick = () => {
+    if (!window.confirm("Leave this crew? You'll need a fresh invite to rejoin.")) return;
+    startTransition(async () => {
+      const result = await leaveGroup({ groupId: crewId });
+      if (result.error) {
+        showToast(result.error);
+        return;
+      }
+      showToast("Left the crew");
+      router.push("/crews");
+      router.refresh();
+    });
+  };
+
+  return (
+    <button className="btn btn-ghost" onClick={handleClick} disabled={isPending}>
+      {isPending ? "Leaving…" : "Leave crew"}
+    </button>
   );
 }
 
