@@ -256,10 +256,12 @@ export async function createDrinkEntry(
     );
   }
 
-  const memberships = await db.groupMember.findMany({
-    where: { userId },
-    select: { groupId: true, group: { select: { name: true } } },
-  });
+  const memberships = isNewSession
+    ? await db.groupMember.findMany({
+        where: { userId },
+        select: { groupId: true, group: { select: { name: true } } },
+      })
+    : [];
   if (memberships.length > 0) {
     const groupIds = memberships.map((m) => m.groupId);
     const otherMembers = await db.groupMember.findMany({
