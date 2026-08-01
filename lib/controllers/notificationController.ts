@@ -3,8 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/session";
 import { throwNotAuthenticated } from "@/lib/auth/authErrors";
-import { getNotifications, getUnreadCount, hasAnyPushSubscription } from "@/lib/queries/notificationQueries";
-import { markAllRead } from "@/lib/commands/notificationCommands";
+import {
+  getNotifications,
+  getUnreadCount,
+  hasAnyPushSubscription,
+  getNotificationPreferences,
+} from "@/lib/queries/notificationQueries";
+import { markAllRead, updateNotificationPreference as updateNotificationPreferenceCommand } from "@/lib/commands/notificationCommands";
 import {
   savePushSubscription as savePushSubscriptionCommand,
   removePushSubscription as removePushSubscriptionCommand,
@@ -14,6 +19,8 @@ import {
   NotificationDTO,
   RemovePushSubscriptionDTO,
   SavePushSubscriptionDTO,
+  NotificationPreferencesDTO,
+  UpdateNotificationPreferenceDTO,
 } from "@/lib/dtos";
 
 export async function getMyNotifications(
@@ -61,4 +68,27 @@ export async function unsubscribeFromPush(input: RemovePushSubscriptionDTO): Pro
   if (!user) throwNotAuthenticated();
 
   await removePushSubscriptionCommand(user.id, input.endpoint);
+}
+
+const DEFAULT_PREFERENCES: NotificationPreferencesDTO = {
+  notifyCrewCheckin: true,
+  notifyCheer: true,
+  notifyCrewActivity: true,
+  notifyAchievement: true,
+  notifyFollowing: true,
+};
+
+export async function getMyNotificationPreferences(): Promise<NotificationPreferencesDTO> {
+  const user = await getCurrentUser();
+  if (!user) return DEFAULT_PREFERENCES;
+
+  return getNotificationPreferences(user.id);
+}
+
+export async function updateNotificationPreference(input: UpdateNotificationPreferenceDTO): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) throwNotAuthenticated();
+
+  await updateNotificationPreferenceCommand(user.id, input);
+  revalidatePath("/settings");
 }

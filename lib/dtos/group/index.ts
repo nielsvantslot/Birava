@@ -9,3 +9,4 @@ export * from "./setCrewVisibilityDTO";
 export * from "./setMemberRoleDTO";
 export * from "./kickMemberDTO";
 export * from "./unbanMemberDTO";
+export * from "./closeGroupDTO";

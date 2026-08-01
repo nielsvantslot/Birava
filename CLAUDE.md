@@ -28,6 +28,7 @@ npm run lint           # eslint (host is fine for lint)
 - **Stale service worker served old JS through hard reloads / restarts / `.next` wipes.** Fixed: `components/service-worker-registration.tsx` is prod-only and unregisters + clears caches in dev. If a browser still acts stale: DevTools → Application → Service Workers → Unregister.
 - **Truncated-file "syntax errors"** (`Expected '</', got '<eof>'`) during rapid multi-file edits are a Turbopack + macOS bind-mount partial read, not a real error. Fix with `touch <file>`; after a multi-file editing burst it hits many files at once — `docker restart birava-app` flushes them all in one go.
 - If "missing expected function export" errors persist after renames: `docker rm birava-app` (must be removed, not just stopped), `docker volume rm birava_birava-next-cache`, then `docker compose up -d app`.
+- **`docker exec birava-app npm run build` fails prerendering `/404`** (`Error: <Html> should not be imported outside of pages/_document`) because the container's `NODE_ENV=development` (needed for `next dev`) leaks into `next build`, which trips a confirmed upstream Next bug unrelated to app code. Run `docker exec -e NODE_ENV=production birava-app npm run build` instead to verify a build locally — real CI doesn't have this problem since it never sets `NODE_ENV=development` in the first place.
 
 ## Auth architecture (custom, not Supabase / NextAuth)
 

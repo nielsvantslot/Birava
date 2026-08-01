@@ -37,6 +37,7 @@ export type CrewSummary = {
   inviteCode: string;
   memberCount: number;
   rank: number | null;
+  closed: boolean;
 };
 
 /**
@@ -71,7 +72,7 @@ export async function getCrewSummariesForUser(
         });
 
   return memberships.map((m) => {
-    const { scores } = scoreCrew(toMemberInputs(m.group.members), rows);
+    const { scores } = scoreCrew(toMemberInputs(m.group.members), rows, m.group.closedAt);
     const rank = 1 + scores.findIndex((s) => s.userId === userId);
     return {
       id: m.group.id,
@@ -79,6 +80,7 @@ export async function getCrewSummariesForUser(
       inviteCode: m.group.inviteCode,
       memberCount: m.group.members.length,
       rank: rank > 0 ? rank : null,
+      closed: !!m.group.closedAt,
     };
   });
 }
@@ -103,6 +105,7 @@ export type CrewDetail = {
   name: string;
   inviteCode: string;
   createdAt: string; // ISO
+  closedAt: string | null; // ISO
   ownerId: string;
   visibility: "PUBLIC" | "PRIVATE";
   /** The viewer's own role in this crew — drives which settings/actions they see. */
@@ -128,7 +131,7 @@ export async function getCrewDetailForViewer(
   if (!viewer) return null;
 
   const [{ scores, recentSessions }, bans] = await Promise.all([
-    getCrewBoard(toMemberInputs(crew.members)),
+    getCrewBoard(toMemberInputs(crew.members), crew.closedAt),
     db.groupBan.findMany({
       where: { groupId: crewId },
       include: { user: { select: { username: true, avatarUrl: true } } },
@@ -140,6 +143,7 @@ export async function getCrewDetailForViewer(
     name: crew.name,
     inviteCode: crew.inviteCode,
     createdAt: crew.createdAt.toISOString(),
+    closedAt: crew.closedAt ? crew.closedAt.toISOString() : null,
     ownerId: crew.ownerId,
     visibility: crew.visibility,
     viewerRole: viewer.role,

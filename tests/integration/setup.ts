@@ -42,6 +42,13 @@ import { FakeCookieStore } from "./support/FakeCookieStore";
 // below it (the factory would run before that declaration executed).
 const cookieState = vi.hoisted(() => ({ store: undefined as unknown as InstanceType<typeof FakeCookieStore> }));
 
+// Tracks in-flight after() callbacks (below) so beforeEach can wait for the
+// previous test's deferred work to finish before truncating — otherwise a
+// still-running callback (e.g. queueNotifications's writes) can race the
+// next test's TRUNCATE and deadlock (AccessExclusiveLock vs. the callback's
+// own RowShareLock reads/writes on the same tables).
+const afterState = vi.hoisted(() => ({ pending: [] as Promise<unknown>[] }));
+
 // Command/query functions call getCurrentUser()/getUserTimeZone(), which
 // read next/headers's cookies()/headers() — real only inside an actual
 // Next.js request, which none of these direct function-call tests have.
@@ -51,11 +58,12 @@ vi.mock("next/headers", () => ({
 }));
 
 // lib/notify.ts defers notification writes via next/server's after(), also
-// real only inside a request — just run the callback immediately instead.
+// real only inside a request — just run the callback immediately instead,
+// tracking its promise so beforeEach can await it before the next reset.
 vi.mock("next/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/server")>()),
   after: (callback: () => unknown) => {
-    void callback();
+    afterState.pending.push(Promise.resolve().then(callback));
   },
 }));
 
@@ -76,9 +84,12 @@ const reset = new PostgresDatabaseReset(db);
 
 beforeEach(async () => {
   cookieState.store = new FakeCookieStore();
+  await Promise.allSettled(afterState.pending);
+  afterState.pending.length = 0;
   await reset.reset();
 });
 
 afterAll(async () => {
+  await Promise.allSettled(afterState.pending);
   await db.$disconnect();
 });

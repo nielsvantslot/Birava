@@ -11,6 +11,7 @@ import {
   setMemberRole as setMemberRoleCommand,
   kickMember as kickMemberCommand,
   unbanMember as unbanMemberCommand,
+  closeGroup as closeGroupCommand,
 } from "@/lib/commands/groupCommands";
 import {
   getCrewSummariesForUser,
@@ -30,6 +31,7 @@ import {
   SetMemberRoleDTO,
   KickMemberDTO,
   UnbanMemberDTO,
+  CloseGroupDTO,
 } from "@/lib/dtos";
 
 function revalidateGroupPaths() {
@@ -99,6 +101,15 @@ export async function unbanMember(input: UnbanMemberDTO): Promise<ActionResultDT
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await unbanMemberCommand(user.id, input);
+  if (!result.error) revalidateGroupPaths();
+  return result;
+}
+
+export async function closeGroup(input: CloseGroupDTO): Promise<ActionResultDTO> {
+  const user = await getCurrentUser();
+  if (!user) return NOT_AUTHENTICATED;
+
+  const result = await closeGroupCommand(user.id, input);
   if (!result.error) revalidateGroupPaths();
   return result;
 }
