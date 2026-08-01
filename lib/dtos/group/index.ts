@@ -13,3 +13,4 @@ export * from "./sendCrewInviteDTO";
 export * from "./respondToCrewInviteDTO";
 export * from "./getCrewInviteCandidatesDTO";
 export * from "./closeGroupDTO";
+export * from "./deleteGroupDTO";

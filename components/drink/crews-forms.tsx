@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createGroup, joinGroupByInvite, leaveGroup, closeGroup } from "@/lib/controllers/groupController";
+import { createGroup, joinGroupByInvite, leaveGroup, closeGroup, deleteGroup } from "@/lib/controllers/groupController";
 import { showToast } from "@/components/ui/toast-pill";
 
 export function CreateCrewForm() {
@@ -158,6 +158,42 @@ export function CloseCrewButton({ crewId }: { crewId: string }) {
   return (
     <button className="btn btn-ghost" onClick={handleClick} disabled={isPending}>
       {isPending ? "Closing…" : "Close crew"}
+    </button>
+  );
+}
+
+/**
+ * Owner-only: permanently deletes the crew — no undo, unlike close. Requires
+ * typing the crew name to confirm, since this removes it for every member,
+ * not just the owner.
+ */
+export function DeleteCrewButton({ crewId, crewName }: { crewId: string; crewName: string }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  const handleClick = () => {
+    const typed = window.prompt(
+      `This permanently deletes "${crewName}" for every member — there's no undo. Type the crew name to confirm.`
+    );
+    if (typed !== crewName) {
+      if (typed !== null) showToast("Name didn't match — crew not deleted");
+      return;
+    }
+    startTransition(async () => {
+      const result = await deleteGroup({ groupId: crewId });
+      if (result.error) {
+        showToast(result.error);
+        return;
+      }
+      showToast("Crew deleted");
+      router.push("/crews");
+      router.refresh();
+    });
+  };
+
+  return (
+    <button className="btn btn-ghost" onClick={handleClick} disabled={isPending}>
+      {isPending ? "Deleting…" : "Delete crew"}
     </button>
   );
 }
