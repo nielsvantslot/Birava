@@ -86,6 +86,7 @@ export type CrewDetail = {
   id: string;
   name: string;
   inviteCode: string;
+  ownerId: string;
   createdAt: string; // ISO
   memberCount: number;
   scores: CrewMemberScore[];
@@ -111,6 +112,7 @@ export async function getCrewDetailForViewer(
     id: crew.id,
     name: crew.name,
     inviteCode: crew.inviteCode,
+    ownerId: crew.ownerId,
     createdAt: crew.createdAt.toISOString(),
     memberCount: crew.members.length,
     scores,

@@ -1,13 +1,23 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { getCrew } from "@/lib/controllers/groupController";
+import { getCrew, leaveGroup } from "@/lib/controllers/groupController";
 import { sessionTitle } from "@/lib/sessions";
 import { formatDate, timeAgo } from "@/lib/dates";
 import { avatarSrc } from "@/lib/utils";
 import { CrewLeaderboard } from "@/components/drink/crew-leaderboard";
 import { CopyCodeChip } from "@/components/drink/crews-forms";
+
+async function leaveCrewAction(formData: FormData) {
+  "use server";
+
+  const groupId = formData.get("groupId");
+  if (typeof groupId !== "string") return;
+
+  const result = await leaveGroup({ groupId });
+  if (!result.error) redirect("/crews");
+}
 
 export default async function CrewDetailPage({
   params,
@@ -154,6 +164,26 @@ export default async function CrewDetailPage({
               <span className="chev">›</span>
             </Link>
           ))}
+        </div>
+      )}
+
+      {crew.ownerId !== user.id && (
+        <div className="section">
+          <details>
+            <summary style={{ cursor: "pointer", fontWeight: 700 }}>
+              Leave crew
+            </summary>
+            <p style={{ fontSize: 13, color: "var(--ink-dim)", margin: "12px 0" }}>
+              Leaving removes your crew history and requires a fresh invite to
+              rejoin.
+            </p>
+            <form action={leaveCrewAction}>
+              <input type="hidden" name="groupId" value={crew.id} />
+              <button className="btn btn-ghost" type="submit">
+                Confirm leave
+              </button>
+            </form>
+          </details>
         </div>
       )}
     </>
