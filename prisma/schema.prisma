@@ -14,6 +14,15 @@ model User {
   passwordHash      String
   avatarUrl         String?
   createdAt         DateTime           @default(now()) @db.Timestamptz(6)
+  /// Per-category notification preferences — each gates whether
+  /// queueNotifications (lib/notify.ts) even creates the Notification row
+  /// for that category, not just whether push fires. The master
+  /// PushSubscription on/off (above) is a separate, coarser switch.
+  notifyCrewCheckin  Boolean           @default(true)
+  notifyCheer        Boolean           @default(true)
+  notifyCrewActivity Boolean           @default(true)
+  notifyAchievement  Boolean           @default(true)
+  notifyFollowing    Boolean           @default(true)
   drinkEntries      DrinkEntry[]
   drinkSessions     DrinkSession[]
   ownedGroups       Group[]            @relation("GroupOwner")
