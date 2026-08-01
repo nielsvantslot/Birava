@@ -19,6 +19,8 @@ model User {
   ownedGroups       Group[]            @relation("GroupOwner")
   groupMemberships  GroupMember[]
   groupBans         GroupBan[]
+  receivedGroupInvites GroupInvite[]   @relation("GroupInviteInvitee")
+  sentGroupInvites     GroupInvite[]   @relation("GroupInviteInviter")
   follows           Follow[]           @relation("FollowFollower")
   followedBy        Follow[]           @relation("FollowFollowing")
   sessions          Session[]
@@ -54,6 +56,7 @@ model Group {
   owner        User            @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members      GroupMember[]
   bans         GroupBan[]
+  invites      GroupInvite[]
 
   @@index([ownerId])
 }
@@ -88,6 +91,32 @@ model GroupBan {
 
   @@id([groupId, userId])
   @@index([userId])
+}
+
+enum GroupInviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+/// An in-app invite to join a crew, sent to a mutual follow. A pending row,
+/// not an immediate membership — accepting it goes through the same
+/// joinGroup path (and GroupBan check) as entering an invite code by hand.
+/// Declining/re-inviting has no cooldown, and declining doesn't notify the
+/// inviter — only acceptance does (reusing CREW_JOIN).
+model GroupInvite {
+  id            String            @id @default(uuid()) @db.Uuid
+  groupId       String            @db.Uuid
+  invitedUserId String            @db.Uuid
+  invitedById   String            @db.Uuid
+  status        GroupInviteStatus @default(PENDING)
+  createdAt     DateTime          @default(now()) @db.Timestamptz(6)
+  group         Group             @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  invitedUser   User              @relation("GroupInviteInvitee", fields: [invitedUserId], references: [id], onDelete: Cascade)
+  invitedBy     User              @relation("GroupInviteInviter", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
+  @@index([invitedUserId, status])
 }
 
 model DrinkEntry {
@@ -181,6 +210,7 @@ enum NotificationType {
   CREW_CHECKIN
   ACHIEVEMENT
   SESSION_START
+  CREW_INVITE
 }
 
 /// An in-app + push notification event. Actor/group display text is frozen

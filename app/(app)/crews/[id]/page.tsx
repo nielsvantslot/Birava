@@ -9,6 +9,7 @@ import { avatarSrc } from "@/lib/utils";
 import { CrewLeaderboard } from "@/components/drink/crew-leaderboard";
 import { CopyCodeChip } from "@/components/drink/crews-forms";
 import { CrewSettingsPanel } from "@/components/drink/crew-settings";
+import { CrewInvitePanel } from "@/components/drink/crew-invite-panel";
 
 export default async function CrewDetailPage({
   params,
@@ -28,7 +29,9 @@ export default async function CrewDetailPage({
   const { scores, recentSessions } = crew;
   const you = scores.find((s) => s.userId === user.id);
   const usernameById = new Map(scores.map((s) => [s.userId, s.username]));
-  const canShareCode = crew.visibility === "PUBLIC" || crew.viewerRole !== "MEMBER";
+  // Same rule gates sharing the invite code and sending an in-app invite —
+  // any member when PUBLIC, owner/admin only when PRIVATE (#162).
+  const canInvite = crew.visibility === "PUBLIC" || crew.viewerRole !== "MEMBER";
 
   return (
     <>
@@ -70,7 +73,7 @@ export default async function CrewDetailPage({
             >
               {crew.memberCount} member
               {crew.memberCount === 1 ? "" : "s"}
-              {canShareCode && (
+              {canInvite && (
                 <>
                   {" "}
                   · <CopyCodeChip code={crew.inviteCode} />
@@ -163,6 +166,8 @@ export default async function CrewDetailPage({
           ))}
         </div>
       )}
+
+      {canInvite && <CrewInvitePanel crewId={crew.id} />}
 
       <CrewSettingsPanel
         crewId={crew.id}
