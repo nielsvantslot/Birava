@@ -170,6 +170,11 @@ async function insertCheckins(
   const asDto: DrinkEntryDTO[] = prepared.map((p) => ({
     id: p.id,
     user_id: p.userId,
+    // Not yet known — groupIntoSessions is what computes session
+    // membership from these entries in the first place, and doesn't read
+    // this field itself. The real id (sessionIdByEntryId) is what actually
+    // gets written below.
+    session_id: p.id,
     group_id: null,
     drink_name: p.drinkName,
     brewery: null,

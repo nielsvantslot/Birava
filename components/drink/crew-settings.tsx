@@ -9,6 +9,7 @@ import {
   unbanMember,
 } from "@/lib/controllers/groupController";
 import { showToast } from "@/components/ui/toast-pill";
+import { confirmModal } from "@/components/ui/confirm-modal";
 import { avatarSrc } from "@/lib/utils";
 
 type CrewRole = "OWNER" | "ADMIN" | "MEMBER";
@@ -135,8 +136,14 @@ export function CrewSettingsPanel({
               <button
                 className="btn btn-ghost"
                 disabled={busyKey === `kick-${m.userId}`}
-                onClick={() => {
-                  if (!window.confirm(`Remove ${m.username} from the crew?`)) return;
+                onClick={async () => {
+                  const confirmed = await confirmModal({
+                    title: "Remove member?",
+                    message: `${m.username} will need a fresh invite to rejoin.`,
+                    confirmLabel: "Remove",
+                    danger: true,
+                  });
+                  if (!confirmed) return;
                   run(`kick-${m.userId}`, () => kickMember({ groupId: crewId, userId: m.userId }));
                 }}
               >

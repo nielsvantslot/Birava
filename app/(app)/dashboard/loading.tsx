@@ -2,18 +2,20 @@ import { Skeleton, SessionCardSkeleton } from "@/components/ui/skeleton";
 
 export default function DashboardLoading() {
   return (
-    <div className="space-y-6 py-4">
-      {/* Tab strip — real tabs are "Following"/"You" (app/(app)/dashboard/page.tsx) */}
-      <div className="flex gap-6 px-1">
-        <Skeleton className="h-4 w-20" />
-        <Skeleton className="h-4 w-14" />
+    <>
+      {/* Tab strip — real tabs are "Following"/"You" (.tabs, app/globals.css) */}
+      <div className="tabs">
+        <div style={{ padding: "14px 0 12px", marginRight: 28 }}>
+          <Skeleton className="h-4 w-20" />
+        </div>
+        <div style={{ padding: "14px 0 12px" }}>
+          <Skeleton className="h-4 w-14" />
+        </div>
       </div>
 
       {/* Feed */}
-      <div className="space-y-2">
-        <SessionCardSkeleton />
-        <SessionCardSkeleton />
-      </div>
-    </div>
+      <SessionCardSkeleton />
+      <SessionCardSkeleton />
+    </>
   );
 }

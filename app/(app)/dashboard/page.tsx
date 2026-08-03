@@ -96,9 +96,9 @@ async function FeedLoader({ userId, showOnlyOwn }: { userId: string; showOnlyOwn
 
 function FeedSkeleton() {
   return (
-    <div className="space-y-2 py-4">
+    <>
       <SessionCardSkeleton />
       <SessionCardSkeleton />
-    </div>
+    </>
   );
 }

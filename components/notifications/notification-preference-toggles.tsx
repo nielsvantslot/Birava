@@ -15,8 +15,8 @@ const CATEGORIES: { key: NotificationPreferenceKey; label: string; description: 
   },
   {
     key: "notifyCheer",
-    label: "Cheers",
-    description: "Someone cheers one of your check-ins.",
+    label: "Cheers & comments",
+    description: "Someone cheers or comments on one of your sessions.",
   },
   {
     key: "notifyCrewActivity",
@@ -32,6 +32,11 @@ const CATEGORIES: { key: NotificationPreferenceKey; label: string; description: 
     key: "notifyFollowing",
     label: "Following",
     description: "New followers, and sessions from people you follow.",
+  },
+  {
+    key: "notifySessionReminder",
+    label: "Session reminders",
+    description: "A nudge to log if your current session goes quiet for a while.",
   },
 ];
 

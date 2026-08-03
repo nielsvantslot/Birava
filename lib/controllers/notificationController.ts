@@ -76,6 +76,7 @@ const DEFAULT_PREFERENCES: NotificationPreferencesDTO = {
   notifyCrewActivity: true,
   notifyAchievement: true,
   notifyFollowing: true,
+  notifySessionReminder: true,
 };
 
 export async function getMyNotificationPreferences(): Promise<NotificationPreferencesDTO> {

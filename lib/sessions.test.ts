@@ -9,6 +9,7 @@ function entry(overrides: Partial<DrinkEntry> & { created_at: string }): DrinkEn
   return {
     id: overrides.id ?? `entry-${idCounter}`,
     user_id: overrides.user_id ?? "user-1",
+    session_id: overrides.session_id ?? `session-${idCounter}`,
     drink_name: null,
     drink_type: "Beer",
     venue: null,
