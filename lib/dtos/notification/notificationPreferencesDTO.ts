@@ -4,4 +4,5 @@ export class NotificationPreferencesDTO {
   declare notifyCrewActivity: boolean;
   declare notifyAchievement: boolean;
   declare notifyFollowing: boolean;
+  declare notifySessionReminder: boolean;
 }

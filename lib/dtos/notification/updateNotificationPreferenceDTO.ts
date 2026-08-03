@@ -4,6 +4,7 @@ export const NOTIFICATION_PREFERENCE_KEYS = [
   "notifyCrewActivity",
   "notifyAchievement",
   "notifyFollowing",
+  "notifySessionReminder",
 ] as const;
 
 export type NotificationPreferenceKey = (typeof NOTIFICATION_PREFERENCE_KEYS)[number];
