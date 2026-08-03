@@ -14,7 +14,12 @@ import { getFollowCounts } from "@/lib/controllers/socialController";
 import { avatarPhotoService } from "@/lib/avatarPhoto";
 import { ProfileHead, ProfileActions } from "@/components/drink/profile-client";
 import { AchievementGlyph } from "@/components/drink/achievement-icon";
-import { Skeleton, SkeletonAvatarRow } from "@/components/ui/skeleton";
+import {
+  Skeleton,
+  ProfileHeadSkeleton,
+  RecentSessionsSkeleton,
+  SkeletonRow,
+} from "@/components/ui/skeleton";
 
 export default async function ProfilePage() {
   const user = await getCurrentUser();
@@ -29,7 +34,7 @@ export default async function ProfilePage() {
       {/* Recent sessions is a separate fetch from everything ProfileMain
           needs — streams in on its own instead of gating (or being gated
           by) the profile head/achievements. */}
-      <Suspense fallback={<RecentSessionsSkeleton />}>
+      <Suspense fallback={<RecentSessionsSkeleton showHeaderLink />}>
         <RecentSessionsLoader userId={user.id} />
       </Suspense>
 
@@ -198,32 +203,20 @@ async function RecentSessionsLoader({ userId }: { userId: string }) {
 
 function ProfileMainSkeleton() {
   return (
-    <div className="space-y-6 py-4">
-      <div className="flex items-center gap-3 px-1">
-        <Skeleton className="h-16 w-16 rounded-full shrink-0" />
-        <div className="flex-1 space-y-2">
-          <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-3.5 w-40" />
-        </div>
+    <>
+      <ProfileHeadSkeleton />
+      <div className="section">
+        <SkeletonRow />
       </div>
-      <div className="grid grid-cols-4 gap-3">
-        {[...Array(4)].map((_, i) => (
-          <div key={i} className="space-y-1.5 text-center">
-            <Skeleton className="h-6 w-8 mx-auto" />
-            <Skeleton className="h-3 w-12 mx-auto" />
-          </div>
+      <div className="section">
+        <div className="h-row">
+          <Skeleton className="h-5 w-28" />
+          <Skeleton className="h-3.5 w-14" />
+        </div>
+        {[0, 1, 2].map((i) => (
+          <SkeletonRow key={i} />
         ))}
       </div>
-    </div>
-  );
-}
-
-function RecentSessionsSkeleton() {
-  return (
-    <div className="space-y-2 py-2">
-      {[...Array(3)].map((_, i) => (
-        <SkeletonAvatarRow key={i} line1Width="w-36" line2Width="w-20" />
-      ))}
-    </div>
+    </>
   );
 }
