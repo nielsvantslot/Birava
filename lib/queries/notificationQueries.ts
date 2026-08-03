@@ -38,6 +38,7 @@ export async function getNotificationPreferences(userId: string): Promise<Notifi
       notifyCrewActivity: true,
       notifyAchievement: true,
       notifyFollowing: true,
+      notifySessionReminder: true,
     },
   });
 }

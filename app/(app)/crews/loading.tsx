@@ -1,22 +1,27 @@
-import { Skeleton, SkeletonAvatarRow, SkeletonInputRow } from "@/components/ui/skeleton";
+import { Skeleton, SkeletonInputRow } from "@/components/ui/skeleton";
 
 export default function CrewsLoading() {
   return (
-    <div className="space-y-6 py-4">
+    <>
       <div className="section">
         <div className="h-row">
-          <h3>Your crews</h3>
+          <Skeleton className="h-5 w-28" />
         </div>
-        <div className="space-y-2">
-          {[0, 1].map((i) => (
-            <SkeletonAvatarRow key={i} line1Width="w-28" line2Width="w-36" right={<Skeleton className="h-4 w-16" />} />
-          ))}
-        </div>
+        {[0, 1].map((i) => (
+          <div className="row" key={i}>
+            <Skeleton className="h-[42px] w-[42px] rounded-full shrink-0" />
+            <div className="grow space-y-1.5">
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-3 w-36" />
+            </div>
+            <Skeleton className="h-5 w-14 rounded-md shrink-0" />
+          </div>
+        ))}
       </div>
 
       <div className="section">
         <div className="h-row" style={{ marginBottom: 6 }}>
-          <h3>Start a crew</h3>
+          <Skeleton className="h-5 w-28" />
         </div>
         <Skeleton className="h-4 w-full mb-2" />
         <Skeleton className="h-4 w-2/3 mb-4" />
@@ -25,10 +30,10 @@ export default function CrewsLoading() {
 
       <div className="section">
         <div className="h-row" style={{ marginBottom: 6 }}>
-          <h3>Join with a code</h3>
+          <Skeleton className="h-5 w-40" />
         </div>
         <SkeletonInputRow buttonWidth="w-16" />
       </div>
-    </div>
+    </>
   );
 }

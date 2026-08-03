@@ -11,5 +11,11 @@
       "staging": true,
       "**": false
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/session-reminders",
+      "schedule": "*/15 * * * *"
+    }
+  ]
 }
