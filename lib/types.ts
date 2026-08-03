@@ -16,6 +16,12 @@ export type DrinkType = (typeof DRINK_TYPES)[number];
 export type DrinkEntry = {
   id: string;
   user_id: string;
+  /**
+   * The DrinkSession this check-in belongs to — NOT the same as `id` except
+   * for a session's anchor (first) check-in. Use this, never `id`, to link
+   * to /sessions/[id] or key a Comment/Cheer.
+   */
+  session_id: string;
   drink_name: string | null;
   drink_type: string;
   venue: string | null;

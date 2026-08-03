@@ -6,6 +6,10 @@ import { describeNotification } from "@/lib/notifications";
 import type { NotificationPreferenceKey } from "@/lib/dtos";
 
 export type NotificationEvent = {
+  // Only set when the caller needs the same id available at push-send time
+  // as at read time (e.g. SESSION_REMINDER's message-variant seed) —
+  // otherwise left to the DB's @default(uuid()).
+  id?: string;
   userId: string;
   type: NotificationType;
   actorId?: string;
@@ -23,6 +27,10 @@ export type NotificationEvent = {
 const PREFERENCE_KEY_BY_TYPE: Record<NotificationType, NotificationPreferenceKey> = {
   CREW_CHECKIN: "notifyCrewCheckin",
   CHEER: "notifyCheer",
+  // Bucketed with CHEER, not its own toggle — both are a viewer reacting to
+  // one of your sessions, same "Cheers & comments" category on the
+  // settings page (components/notifications/notification-preference-toggles.tsx).
+  COMMENT: "notifyCheer",
   CREW_JOIN: "notifyCrewActivity",
   // Bucketed with CREW_JOIN — an invite is crew-membership activity, same
   // category as joining. Not its own toggle: neither #159 nor #163 asked
@@ -32,6 +40,7 @@ const PREFERENCE_KEY_BY_TYPE: Record<NotificationType, NotificationPreferenceKey
   ACHIEVEMENT: "notifyAchievement",
   FOLLOW: "notifyFollowing",
   SESSION_START: "notifyFollowing",
+  SESSION_REMINDER: "notifySessionReminder",
 };
 
 /**
@@ -56,6 +65,7 @@ export function queueNotifications(events: NotificationEvent[]) {
         notifyCrewActivity: true,
         notifyAchievement: true,
         notifyFollowing: true,
+        notifySessionReminder: true,
       },
     });
     const prefById = new Map(prefs.map((p) => [p.id, p]));

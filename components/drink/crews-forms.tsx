@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createGroup, joinGroupByInvite, leaveGroup, closeGroup, deleteGroup } from "@/lib/controllers/groupController";
 import { showToast } from "@/components/ui/toast-pill";
+import { confirmModal } from "@/components/ui/confirm-modal";
 
 export function CreateCrewForm() {
   const router = useRouter();
@@ -111,8 +112,14 @@ export function LeaveCrewButton({ crewId }: { crewId: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const handleClick = () => {
-    if (!window.confirm("Leave this crew? You'll need a fresh invite to rejoin.")) return;
+  const handleClick = async () => {
+    const confirmed = await confirmModal({
+      title: "Leave this crew?",
+      message: "You'll need a fresh invite to rejoin.",
+      confirmLabel: "Leave",
+      danger: true,
+    });
+    if (!confirmed) return;
     startTransition(async () => {
       const result = await leaveGroup({ groupId: crewId });
       if (result.error) {
@@ -137,13 +144,14 @@ export function CloseCrewButton({ crewId }: { crewId: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const handleClick = () => {
-    if (
-      !window.confirm(
-        "Close this crew? Existing stats stay visible, but check-ins after this point won't count, and no one new can join."
-      )
-    )
-      return;
+  const handleClick = async () => {
+    const confirmed = await confirmModal({
+      title: "Close this crew?",
+      message: "Existing stats stay visible, but check-ins after this point won't count, and no one new can join.",
+      confirmLabel: "Close crew",
+      danger: true,
+    });
+    if (!confirmed) return;
     startTransition(async () => {
       const result = await closeGroup({ groupId: crewId });
       if (result.error) {
@@ -171,14 +179,15 @@ export function DeleteCrewButton({ crewId, crewName }: { crewId: string; crewNam
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const handleClick = () => {
-    const typed = window.prompt(
-      `This permanently deletes "${crewName}" for every member — there's no undo. Type the crew name to confirm.`
-    );
-    if (typed !== crewName) {
-      if (typed !== null) showToast("Name didn't match — crew not deleted");
-      return;
-    }
+  const handleClick = async () => {
+    const confirmed = await confirmModal({
+      title: "Delete this crew?",
+      message: `This permanently deletes "${crewName}" for every member — there's no undo.`,
+      confirmLabel: "Delete crew",
+      danger: true,
+      confirmText: crewName,
+    });
+    if (!confirmed) return;
     startTransition(async () => {
       const result = await deleteGroup({ groupId: crewId });
       if (result.error) {

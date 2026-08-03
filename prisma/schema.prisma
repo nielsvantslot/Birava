@@ -23,6 +23,7 @@ model User {
   notifyCrewActivity Boolean           @default(true)
   notifyAchievement  Boolean           @default(true)
   notifyFollowing    Boolean           @default(true)
+  notifySessionReminder Boolean        @default(true)
   drinkEntries      DrinkEntry[]
   drinkSessions     DrinkSession[]
   ownedGroups       Group[]            @relation("GroupOwner")
@@ -215,12 +216,14 @@ model Follow {
 
 enum NotificationType {
   CHEER
+  COMMENT
   FOLLOW
   CREW_JOIN
   CREW_CHECKIN
   ACHIEVEMENT
   SESSION_START
   CREW_INVITE
+  SESSION_REMINDER
 }
 
 /// An in-app + push notification event. Actor/group display text is frozen

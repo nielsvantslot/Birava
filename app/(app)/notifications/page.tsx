@@ -5,6 +5,7 @@ import { getUserTimeZone } from "@/lib/timezone";
 import {
   getMyNotifications,
   getMyHasPushSubscription,
+  getMyUnreadNotificationCount,
 } from "@/lib/controllers/notificationController";
 import { timeAgo } from "@/lib/dates";
 import { avatarSrc, cn } from "@/lib/utils";
@@ -18,7 +19,13 @@ export default async function NotificationsPage() {
 
   return (
     <>
-      <MarkReadOnView />
+      {/* Its own streaming slot — skips the mark-read mutation and the
+          router.refresh() round trip entirely when nothing is unread
+          (the common repeat-visit case), instead of firing both on every
+          visit regardless. */}
+      <Suspense fallback={null}>
+        <MarkReadGate />
+      </Suspense>
 
       {/* Independent from the notification list below — streams in on its
           own instead of both waiting on whichever query is slower. */}
@@ -31,6 +38,13 @@ export default async function NotificationsPage() {
       </Suspense>
     </>
   );
+}
+
+async function MarkReadGate() {
+  const unreadCount = await getMyUnreadNotificationCount();
+  if (unreadCount === 0) return null;
+
+  return <MarkReadOnView />;
 }
 
 async function PushNudgeLoader() {

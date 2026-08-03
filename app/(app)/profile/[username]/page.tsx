@@ -17,7 +17,7 @@ import { avatarSrc } from "@/lib/utils";
 import { FollowButton } from "@/components/drink/follow-button";
 import { AchievementGlyph } from "@/components/drink/achievement-icon";
 import type { ProfileDTO, SessionUserDTO } from "@/lib/dtos";
-import { Skeleton, SkeletonAvatarRow } from "@/components/ui/skeleton";
+import { ProfileHeadSkeleton, RecentSessionsSkeleton } from "@/components/ui/skeleton";
 
 interface Props {
   params: Promise<{ username: string }>;
@@ -36,10 +36,11 @@ export default async function PublicProfilePage({ params }: Props) {
     getProfileByUsername({ username }),
   ]);
   if (!targetUser) notFound();
+  const showFollowButton = !!currentUser && currentUser.id !== targetUser.id;
 
   return (
     <>
-      <Suspense fallback={<ProfileHeadSkeleton />}>
+      <Suspense fallback={<ProfileHeadSkeleton showFollowButton={showFollowButton} />}>
         <PublicProfileMain currentUser={currentUser} targetUser={targetUser} />
       </Suspense>
 
@@ -205,38 +206,6 @@ async function RecentSessionsLoader({ userId }: { userId: string }) {
           );
         })
       )}
-    </div>
-  );
-}
-
-function ProfileHeadSkeleton() {
-  return (
-    <div className="space-y-4 py-4 px-1">
-      <div className="flex items-center gap-3">
-        <Skeleton className="h-16 w-16 rounded-full shrink-0" />
-        <div className="flex-1 space-y-2">
-          <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-3.5 w-48" />
-        </div>
-      </div>
-      <div className="grid grid-cols-4 gap-3">
-        {[...Array(4)].map((_, i) => (
-          <div key={i} className="space-y-1.5 text-center">
-            <Skeleton className="h-6 w-8 mx-auto" />
-            <Skeleton className="h-3 w-12 mx-auto" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function RecentSessionsSkeleton() {
-  return (
-    <div className="space-y-2 py-2">
-      {[...Array(3)].map((_, i) => (
-        <SkeletonAvatarRow key={i} line1Width="w-36" line2Width="w-20" />
-      ))}
     </div>
   );
 }
