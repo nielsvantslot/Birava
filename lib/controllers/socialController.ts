@@ -12,7 +12,13 @@ import {
   createComment as createCommentCommand,
   deleteComment as deleteCommentCommand,
 } from "@/lib/commands/commentCommands";
-import { getFollowCounts as getFollowCountsQuery, getFollowingIds, isFollowing } from "@/lib/queries/followQueries";
+import {
+  getFollowCounts as getFollowCountsQuery,
+  getFollowers as getFollowersQuery,
+  getFollowing as getFollowingQuery,
+  getFollowingIds,
+  isFollowing,
+} from "@/lib/queries/followQueries";
 import { getSocialFeed as getSocialFeedQuery } from "@/lib/queries/drinkEntryQueries";
 import { searchUsers as searchUsersQuery } from "@/lib/queries/userQueries";
 import {
@@ -76,6 +82,15 @@ export async function unfollowUser(input: UnfollowUserDTO): Promise<void> {
 
 export async function getFollowCounts(input: FollowCountsQueryDTO): Promise<FollowCountsDTO> {
   return getFollowCountsQuery(input.profileId);
+}
+
+/** Same visibility as getFollowCounts — anyone's follow counts are already public app-wide, so their list is too. */
+export async function getFollowersList(input: FollowCountsQueryDTO): Promise<UserSummaryDTO[]> {
+  return getFollowersQuery(input.profileId);
+}
+
+export async function getFollowingList(input: FollowCountsQueryDTO): Promise<UserSummaryDTO[]> {
+  return getFollowingQuery(input.profileId);
 }
 
 export async function getSocialFeed(
