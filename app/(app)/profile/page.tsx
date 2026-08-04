@@ -11,14 +11,12 @@ import { computeAchievements } from "@/lib/achievements";
 import { relativeDay } from "@/lib/dates";
 import { getMyDrinkHistory, getRecentSessionsForUser } from "@/lib/controllers/drinkController";
 import { getFollowCounts } from "@/lib/controllers/socialController";
-import { avatarPhotoService } from "@/lib/avatarPhoto";
 import { ProfileHead, ProfileActions } from "@/components/drink/profile-client";
 import { AchievementGlyph } from "@/components/drink/achievement-icon";
 import {
   Skeleton,
   ProfileHeadSkeleton,
   RecentSessionsSkeleton,
-  SkeletonRow,
 } from "@/components/ui/skeleton";
 
 export default async function ProfilePage() {
@@ -27,16 +25,42 @@ export default async function ProfilePage() {
 
   return (
     <>
-      <Suspense fallback={<ProfileMainSkeleton />}>
+      <Suspense fallback={<ProfileHeadSkeleton />}>
         <ProfileMain user={user} />
       </Suspense>
 
-      {/* Recent sessions is a separate fetch from everything ProfileMain
-          needs — streams in on its own instead of gating (or being gated
-          by) the profile head/achievements. */}
+      {/* Sessions are the hero unit app-wide — shown right after the head,
+          ahead of achievements, not the other way around. Each section
+          below fetches independently and streams in on its own rather than
+          gating (or being gated by) the others. */}
       <Suspense fallback={<RecentSessionsSkeleton showHeaderLink />}>
         <RecentSessionsLoader userId={user.id} />
       </Suspense>
+
+      <Suspense fallback={<AchievementBadgesSkeleton />}>
+        <AchievementBadgesLoader userId={user.id} />
+      </Suspense>
+
+      <div className="section">
+        <Link
+          href="/people"
+          className="row"
+          style={{ textDecoration: "none", color: "inherit" }}
+        >
+          <div className="rowmark">
+            <svg viewBox="0 0 24 24">
+              <circle cx="9" cy="8" r="4"></circle>
+              <path d="M2 21c0-4 3-6 7-6 1.2 0 2.3.15 3.2.5"></path>
+              <path d="M17 14v6M14 17h6"></path>
+            </svg>
+          </div>
+          <div className="grow">
+            <b>Find people</b>
+            <span>Search for friends and follow their sessions</span>
+          </div>
+          <span className="chev">›</span>
+        </Link>
+      </div>
 
       <ProfileActions />
     </>
@@ -62,89 +86,26 @@ async function ProfileMain({
   );
   const types = new Set(entries.map((e) => e.drink_type).filter(Boolean));
 
-  const achievements = computeAchievements(entries, tz);
-  const topAchievements = [...achievements]
-    .sort(
-      (a, b) =>
-        Number(b.earned) - Number(a.earned) ||
-        b.progress / b.goal - a.progress / a.goal
-    )
-    .slice(0, 3);
-
   const memberSince = new Date(user.createdAt).toLocaleDateString("en-GB", {
     month: "long",
     year: "numeric",
   });
 
   return (
-    <>
-      <ProfileHead
-        userId={user.id}
-        username={user.username}
-        avatarUrl={user.avatarUrl}
-        memberSince={memberSince}
-        followers={followCounts.followers}
-        following={followCounts.following}
-        supportsDirectUpload={avatarPhotoService.supportsDirectUpload}
-        stats={{
-          sessions: sessions.length,
-          venues: venues.size,
-          types: types.size,
-          activeWeeks: weeks.current,
-        }}
-      />
-
-      <div className="section">
-        <Link
-          href="/people"
-          className="row"
-          style={{ textDecoration: "none", color: "inherit" }}
-        >
-          <div className="rowmark">
-            <svg viewBox="0 0 24 24">
-              <circle cx="9" cy="8" r="4"></circle>
-              <path d="M2 21c0-4 3-6 7-6 1.2 0 2.3.15 3.2.5"></path>
-              <path d="M17 14v6M14 17h6"></path>
-            </svg>
-          </div>
-          <div className="grow">
-            <b>Find people</b>
-            <span>Search for friends and follow their sessions</span>
-          </div>
-          <span className="chev">›</span>
-        </Link>
-      </div>
-
-      <div className="section">
-        <div className="h-row">
-          <h3>Achievements</h3>
-          <Link href="/achievements">See all</Link>
-        </div>
-        {sessions.length === 0 ? (
-          <p style={{ fontSize: 14, color: "var(--ink-dim)" }}>
-            Log your first drink to start earning achievements.
-          </p>
-        ) : (
-          topAchievements.map((a) => (
-            <Link
-              key={a.id}
-              href="/achievements"
-              className="row"
-              style={{ textDecoration: "none", color: "inherit" }}
-            >
-              <div className="rowmark ach">
-                <AchievementGlyph icon={a.icon} />
-              </div>
-              <div className="grow">
-                <b>{a.label}</b>
-                <span>{a.progressText}</span>
-              </div>
-              <span className="chev">›</span>
-            </Link>
-          ))
-        )}
-      </div>
-    </>
+    <ProfileHead
+      userId={user.id}
+      username={user.username}
+      avatarUrl={user.avatarUrl}
+      memberSince={memberSince}
+      followers={followCounts.followers}
+      following={followCounts.following}
+      stats={{
+        sessions: sessions.length,
+        venues: venues.size,
+        types: types.size,
+        activeWeeks: weeks.current,
+      }}
+    />
   );
 }
 
@@ -201,22 +162,64 @@ async function RecentSessionsLoader({ userId }: { userId: string }) {
   );
 }
 
-function ProfileMainSkeleton() {
+/**
+ * Compact badge strip, not the full progress-card grid (that stays on
+ * /achievements) — a glanceable secondary summary now that sessions own the
+ * spotlight position above.
+ */
+async function AchievementBadgesLoader({ userId }: { userId: string }) {
+  const [tz, entries] = await Promise.all([
+    getUserTimeZone(),
+    getMyDrinkHistory(),
+  ]);
+  if (entries.length === 0) return null;
+
+  const achievements = computeAchievements(entries, tz);
+  const ordered = [...achievements].sort(
+    (a, b) =>
+      Number(b.earned) - Number(a.earned) ||
+      b.progress / b.goal - a.progress / a.goal
+  );
+
   return (
-    <>
-      <ProfileHeadSkeleton />
-      <div className="section">
-        <SkeletonRow />
+    <div className="section">
+      <div className="h-row">
+        <h3>Achievements</h3>
+        <Link href="/achievements">See all</Link>
       </div>
-      <div className="section">
-        <div className="h-row">
-          <Skeleton className="h-5 w-28" />
-          <Skeleton className="h-3.5 w-14" />
-        </div>
-        {[0, 1, 2].map((i) => (
-          <SkeletonRow key={i} />
+      <div className="badge-strip">
+        {ordered.map((a) => (
+          <Link
+            key={a.id}
+            href="/achievements"
+            className={`badge-chip${a.earned ? "" : " locked"}`}
+          >
+            <div className="ac-ic">
+              <AchievementGlyph icon={a.icon} />
+            </div>
+            <span>{a.label}</span>
+          </Link>
         ))}
       </div>
-    </>
+    </div>
+  );
+}
+
+function AchievementBadgesSkeleton() {
+  return (
+    <div className="section">
+      <div className="h-row">
+        <Skeleton className="h-5 w-28" />
+        <Skeleton className="h-3.5 w-14" />
+      </div>
+      <div className="badge-strip">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7, width: 66 }}>
+            <Skeleton className="h-12 w-12 rounded-full" />
+            <Skeleton className="h-2.5 w-12" />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

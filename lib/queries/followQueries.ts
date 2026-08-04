@@ -1,5 +1,26 @@
 import { db } from "@/lib/db";
-import { FollowCountsDTO } from "@/lib/dtos";
+import { UserSummaryMapper } from "@/lib/mappers";
+import { FollowCountsDTO, UserSummaryDTO } from "@/lib/dtos";
+
+/** Full user rows (not just ids) of everyone following `userId`, most recent first. */
+export async function getFollowers(userId: string): Promise<UserSummaryDTO[]> {
+  const follows = await db.follow.findMany({
+    where: { followingId: userId },
+    select: { follower: { select: { id: true, username: true, avatarUrl: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+  return follows.map((f) => UserSummaryMapper.toDTO(f.follower));
+}
+
+/** Full user rows (not just ids) of everyone `userId` follows, most recent first. */
+export async function getFollowing(userId: string): Promise<UserSummaryDTO[]> {
+  const follows = await db.follow.findMany({
+    where: { followerId: userId },
+    select: { following: { select: { id: true, username: true, avatarUrl: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+  return follows.map((f) => UserSummaryMapper.toDTO(f.following));
+}
 
 export async function getFollowCounts(profileId: string): Promise<FollowCountsDTO> {
   const [followers, following] = await Promise.all([
