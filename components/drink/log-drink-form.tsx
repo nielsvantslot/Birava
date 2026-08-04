@@ -110,6 +110,9 @@ export function CheckinForm({
       : null
   );
   const [locating, setLocating] = useState(false);
+  // Distinguishes "just started" from "still going" so the button never
+  // just sits on a static "Locating…" for the whole worst-case wait.
+  const [locatingSlow, setLocatingSlow] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Tracks a photo upload kicked off the moment it was picked (see
   // handlePhotoChange), so handleSubmit can reuse it instead of starting a
@@ -126,15 +129,19 @@ export function CheckinForm({
 
   const captureLocation = async (announce: boolean) => {
     setLocating(true);
+    setLocatingSlow(false);
+    const slowTimer = setTimeout(() => setLocatingSlow(true), 4000);
     try {
       let position: Coords;
       try {
-        position = await getPosition({ enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 });
+        position = await getPosition({ enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 });
       } catch (err) {
         // Permission denial won't change on a retry; a weak/slow high-accuracy
-        // fix (timeout or position-unavailable) might succeed with a coarser one.
-        if ((err as GeolocationPositionError)?.code === 1) throw err;
-        position = await getPosition({ enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 });
+        // fix (timeout or position-unavailable) might succeed with a coarser
+        // one — worth the extra wait only when the user is actively watching
+        // for it, not for the silent page-load enrichment attempt.
+        if ((err as GeolocationPositionError)?.code === 1 || !announce) throw err;
+        position = await getPosition({ enableHighAccuracy: false, timeout: 6000, maximumAge: 60000 });
       }
       setCoords(position);
       if (announce) showToast("Location attached");
@@ -148,7 +155,9 @@ export function CheckinForm({
     } catch {
       if (announce) showToast("Couldn't get your location");
     } finally {
+      clearTimeout(slowTimer);
       setLocating(false);
+      setLocatingSlow(false);
     }
   };
 
@@ -544,7 +553,9 @@ export function CheckinForm({
               <circle cx="12" cy="11" r="2.5"></circle>
             </svg>
             {locating
-              ? "Locating…"
+              ? locatingSlow
+                ? "Still trying…"
+                : "Locating…"
               : coords
                 ? "Location attached"
                 : "Use my location"}
