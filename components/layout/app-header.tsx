@@ -74,7 +74,7 @@ export function AppHeader({ userId, username, avatarUrl, unreadCount = 0 }: AppH
             </svg>
           </button>
         ) : (
-          <Link className="hicon avatar-btn" href="/profile" aria-label="Your profile">
+          <Link className="hicon avatar-btn" href="/profile" aria-label="Your profile" prefetch={false}>
             {avatarUrl && userId ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={avatarSrc(userId)} alt={username ?? "You"} />
@@ -88,15 +88,19 @@ export function AppHeader({ userId, username, avatarUrl, unreadCount = 0 }: AppH
         )}
       </div>
       <div className="title">{title}</div>
+      {/* prefetch={false} on both: this header renders on every authenticated
+          page, so these links sit in the viewport on every navigation —
+          staleTimes.dynamic is 0 (next.config.ts), so prefetching them is
+          pure waste. */}
       <div className="right">
-        <Link className="hicon" href="/people" aria-label="Find people">
+        <Link className="hicon" href="/people" aria-label="Find people" prefetch={false}>
           <svg viewBox="0 0 24 24">
             <circle cx="9" cy="8" r="4"></circle>
             <path d="M2 21c0-4 3-6 7-6 1.2 0 2.3.15 3.2.5"></path>
             <path d="M17 14v6M14 17h6"></path>
           </svg>
         </Link>
-        <Link className="hicon" href="/notifications" aria-label="Notifications">
+        <Link className="hicon" href="/notifications" aria-label="Notifications" prefetch={false}>
           <svg viewBox="0 0 24 24">
             <path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
             <path d="M13.7 21a2 2 0 01-3.4 0"></path>

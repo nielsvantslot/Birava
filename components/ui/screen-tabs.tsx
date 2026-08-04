@@ -18,7 +18,7 @@ export function ScreenTabs({ tabs }: { tabs: ScreenTab[] }) {
     <div className="tabs">
       {tabs.map((tab) =>
         tab.href ? (
-          <Link key={tab.label} href={tab.href} className={cn(tab.active && "on")}>
+          <Link key={tab.label} href={tab.href} className={cn(tab.active && "on")} prefetch={false}>
             {tab.label}
           </Link>
         ) : (

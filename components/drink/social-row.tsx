@@ -169,6 +169,7 @@ export function SocialActs({
         href={`/sessions/${sessionId}#comments`}
         aria-label="Comments"
         scroll={false}
+        prefetch={false}
       >
         <svg viewBox="0 0 24 24">
           <path d="M4 5h16v11H9l-5 4z"></path>

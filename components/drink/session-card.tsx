@@ -120,7 +120,11 @@ export function SessionCard({
 
   return (
     <div className="section flush">
-      <Link className="who" href={`/profile/${session.username}`}>
+      {/* prefetch={false} on both links below: the feed can render many of
+          these cards at once, and staleTimes.dynamic is 0 (next.config.ts),
+          so prefetching every visible card's profile/session link on scroll
+          is pure waste. */}
+      <Link className="who" href={`/profile/${session.username}`} prefetch={false}>
         <div className="avatar">
           {session.avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -135,7 +139,7 @@ export function SessionCard({
         </div>
       </Link>
 
-      <Link className="act-title-link" href={`/sessions/${session.id}`}>
+      <Link className="act-title-link" href={`/sessions/${session.id}`} prefetch={false}>
         <div className="act-title">
           {title}
           <span className="chev-in">›</span>
@@ -211,7 +215,7 @@ export function SessionCard({
       )}
 
       {!lone && routePoints.length >= 2 && multiVenue && (
-        <Link className="routechip" href={`/sessions/${session.id}`}>
+        <Link className="routechip" href={`/sessions/${session.id}`} prefetch={false}>
           <Minimap points={routePoints} />
           <div className="grow">
             <b>

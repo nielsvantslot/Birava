@@ -91,7 +91,10 @@ export function CommentsSection({
         <div className="comment-list">
           {comments.map((c) => (
             <div className="comment-row" key={c.id}>
-              <Link className="avatar" href={`/profile/${c.username}`}>
+              {/* prefetch={false} on both: staleTimes.dynamic is 0
+                  (next.config.ts), so prefetching every commenter's profile
+                  on render is pure waste. */}
+              <Link className="avatar" href={`/profile/${c.username}`} prefetch={false}>
                 {c.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={avatarSrc(c.userId)} alt={c.username} />
@@ -101,7 +104,7 @@ export function CommentsSection({
               </Link>
               <div className="grow">
                 <div className="comment-meta">
-                  <Link href={`/profile/${c.username}`}>
+                  <Link href={`/profile/${c.username}`} prefetch={false}>
                     <b>{c.username}</b>
                   </Link>
                   <span>{timeAgo(new Date(c.createdAt), tz)}</span>

@@ -265,7 +265,7 @@ async function StatsBody() {
       <div className="section">
         <div className="h-row">
           <h3>Achievements</h3>
-          <Link href="/achievements">See all</Link>
+          <Link href="/achievements" prefetch={false}>See all</Link>
         </div>
         {teaser.map((a) => (
           <Link
@@ -273,6 +273,7 @@ async function StatsBody() {
             href="/achievements"
             className="row"
             style={{ textDecoration: "none", color: "inherit" }}
+            prefetch={false}
           >
             <div className="rowmark ach">
               <AchievementGlyph icon={a.icon} />

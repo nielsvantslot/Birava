@@ -142,6 +142,7 @@ export default async function CrewDetailPage({
               href={`/sessions/${session.id}`}
               className="row"
               style={{ textDecoration: "none", color: "inherit" }}
+              prefetch={false}
             >
               <div className="avatar">
                 {session.avatarUrl ? (
@@ -170,7 +171,7 @@ export default async function CrewDetailPage({
       )}
 
       <div className="section">
-        <Link href={`/crews/${crew.id}/settings`} className="btn btn-ghost">
+        <Link href={`/crews/${crew.id}/settings`} className="btn btn-ghost" prefetch={false}>
           Crew settings
         </Link>
       </div>

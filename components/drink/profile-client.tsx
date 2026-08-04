@@ -46,11 +46,11 @@ export function ProfileHead({
           <h1>{username}</h1>
           <p>member since {memberSince}</p>
           <div className="follow-counts">
-            <Link href="/profile/followers">
+            <Link href="/profile/followers" prefetch={false}>
               <b>{followers}</b>
               <span>followers</span>
             </Link>
-            <Link href="/profile/following">
+            <Link href="/profile/following" prefetch={false}>
               <b>{following}</b>
               <span>following</span>
             </Link>
@@ -84,7 +84,7 @@ export function ProfileHead({
 export function ProfileActions() {
   return (
     <div className="section">
-      <Link href="/settings" className="btn btn-ghost">
+      <Link href="/settings" className="btn btn-ghost" prefetch={false}>
         Settings
       </Link>
     </div>

@@ -85,6 +85,9 @@ export function PeopleClient({
 
       {results.map((u) => (
         <div className="row" key={u.id}>
+          {/* prefetch={false}: staleTimes.dynamic is 0 (next.config.ts), so
+              prefetching every search result's profile on render is pure
+              waste. */}
           <Link
             href={`/profile/${u.username}`}
             style={{
@@ -96,6 +99,7 @@ export function PeopleClient({
               textDecoration: "none",
               color: "inherit",
             }}
+            prefetch={false}
           >
             <div className="avatar">
               {u.avatarUrl ? (

@@ -50,7 +50,7 @@ function SidebarInner({
 
   return (
     <aside className="sidebar hidden md:flex md:w-[76px] xl:w-60 fixed left-0 top-0 h-screen z-40">
-      <Link href="/dashboard" className="sidebar-brand" aria-label="Birava home">
+      <Link href="/dashboard" className="sidebar-brand" aria-label="Birava home" prefetch={false}>
         <svg viewBox="0 0 24 24">
           <path d="M7 3h9l-1 4h1.5a1 1 0 011 1.2l-1.8 9A2 2 0 0114 19h-5a2 2 0 01-1.97-1.8L5 8.2A1 1 0 016 7h1z"></path>
           <path d="M15.5 10.5H19a1 1 0 011 1v1a2 2 0 01-2 2h-1.2"></path>
@@ -60,11 +60,16 @@ function SidebarInner({
       </Link>
 
       <nav className="sidebar-nav">
+        {/* prefetch={false}: this sidebar renders on every authenticated
+            page, so its links sit in the viewport on every navigation —
+            staleTimes.dynamic is 0 (next.config.ts), so prefetching them is
+            pure waste. */}
         <Link
           href="/notifications"
           className={cn(
             pathname === "/notifications" || pathname.startsWith("/notifications/") ? "active" : undefined
           )}
+          prefetch={false}
         >
           <svg viewBox="0 0 24 24">
             <path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
@@ -113,17 +118,17 @@ function SidebarInner({
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href="/profile" className="cursor-pointer">
+              <Link href="/profile" className="cursor-pointer" prefetch={false}>
                 Profile
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/people" className="cursor-pointer">
+              <Link href="/people" className="cursor-pointer" prefetch={false}>
                 Find people
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/achievements" className="cursor-pointer">
+              <Link href="/achievements" className="cursor-pointer" prefetch={false}>
                 Achievements
               </Link>
             </DropdownMenuItem>

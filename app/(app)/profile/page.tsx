@@ -46,6 +46,7 @@ export default async function ProfilePage() {
           href="/people"
           className="row"
           style={{ textDecoration: "none", color: "inherit" }}
+          prefetch={false}
         >
           <div className="rowmark">
             <svg viewBox="0 0 24 24">
@@ -125,7 +126,7 @@ async function RecentSessionsLoader({ userId }: { userId: string }) {
     <div className="section">
       <div className="h-row">
         <h3>Recent sessions</h3>
-        <Link href="/dashboard?tab=you">All</Link>
+        <Link href="/dashboard?tab=you" prefetch={false}>All</Link>
       </div>
       {recentSessions.map((session) => {
         const meta = [
@@ -143,6 +144,7 @@ async function RecentSessionsLoader({ userId }: { userId: string }) {
             href={`/sessions/${session.id}`}
             className="row"
             style={{ textDecoration: "none", color: "inherit" }}
+            prefetch={false}
           >
             <div className="rowmark">
               <svg viewBox="0 0 24 24">
@@ -185,7 +187,7 @@ async function AchievementBadgesLoader({ userId }: { userId: string }) {
     <div className="section">
       <div className="h-row">
         <h3>Achievements</h3>
-        <Link href="/achievements">See all</Link>
+        <Link href="/achievements" prefetch={false}>See all</Link>
       </div>
       <div className="badge-strip">
         {ordered.map((a) => (
@@ -193,6 +195,7 @@ async function AchievementBadgesLoader({ userId }: { userId: string }) {
             key={a.id}
             href="/achievements"
             className={`badge-chip${a.earned ? "" : " locked"}`}
+            prefetch={false}
           >
             <div className="ac-ic">
               <AchievementGlyph icon={a.icon} />
