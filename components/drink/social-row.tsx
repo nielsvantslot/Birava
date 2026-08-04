@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { toggleCheer } from "@/lib/controllers/socialController";
 import { showToast } from "@/components/ui/toast-pill";
+import { BeerGlassIcon } from "@/components/drink/beer-glass-icon";
 import { cn } from "@/lib/utils";
 import type { ShareImageDTO } from "@/lib/dtos";
 import type { ShareVariant } from "@/components/drink/share-sheet";
@@ -158,10 +159,7 @@ export function SocialActs({
         aria-pressed={state.on}
         aria-label="Cheers"
       >
-        <svg viewBox="0 0 24 24">
-          <path d="M9 3h6M12 3v4"></path>
-          <path d="M7 21c-2 0-3-1.6-3-3.5C4 13 7 11 12 11s8 2 8 6.5c0 1.9-1 3.5-3 3.5z"></path>
-        </svg>
+        <BeerGlassIcon />
         <span>{state.count}</span> cheers
       </button>
       <Link

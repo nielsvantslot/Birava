@@ -7,8 +7,9 @@ import { computeAchievements } from "@/lib/achievements";
 import { getMyDrinkHistory, getRecentSessionsForUser } from "@/lib/controllers/drinkController";
 import { getFollowCounts } from "@/lib/controllers/socialController";
 import { ProfileHead, ProfileActions } from "@/components/drink/profile-client";
-import { AchievementGlyph } from "@/components/drink/achievement-icon";
+import { AchievementBadgeStrip } from "@/components/drink/achievement-badge-strip";
 import { RecentSessionsList } from "@/components/drink/recent-sessions-list";
+import { NavActionRow } from "@/components/ui/nav-action-row";
 import {
   Skeleton,
   ProfileHeadSkeleton,
@@ -38,25 +39,18 @@ export default async function ProfilePage() {
       </Suspense>
 
       <div className="section">
-        <Link
+        <NavActionRow
           href="/people"
-          className="row"
-          style={{ textDecoration: "none", color: "inherit" }}
-          prefetch={false}
-        >
-          <div className="rowmark">
+          icon={
             <svg viewBox="0 0 24 24">
               <circle cx="9" cy="8" r="4"></circle>
               <path d="M2 21c0-4 3-6 7-6 1.2 0 2.3.15 3.2.5"></path>
               <path d="M17 14v6M14 17h6"></path>
             </svg>
-          </div>
-          <div className="grow">
-            <b>Find people</b>
-            <span>Search for friends and follow their sessions</span>
-          </div>
-          <span className="chev">›</span>
-        </Link>
+          }
+          title="Find people"
+          subtitle="Search for friends and follow their sessions"
+        />
       </div>
 
       <ProfileActions />
@@ -154,21 +148,7 @@ async function AchievementBadgesLoader({ userId }: { userId: string }) {
         <h3>Achievements</h3>
         <Link href="/achievements" prefetch={false}>See all</Link>
       </div>
-      <div className="badge-strip">
-        {ordered.map((a) => (
-          <Link
-            key={a.id}
-            href="/achievements"
-            className={`badge-chip${a.earned ? "" : " locked"}`}
-            prefetch={false}
-          >
-            <div className="ac-ic">
-              <AchievementGlyph icon={a.icon} />
-            </div>
-            <span>{a.label}</span>
-          </Link>
-        ))}
-      </div>
+      <AchievementBadgeStrip achievements={ordered} linked />
     </div>
   );
 }

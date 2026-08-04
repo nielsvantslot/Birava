@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
@@ -8,9 +7,9 @@ import { getProfileByUsername } from "@/lib/controllers/profileController";
 import { getFollowCounts, isFollowingUser } from "@/lib/controllers/socialController";
 import { groupIntoSessions, activeWeeks } from "@/lib/sessions";
 import { computeAchievements } from "@/lib/achievements";
-import { avatarSrc } from "@/lib/utils";
 import { FollowButton } from "@/components/drink/follow-button";
-import { AchievementGlyph } from "@/components/drink/achievement-icon";
+import { ProfileHead } from "@/components/drink/profile-client";
+import { AchievementBadgeStrip } from "@/components/drink/achievement-badge-strip";
 import { RecentSessionsList } from "@/components/drink/recent-sessions-list";
 import type { ProfileDTO, SessionUserDTO } from "@/lib/dtos";
 import { ProfileHeadSkeleton, RecentSessionsSkeleton } from "@/components/ui/skeleton";
@@ -88,58 +87,27 @@ async function PublicProfileMain({
   const weeks = activeWeeks(sessions, tz);
 
   return (
-    <div className="section flush">
-      <div className="profile-head">
-        <div className="avatar">
-          {targetUser.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarSrc(targetUser.id)} alt={targetUser.username} />
-          ) : (
-            targetUser.username.slice(0, 2).toUpperCase()
-          )}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h1>{targetUser.username}</h1>
-          <p>member since {memberSince}</p>
-          <div className="follow-counts">
-            <Link href={`/profile/${targetUser.username}/followers`} prefetch={false}>
-              <b>{followerCount}</b>
-              <span>followers</span>
-            </Link>
-            <Link href={`/profile/${targetUser.username}/following`} prefetch={false}>
-              <b>{followingCount}</b>
-              <span>following</span>
-            </Link>
-          </div>
-        </div>
-        {!isOwnProfile && currentUser && (
-          <FollowButton
-            targetUserId={targetUser.id}
-            initialIsFollowing={isFollowing}
-          />
-        )}
-      </div>
-      <div style={{ padding: "0 16px 20px" }}>
-        <div className="stats">
-          <div className="stat">
-            <div className="label">Sessions</div>
-            <div className="num">{sessions.length}</div>
-          </div>
-          <div className="stat">
-            <div className="label">Venues</div>
-            <div className="num">{venues.size}</div>
-          </div>
-          <div className="stat">
-            <div className="label">Types tried</div>
-            <div className="num">{types.size}</div>
-          </div>
-          <div className="stat">
-            <div className="label">Active wks</div>
-            <div className="num">{weeks.current}</div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <ProfileHead
+      userId={targetUser.id}
+      username={targetUser.username}
+      avatarUrl={targetUser.avatarUrl}
+      memberSince={memberSince}
+      followers={followerCount}
+      following={followingCount}
+      stats={{
+        sessions: sessions.length,
+        venues: venues.size,
+        types: types.size,
+        activeWeeks: weeks.current,
+      }}
+      followersHref={`/profile/${targetUser.username}/followers`}
+      followingHref={`/profile/${targetUser.username}/following`}
+      action={
+        !isOwnProfile && currentUser ? (
+          <FollowButton targetUserId={targetUser.id} initialIsFollowing={isFollowing} />
+        ) : undefined
+      }
+    />
   );
 }
 
@@ -188,16 +156,7 @@ async function PublicAchievementBadgesLoader({ userId }: { userId: string }) {
       <div className="h-row">
         <h3>Achievements</h3>
       </div>
-      <div className="badge-strip">
-        {earned.map((a) => (
-          <div key={a.id} className="badge-chip">
-            <div className="ac-ic">
-              <AchievementGlyph icon={a.icon} />
-            </div>
-            <span>{a.label}</span>
-          </div>
-        ))}
-      </div>
+      <AchievementBadgeStrip achievements={earned} />
     </div>
   );
 }
