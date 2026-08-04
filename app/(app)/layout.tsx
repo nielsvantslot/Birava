@@ -9,6 +9,7 @@ import { RightRail } from "@/components/layout/right-rail";
 import { ToastPill } from "@/components/ui/toast-pill";
 import { ConfirmModalHost } from "@/components/ui/confirm-modal";
 import { TimezoneSync } from "@/components/timezone-sync";
+import { OfflineBanner } from "@/components/offline-banner";
 import { PendingCheckinsSync } from "@/components/drink/pending-checkins-sync";
 import { drinkPhotoService } from "@/lib/photoUpload";
 
@@ -19,6 +20,7 @@ export default function AppLayout({
 }) {
   return (
     <div className="flex flex-col min-h-screen bg-[var(--bg)]">
+      <OfflineBanner />
       {/* usePathname reads request data — must sit inside Suspense under cacheComponents.
           Fixed to the viewport edge, outside the centered block below. */}
       <Suspense fallback={null}>
