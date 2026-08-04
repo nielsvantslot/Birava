@@ -26,6 +26,9 @@ export async function POST(request: Request) {
     const { url } = await avatarPhotoService.processAndStore(file, user.id);
     const result = await updateProfileAvatar(user.id, url);
     if (result.error) {
+      // Mirrors finalize/route.ts's own rollback — the stored blob is about
+      // to become unreachable from any DB row, so clean it up now.
+      await avatarPhotoService.remove(url, user.id);
       return Response.json({ error: result.error } satisfies AvatarUploadResultDTO, { status: 500 });
     }
     revalidatePath("/profile");
