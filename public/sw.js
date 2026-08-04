@@ -1,9 +1,13 @@
-const CACHE_NAME = "birava-v3";
+const STATIC_CACHE_NAME = "birava-static-v1";
+const NAV_CACHE_NAME = "birava-nav-v1";
+const OFFLINE_URL = "/offline";
 const STATIC_ASSETS = [
   "/manifest.webmanifest",
   "/icons/icon-192x192.png",
   "/icons/icon-512x512.png",
+  OFFLINE_URL,
 ];
+const CURRENT_CACHES = [STATIC_CACHE_NAME, NAV_CACHE_NAME];
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
@@ -14,7 +18,7 @@ self.addEventListener("install", (event) => {
   // even if an asset is missing.
   event.waitUntil(
     caches
-      .open(CACHE_NAME)
+      .open(STATIC_CACHE_NAME)
       .then((cache) => Promise.allSettled(STATIC_ASSETS.map((asset) => cache.add(asset))))
   );
 });
@@ -22,7 +26,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(keys.filter((k) => !CURRENT_CACHES.includes(k)).map((k) => caches.delete(k)))
     )
   );
   self.clients.claim();
@@ -54,12 +58,45 @@ self.addEventListener("notificationclick", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Skip non-GET requests
-  if (event.request.method !== "GET") return;
+  if (event.request.method !== "GET") {
+    // Not intercepted — the request goes through normally either way. A
+    // successful sign-out means whatever's in the nav cache belongs to a
+    // session that's now gone; leaving it would let the next person to open
+    // this device offline land on the previous user's last-cached page
+    // instead of the login screen.
+    if (url.pathname === "/api/auth/logout") {
+      event.waitUntil(
+        fetch(event.request.clone())
+          .then((res) => {
+            if (res.ok) caches.delete(NAV_CACHE_NAME);
+          })
+          .catch(() => {})
+      );
+    }
+    return;
+  }
 
-  // Never cache HTML navigation requests — they are server-rendered and
-  // auth-protected. Caching them causes stale/broken pages after session expiry.
-  if (event.request.mode === "navigate") return;
+  // Page navigations: server-rendered and auth-sensitive, so always prefer
+  // a fresh fetch over cache. Only fall back to the last-cached copy of that
+  // exact URL (or the offline page, for a URL never successfully visited)
+  // when the network is actually unavailable.
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(NAV_CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(event.request, { cacheName: NAV_CACHE_NAME });
+          return cached ?? (await caches.match(OFFLINE_URL));
+        })
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
@@ -73,7 +110,7 @@ self.addEventListener("fetch", (event) => {
             url.pathname === "/manifest.webmanifest")
         ) {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          caches.open(STATIC_CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }
         return response;
       }).catch(() => cached ?? new Response("Offline", { status: 503 }));

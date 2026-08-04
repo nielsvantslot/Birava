@@ -76,8 +76,13 @@ export async function updateSession(request: NextRequest) {
   const isAuthPage =
     url.pathname.startsWith("/login") ||
     url.pathname.startsWith("/signup");
+  // The service worker's offline fallback (public/sw.js) must render for
+  // whoever hits it, logged in or not, or offline visitors with no session
+  // cookie yet would get redirected straight into a login page that itself
+  // can't load without a network.
+  const isOfflinePage = url.pathname === "/offline";
 
-  if (!dto && !isAuthPage) {
+  if (!dto && !isAuthPage && !isOfflinePage) {
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
