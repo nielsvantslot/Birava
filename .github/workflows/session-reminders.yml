@@ -17,10 +17,22 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger session-reminders cron
+      # www.birava.nl directly, not birava.nl — the apex domain 308-redirects
+      # to www at Vercel's edge, and curl without -L (and without forwarding
+      # Authorization across the host-changing redirect) would report success
+      # on the redirect response without ever invoking the route.
+      - name: Trigger session-reminders cron (production)
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           curl -sf -X GET \
             -H "Authorization: Bearer ${CRON_SECRET}" \
-            "https://birava.nl/api/cron/session-reminders"
+            "https://www.birava.nl/api/cron/session-reminders"
+
+      - name: Trigger session-reminders cron (staging)
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -sf -X GET \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://staging.birava.nl/api/cron/session-reminders"
