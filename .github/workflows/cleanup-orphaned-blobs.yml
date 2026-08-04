@@ -1,0 +1,34 @@
+name: Cleanup orphaned blobs
+
+# Consolidated onto the same scheduling mechanism as session-reminders.yml
+# rather than vercel.json's native cron. This job only needs a once-daily
+# cadence, which Vercel Hobby's cron limit would have covered on its own —
+# but running every scheduled job through GitHub Actions means there's one
+# place to check when a cron didn't fire, not a split between the Vercel
+# dashboard's Cron tab and this one.
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      # www.birava.nl directly, not birava.nl — see session-reminders.yml for
+      # why (the apex domain's redirect drops the Authorization header).
+      - name: Trigger cleanup-orphaned-blobs cron (production)
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -sf -X GET \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://www.birava.nl/api/cron/cleanup-orphaned-blobs"
+
+      - name: Trigger cleanup-orphaned-blobs cron (staging)
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -sf -X GET \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://staging.birava.nl/api/cron/cleanup-orphaned-blobs"
