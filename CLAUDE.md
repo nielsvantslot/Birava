@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Birava is a mobile-first PWA — "Strava for beer." Next.js 15.5 (App Router) + React 19, Prisma + PostgreSQL, Tailwind v4, custom shadcn-style UI. Deploys to Vercel.
 
+**`docs/architecture.md` is a living backend architecture diagram (mermaid).** Update it whenever a layer, route, or cross-cutting flow (upload, cron, auth) is added or restructured — a stale diagram is a bug, not just stale docs.
+
 ## Everything runs in Docker
 
 There is **no local `node_modules`** — the whole stack runs in containers via `docker compose`. Run Prisma and Node commands inside the `birava-app` container, not on the host.

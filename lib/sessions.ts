@@ -137,6 +137,36 @@ export function groupIntoSessions(entries: DrinkEntry[]): DrinkSession[] {
   );
 }
 
+/**
+ * Same 4-hour-gap grouping rule as groupIntoSessions(), but only the count —
+ * for callers like computeAchievements() that need "how many sessions" and
+ * nothing else. Avoids building full DrinkSession objects (venues/types/
+ * photoIds), so the caller only needs userId + createdAt per entry instead
+ * of every DrinkEntry column.
+ */
+export function countSessions(
+  entries: Array<Pick<DrinkEntry, "user_id" | "created_at">>
+): number {
+  const byUser = new Map<string, number[]>();
+  for (const entry of entries) {
+    const timestamp = new Date(entry.created_at).getTime();
+    const bucket = byUser.get(entry.user_id);
+    if (bucket) bucket.push(timestamp);
+    else byUser.set(entry.user_id, [timestamp]);
+  }
+
+  let count = 0;
+  for (const bucket of byUser.values()) {
+    bucket.sort((a, b) => a - b);
+    let previous: number | null = null;
+    for (const timestamp of bucket) {
+      if (previous === null || timestamp - previous > SESSION_GAP_MS) count++;
+      previous = timestamp;
+    }
+  }
+  return count;
+}
+
 function sessionSpanMs(session: DrinkSession): number {
   return new Date(session.end).getTime() - new Date(session.start).getTime();
 }

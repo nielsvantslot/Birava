@@ -20,6 +20,19 @@ export class DrinkEntryMapper {
   }
 
   static toDTOWithAuthor(entry: DrinkEntryRow & { user: EntryAuthorDTO }): DrinkEntryWithAuthorDTO {
-    return this.toDTO(entry) as DrinkEntryWithAuthorDTO;
+    // Not delegating to toDTO(): its `user` field is optional (DrinkEntryDTO
+    // treats an author as sometimes-absent), while this DTO requires it —
+    // building the literal directly lets the compiler prove that instead of
+    // casting past the mismatch.
+    return {
+      id: entry.id,
+      userId: entry.userId,
+      drinkName: entry.drinkName,
+      notes: entry.notes,
+      photoUrl: entry.photoUrl,
+      photoLqip: entry.photoLqip,
+      createdAt: entry.createdAt.toISOString(),
+      user: entry.user,
+    };
   }
 }

@@ -13,7 +13,6 @@ const archivo = Archivo({
 const sourceSerif = Source_Serif_4({
   subsets: ["latin"],
   variable: "--font-source-serif",
-  style: ["normal", "italic"],
 });
 
 const isStaging = process.env.VERCEL_ENV === "preview";

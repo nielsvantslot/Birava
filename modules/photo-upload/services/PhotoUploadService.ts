@@ -5,7 +5,7 @@ import { StreamBufferConverter } from "../StreamBufferConverter";
 import { DirectUploadNotConfiguredError } from "../Errors/DirectUploadNotConfiguredError";
 import { InvalidUploadError } from "../Errors/InvalidUploadError";
 import { PhotoNotFoundError } from "../Errors/PhotoNotFoundError";
-import type { ProcessedImage, StoredFile } from "../Models";
+import type { Json, ProcessedImage, StoredFile } from "../Models";
 import type { UploadResultDto } from "../Dto/UploadResultDto";
 import type { CreateDirectUploadTokenInput, IPhotoUploadService } from "./IPhotoUploadService";
 import type { PhotoUploadServiceConfig } from "./PhotoUploadServiceConfig";
@@ -63,7 +63,7 @@ export class PhotoUploadService implements IPhotoUploadService {
     return { url, lqip: null };
   }
 
-  async createDirectUploadToken(input: CreateDirectUploadTokenInput): Promise<unknown> {
+  async createDirectUploadToken(input: CreateDirectUploadTokenInput): Promise<Json> {
     if (!this.config.directUpload) {
       throw new DirectUploadNotConfiguredError("This service has no direct-upload coordinator configured.");
     }

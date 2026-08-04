@@ -93,6 +93,16 @@ export function CheckinForm({
   const [photoPreview, setPhotoPreview] = useState<string | null>(
     editEntry?.photo_url ? drinkPhotoSrc(editEntry.id) : null
   );
+  // Revokes the outgoing blob URL whenever a new photo replaces it and on
+  // unmount — createObjectURL memory is otherwise held until the tab closes.
+  // A no-op for the initial edit-mode value (drinkPhotoSrc(...) isn't a blob:
+  // URL).
+  useEffect(() => {
+    return () => {
+      if (photoPreview?.startsWith("blob:")) URL.revokeObjectURL(photoPreview);
+    };
+  }, [photoPreview]);
+
   const [error, setError] = useState<string | null>(null);
   const [coords, setCoords] = useState<Coords | null>(
     editEntry?.lat != null && editEntry?.lng != null
@@ -299,9 +309,10 @@ export function CheckinForm({
         return;
       }
 
-      const usingPending = pendingUploadRef.current?.file === photoFile;
-      const uploadResult = usingPending
-        ? await pendingUploadRef.current!.promise
+      const pending = pendingUploadRef.current;
+      const usingPending = pending !== null && pending.file === photoFile;
+      const uploadResult = pending && usingPending
+        ? await pending.promise
         : await PhotoUploader.upload(photoFile, drinkPhotoUploadEndpoints(userId, supportsDirectUpload));
       if (usingPending) discardPendingUpload(false); // consumed — don't delete it
 

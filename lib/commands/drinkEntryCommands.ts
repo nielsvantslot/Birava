@@ -172,8 +172,15 @@ export async function createDrinkEntry(
 ): Promise<AddDrinkResultDTO> {
   const tz = await getUserTimeZone();
   // Read history once; the "after" set is provably "before + the new row",
-  // so there's no need for a second full-table scan.
-  const before = await db.drinkEntry.findMany({ where: { userId } });
+  // so there's no need for a second full-table scan. This runs on every
+  // check-in write and can't use getDrinkHistory's 60s cache (it needs
+  // fresh pre-write state), so unlike the cached read paths it pays this
+  // cost in full every time — select only what computeAchievements/
+  // countSessions actually read (lib/achievements.ts), not every column.
+  const before = await db.drinkEntry.findMany({
+    where: { userId },
+    select: { userId: true, createdAt: true, drinkType: true, venue: true, notes: true },
+  });
 
   const createdAt = resolveCreatedAt(input.createdAt);
   const entryId = randomUUID();
@@ -222,7 +229,13 @@ export async function createDrinkEntry(
     return { error: "Failed to save check-in." };
   }
 
-  const beforeEntries = before.map(toDrinkEntry);
+  const beforeEntries = before.map((e) => ({
+    user_id: e.userId,
+    created_at: e.createdAt.toISOString(),
+    drink_type: e.drinkType,
+    venue: e.venue,
+    notes: e.notes,
+  }));
   const earnedBefore = new Set(
     computeAchievements(beforeEntries, tz)
       .filter((a) => a.earned)
