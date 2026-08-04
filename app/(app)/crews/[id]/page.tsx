@@ -72,7 +72,9 @@ export default async function CrewDetailPage({
             >
               {crew.memberCount} member
               {crew.memberCount === 1 ? "" : "s"}
-              {canInvite && (
+              {/* A closed crew stops accepting new members, so the code that
+                  no longer works shouldn't be offered here either. */}
+              {canInvite && !isClosed && (
                 <>
                   {" "}
                   · <CopyCodeChip code={crew.inviteCode} />
@@ -122,7 +124,6 @@ export default async function CrewDetailPage({
             username: s.username,
             avatarUrl: s.avatarUrl,
             sessions: s.sessions,
-            venues: s.venues,
             drinks: s.drinks,
             you: s.userId === user.id,
           }))}

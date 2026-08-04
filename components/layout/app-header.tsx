@@ -42,7 +42,9 @@ export function AppHeader({ userId, username, avatarUrl, unreadCount = 0 }: AppH
     ? "Followers"
     : pathname.endsWith("/following")
       ? "Following"
-      : TITLES.find(([prefix]) =>
+      : pathname.endsWith("/invite")
+        ? "Invite"
+        : TITLES.find(([prefix]) =>
           prefix.endsWith("/")
             ? pathname.startsWith(prefix) && pathname !== prefix.slice(0, -1)
             : pathname === prefix || pathname.startsWith(prefix + "/")

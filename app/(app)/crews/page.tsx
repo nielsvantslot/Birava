@@ -43,7 +43,9 @@ export default async function CrewsPage() {
                     : ""}
                 </span>
               </div>
-              <span className="code">{crew.inviteCode}</span>
+              {/* A closed crew stops accepting new members (joinGroup blocks
+                  it), so showing the code that no longer works is misleading. */}
+              {!crew.closed && <span className="code">{crew.inviteCode}</span>}
             </Link>
           ))
         )}

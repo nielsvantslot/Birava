@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { generateInviteCode } from "@/lib/utils";
 import { queueNotifications } from "@/lib/notify";
@@ -8,6 +9,9 @@ import {
   JoinGroupDTO,
   JoinGroupResultDTO,
   LeaveGroupDTO,
+  RenameGroupDTO,
+  RegenerateInviteCodeDTO,
+  RegenerateInviteCodeResultDTO,
   SetCrewVisibilityDTO,
   SetMemberRoleDTO,
   KickMemberDTO,
@@ -113,6 +117,51 @@ export async function setCrewVisibility(userId: string, input: SetCrewVisibility
   });
 
   return {};
+}
+
+/** Owner-only: renames the crew. The invite code, id, and every stat/link built on it are untouched. */
+export async function renameGroup(userId: string, input: RenameGroupDTO): Promise<ActionResultDTO> {
+  const group = await db.group.findUnique({ where: { id: input.groupId } });
+  if (!group) return { error: "Crew not found" };
+  if (group.ownerId !== userId) return { error: "Only the crew owner can rename the crew" };
+
+  const name = input.name.trim();
+  if (name.length < 2) return { error: "Crew name must be at least 2 characters" };
+  if (name.length > 50) return { error: "Crew name must be 50 characters or fewer" };
+
+  await db.group.update({ where: { id: input.groupId }, data: { name } });
+  return {};
+}
+
+/**
+ * Owner-only: rotates the invite code, invalidating the old one immediately
+ * — anyone who saved/shared it can no longer join with it. A closed crew
+ * doesn't accept new members at all, so there's nothing to regenerate for.
+ */
+export async function regenerateInviteCode(
+  userId: string,
+  input: RegenerateInviteCodeDTO
+): Promise<RegenerateInviteCodeResultDTO> {
+  const group = await db.group.findUnique({ where: { id: input.groupId } });
+  if (!group) return { error: "Crew not found" };
+  if (group.ownerId !== userId) return { error: "Only the crew owner can regenerate the invite code" };
+  if (group.closedAt) return { error: "This crew is closed and isn't accepting new members" };
+
+  // generateInviteCode's 6-char base36 space makes a collision astronomically
+  // unlikely, but the column is unique — retry on the rare clash instead of
+  // trusting that away.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const inviteCode = generateInviteCode();
+    try {
+      await db.group.update({ where: { id: input.groupId }, data: { inviteCode } });
+      return { inviteCode };
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) {
+        throw error;
+      }
+    }
+  }
+  return { error: "Couldn't generate a new code — try again" };
 }
 
 /**

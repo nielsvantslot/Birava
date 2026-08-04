@@ -1,15 +1,22 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getCrew } from "@/lib/controllers/groupController";
-import { LeaveCrewButton, CloseCrewButton, DeleteCrewButton } from "@/components/drink/crews-forms";
+import {
+  LeaveCrewButton,
+  CloseCrewButton,
+  DeleteCrewButton,
+  RenameCrewForm,
+  RegenerateInviteCodeButton,
+  CopyCodeChip,
+} from "@/components/drink/crews-forms";
 import { CrewSettingsPanel } from "@/components/drink/crew-settings";
-import { CrewInvitePanel } from "@/components/drink/crew-invite-panel";
 
 /**
  * Everything about managing a crew, consolidated off the main crew detail
- * page: visibility, member roles/kicking, invites, and leave/close/delete.
- * Every member can reach this (to invite or leave); owner/admin-only actions
- * gate themselves internally.
+ * page: identity (name/code), visibility, member roles/kicking, invites,
+ * and leave/close/delete. Every member can reach this (to invite or leave);
+ * owner/admin-only actions gate themselves internally.
  */
 export default async function CrewSettingsPage({
   params,
@@ -46,7 +53,40 @@ export default async function CrewSettingsPage({
         </p>
       </div>
 
-      {canInvite && <CrewInvitePanel crewId={crew.id} />}
+      {isOwner && <RenameCrewForm crewId={crew.id} name={crew.name} />}
+
+      {/* A closed crew stops accepting new members (joinGroup/sendCrewInvite
+          both block it), so there's nothing to invite with or into. */}
+      {canInvite && !isClosed && (
+        <>
+          <div className="section">
+            <div className="h-row" style={{ marginBottom: 10 }}>
+              <h3>Invite code</h3>
+            </div>
+            <div style={{ marginBottom: isOwner ? 12 : 0 }}>
+              <CopyCodeChip code={crew.inviteCode} />
+            </div>
+            {isOwner && <RegenerateInviteCodeButton crewId={crew.id} />}
+          </div>
+
+          <div className="section">
+            <Link href={`/crews/${crew.id}/invite`} className="row">
+              <div className="rowmark">
+                <svg viewBox="0 0 24 24">
+                  <circle cx="9" cy="8" r="4"></circle>
+                  <path d="M2 21c0-4 3-6 7-6 1.2 0 2.3.15 3.2.5"></path>
+                  <path d="M17 14v6M14 17h6"></path>
+                </svg>
+              </div>
+              <div className="grow">
+                <b>Invite people</b>
+                <span>Search mutual follows and send an invite</span>
+              </div>
+              <span className="chev">›</span>
+            </Link>
+          </div>
+        </>
+      )}
 
       <CrewSettingsPanel
         crewId={crew.id}
