@@ -32,6 +32,10 @@ export async function POST(request: Request) {
     const { url } = await avatarPhotoService.finalizeDirectUpload(rawUrl, user.id);
     const result = await updateProfileAvatar(user.id, url);
     if (result.error) {
+      // The finalized blob is durable and fully processed at this point but
+      // about to become unreachable from any DB row — delete it now rather
+      // than leaving it for the next scheduled cleanup (photoCleanupCommands.ts).
+      await avatarPhotoService.remove(url, user.id);
       return Response.json({ error: result.error } satisfies AvatarUploadResultDTO, { status: 500 });
     }
     revalidatePath("/profile");

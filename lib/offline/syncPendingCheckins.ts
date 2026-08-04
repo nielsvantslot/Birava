@@ -57,6 +57,13 @@ export async function flushPendingCheckins(
           if ("error" in uploaded) throw new Error(uploaded.error);
           photoUrl = uploaded.url;
           photoLqip = uploaded.lqip;
+          // Persist the blob's URL into the queue record right away — if
+          // addDrink below throws or errors, a retry (automatic, or the
+          // panel's "Retry now") must reuse this upload instead of uploading
+          // a fresh one every attempt, which would otherwise orphan one blob
+          // per retry. This also lets the panel's cancel() delete it (it only
+          // knows how to for `kind: "uploaded"`).
+          await updatePendingCheckin(entry.id, { photo: { kind: "uploaded", url: photoUrl, lqip: photoLqip } });
         }
 
         const result = await addDrink({ ...entry.payload, photoUrl, photoLqip, createdAt: entry.createdAt });

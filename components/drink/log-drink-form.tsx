@@ -169,14 +169,44 @@ export function CheckinForm({
     if (!deleteIfAlreadyUploaded) return;
     previous.promise.then((result) => {
       if ("url" in result) {
+        // keepalive lets this survive a tab close/navigation that would
+        // otherwise cancel a plain fetch mid-flight — still no guarantee (the
+        // browser can drop it regardless), which is why
+        // photoCleanupCommands.ts's scheduled sweep exists as the real
+        // backstop; this just makes the fast path more often unnecessary.
         fetch("/api/uploads/drink-photo", {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url: result.url }),
+          keepalive: true,
         }).catch(() => {});
       }
     });
   };
+
+  // Two layered "the user is leaving" signals, covering what
+  // discardPendingUpload's other call sites don't:
+  // - unmount: in-app navigation away from this form (back button, a nav
+  //   link, closing an edit modal) while the tab stays open.
+  // - pagehide, when not `persisted`: the tab/app is actually closing, not
+  //   just being frozen into the back/forward cache — a `persisted` pagehide
+  //   can still come back verbatim via bfcache restore, and deleting the
+  //   blob there would leave pendingUploadRef pointing at a URL the server
+  //   just 404s, so it's deliberately skipped.
+  // Neither runs if the OS kills a backgrounded mobile app outright — no JS
+  // executes at all when that happens, so nothing client-side can catch it.
+  // photoCleanupCommands.ts's daily sweep is the real backstop for that case
+  // (and for any of these best-effort sends that just don't land).
+  useEffect(() => {
+    const onPageHide = (e: PageTransitionEvent) => {
+      if (!e.persisted) discardPendingUpload(true);
+    };
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      discardPendingUpload(true);
+    };
+  }, []);
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -269,10 +299,11 @@ export function CheckinForm({
         return;
       }
 
-      const uploadResult =
-        pendingUploadRef.current?.file === photoFile
-          ? await pendingUploadRef.current.promise
-          : await PhotoUploader.upload(photoFile, drinkPhotoUploadEndpoints(userId, supportsDirectUpload));
+      const usingPending = pendingUploadRef.current?.file === photoFile;
+      const uploadResult = usingPending
+        ? await pendingUploadRef.current!.promise
+        : await PhotoUploader.upload(photoFile, drinkPhotoUploadEndpoints(userId, supportsDirectUpload));
+      if (usingPending) discardPendingUpload(false); // consumed — don't delete it
 
       if ("error" in uploadResult) {
         setError(uploadResult.error);
