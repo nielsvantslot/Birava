@@ -8,7 +8,6 @@ export type LeaderboardRow = {
   username: string;
   avatarUrl: string | null;
   sessions: number;
-  venues: number;
   drinks: number;
   you: boolean;
 };
@@ -18,12 +17,12 @@ export type LeaderboardRow = {
  * scores are since-joined, computed server-side.
  */
 export function CrewLeaderboard({ rows }: { rows: LeaderboardRow[] }) {
-  const [metric, setMetric] = useState<"sessions" | "venues">("sessions");
+  const [metric, setMetric] = useState<"sessions" | "drinks">("sessions");
 
   const ranked = [...rows].sort((a, b) =>
     metric === "sessions"
       ? b.sessions - a.sessions || b.drinks - a.drinks
-      : b.venues - a.venues || b.sessions - a.sessions
+      : b.drinks - a.drinks || b.sessions - a.sessions
   );
 
   return (
@@ -36,10 +35,10 @@ export function CrewLeaderboard({ rows }: { rows: LeaderboardRow[] }) {
           Sessions
         </button>
         <button
-          className={cn("chip", metric === "venues" && "on")}
-          onClick={() => setMetric("venues")}
+          className={cn("chip", metric === "drinks" && "on")}
+          onClick={() => setMetric("drinks")}
         >
-          Venues
+          Drinks
         </button>
       </div>
       <div className="lb">
@@ -62,7 +61,7 @@ export function CrewLeaderboard({ rows }: { rows: LeaderboardRow[] }) {
               </span>
             </div>
             <div className="score">
-              {metric === "sessions" ? row.sessions : row.venues}
+              {metric === "sessions" ? row.sessions : row.drinks}
             </div>
           </div>
         ))}

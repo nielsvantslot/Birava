@@ -2,7 +2,15 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createGroup, joinGroupByInvite, leaveGroup, closeGroup, deleteGroup } from "@/lib/controllers/groupController";
+import {
+  createGroup,
+  joinGroupByInvite,
+  leaveGroup,
+  closeGroup,
+  deleteGroup,
+  renameGroup,
+  regenerateInviteCode,
+} from "@/lib/controllers/groupController";
 import { showToast } from "@/components/ui/toast-pill";
 import { confirmModal } from "@/components/ui/confirm-modal";
 
@@ -203,6 +211,86 @@ export function DeleteCrewButton({ crewId, crewName }: { crewId: string; crewNam
   return (
     <button className="btn btn-ghost" onClick={handleClick} disabled={isPending}>
       {isPending ? "Deleting…" : "Delete crew"}
+    </button>
+  );
+}
+
+/** Owner-only: renames the crew. The id, invite code, and every existing link/stat stay put. */
+export function RenameCrewForm({ crewId, name }: { crewId: string; name: string }) {
+  const router = useRouter();
+  const [value, setValue] = useState(name);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const trimmed = value.trim();
+  const unchanged = trimmed === name;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (unchanged) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await renameGroup({ groupId: crewId, name: trimmed });
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      showToast("Crew renamed");
+      router.refresh();
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="section">
+      <div className="field" style={{ marginBottom: error ? 8 : 12 }}>
+        <label htmlFor="crew-rename">Crew name</label>
+        <input
+          id="crew-rename"
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
+      </div>
+      {error && (
+        <p style={{ fontSize: 13, color: "#E5837A", marginBottom: 12 }}>{error}</p>
+      )}
+      <button className="btn btn-ghost" type="submit" disabled={isPending || unchanged}>
+        {isPending ? "Saving…" : "Save name"}
+      </button>
+    </form>
+  );
+}
+
+/**
+ * Owner-only: rotates the invite code, immediately invalidating the old
+ * one — anyone who saved or was shown it can no longer join with it.
+ */
+export function RegenerateInviteCodeButton({ crewId }: { crewId: string }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  const handleClick = async () => {
+    const confirmed = await confirmModal({
+      title: "Get a new invite code?",
+      message: "The current code stops working immediately — anyone who has it will need the new one to join.",
+      confirmLabel: "Generate new code",
+      danger: true,
+    });
+    if (!confirmed) return;
+    startTransition(async () => {
+      const result = await regenerateInviteCode({ groupId: crewId });
+      if (result.error) {
+        showToast(result.error);
+        return;
+      }
+      showToast(`New code ${result.inviteCode} — share it with the crew`);
+      router.refresh();
+    });
+  };
+
+  return (
+    <button className="btn btn-ghost" onClick={handleClick} disabled={isPending}>
+      {isPending ? "Generating…" : "Get a new invite code"}
     </button>
   );
 }

@@ -32,6 +32,11 @@ export async function sendCrewInvite(
   if (group.visibility === "PRIVATE" && actorMembership.role === "MEMBER") {
     return { error: "Only the owner or an admin can invite to a private crew" };
   }
+  // Mirrors joinGroup's own closedAt check — an invite is another door into
+  // membership, and a closed crew doesn't accept new members through either.
+  if (group.closedAt) {
+    return { error: "This crew is closed and isn't accepting new members" };
+  }
   if (group.members.some((m) => m.userId === input.invitedUserId)) {
     return { error: "Already a member of this crew" };
   }
@@ -87,6 +92,13 @@ export async function respondToCrewInvite(
     return {};
   }
 
+  const group = await db.group.findUnique({ where: { id: invite.groupId } });
+  // Same closedAt rule as joinGroup/sendCrewInvite — a crew closed between
+  // the invite being sent and answered stops accepting this one too.
+  if (group?.closedAt) {
+    return { error: "This crew is closed and isn't accepting new members" };
+  }
+
   const existingMembers = await db.groupMember.findMany({
     where: { groupId: invite.groupId },
     select: { userId: true },
@@ -102,7 +114,6 @@ export async function respondToCrewInvite(
     }),
   ]);
 
-  const group = await db.group.findUnique({ where: { id: invite.groupId } });
   if (group) {
     queueNotifications(
       existingMembers.map((m) => ({

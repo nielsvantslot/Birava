@@ -7,16 +7,23 @@ export type CrewInviteCandidate = {
   avatarUrl: string | null;
 };
 
+const CANDIDATES_PAGE_SIZE = 20;
+
 /**
  * Who `actorId` can invite into `groupId` right now: mutual follows only,
  * minus existing members and anyone with an already-pending invite. Returns
  * null if the actor can't invite at all (not a member, or a plain member of
  * a private crew — only the owner/admins can invite there).
+ *
+ * `candidates` is search+paginated server-side (a mutual-follow list can run
+ * into the hundreds) — `pending` isn't, since it's bounded by how many
+ * invites this crew has actually sent, not by the actor's follow graph.
  */
 export async function getCrewInviteCandidates(
   actorId: string,
-  groupId: string
-): Promise<{ candidates: CrewInviteCandidate[]; pending: CrewInviteCandidate[] } | null> {
+  groupId: string,
+  options: { search?: string; offset?: number } = {}
+): Promise<{ candidates: CrewInviteCandidate[]; total: number; pending: CrewInviteCandidate[] } | null> {
   const group = await db.group.findUnique({
     where: { id: groupId },
     include: { members: { select: { userId: true, role: true } } },
@@ -42,16 +49,29 @@ export async function getCrewInviteCandidates(
   const pendingSet = new Set(pendingInvites.map((i) => i.invitedUserId));
 
   const invitableIds = mutualIds.filter((id) => !memberIds.has(id) && !pendingSet.has(id));
-  const users =
+  const search = options.search?.trim();
+  const where = {
+    id: { in: invitableIds },
+    ...(search ? { username: { contains: search, mode: "insensitive" as const } } : {}),
+  };
+
+  const [users, total] =
     invitableIds.length === 0
-      ? []
-      : await db.user.findMany({
-          where: { id: { in: invitableIds } },
-          select: { id: true, username: true, avatarUrl: true },
-        });
+      ? [[], 0]
+      : await Promise.all([
+          db.user.findMany({
+            where,
+            select: { id: true, username: true, avatarUrl: true },
+            orderBy: { username: "asc" },
+            take: CANDIDATES_PAGE_SIZE,
+            skip: options.offset ?? 0,
+          }),
+          db.user.count({ where }),
+        ]);
 
   return {
     candidates: users.map((u) => ({ userId: u.id, username: u.username, avatarUrl: u.avatarUrl })),
+    total,
     pending: pendingInvites.map((i) => ({
       userId: i.invitedUserId,
       username: i.invitedUser.username,
