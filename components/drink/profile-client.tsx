@@ -17,11 +17,16 @@ interface ProfileHeadProps {
     types: number;
     activeWeeks: number;
   };
+  /** A public profile links to /profile/<username>/followers instead. */
+  followersHref?: string;
+  followingHref?: string;
+  /** Rendered next to the avatar/name block — a public profile's FollowButton. Omitted on the viewer's own profile. */
+  action?: React.ReactNode;
 }
 
-// Read-only — same rendering as viewing someone else's profile
-// (app/(app)/profile/[username]/page.tsx). Editing moved to
-// /settings/profile (components/drink/profile-edit-form.tsx).
+// Shared by the viewer's own profile and app/(app)/profile/[username]/page.tsx
+// (same rendering either way) — editing moved to /settings/profile
+// (components/drink/profile-edit-form.tsx).
 export function ProfileHead({
   userId,
   username,
@@ -30,6 +35,9 @@ export function ProfileHead({
   followers,
   following,
   stats,
+  followersHref = "/profile/followers",
+  followingHref = "/profile/following",
+  action,
 }: ProfileHeadProps) {
   return (
     <div className="section flush">
@@ -46,16 +54,17 @@ export function ProfileHead({
           <h1>{username}</h1>
           <p>member since {memberSince}</p>
           <div className="follow-counts">
-            <Link href="/profile/followers" prefetch={false}>
+            <Link href={followersHref} prefetch={false}>
               <b>{followers}</b>
               <span>followers</span>
             </Link>
-            <Link href="/profile/following" prefetch={false}>
+            <Link href={followingHref} prefetch={false}>
               <b>{following}</b>
               <span>following</span>
             </Link>
           </div>
         </div>
+        {action}
       </div>
       <div style={{ padding: "0 16px 20px" }}>
         <div className="stats">

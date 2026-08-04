@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getCrew } from "@/lib/controllers/groupController";
@@ -11,6 +10,7 @@ import {
   CopyCodeChip,
 } from "@/components/drink/crews-forms";
 import { CrewSettingsPanel } from "@/components/drink/crew-settings";
+import { NavActionRow } from "@/components/ui/nav-action-row";
 
 /**
  * Everything about managing a crew, consolidated off the main crew detail
@@ -70,20 +70,18 @@ export default async function CrewSettingsPage({
           </div>
 
           <div className="section">
-            <Link href={`/crews/${crew.id}/invite`} className="row" prefetch={false}>
-              <div className="rowmark">
+            <NavActionRow
+              href={`/crews/${crew.id}/invite`}
+              icon={
                 <svg viewBox="0 0 24 24">
                   <circle cx="9" cy="8" r="4"></circle>
                   <path d="M2 21c0-4 3-6 7-6 1.2 0 2.3.15 3.2.5"></path>
                   <path d="M17 14v6M14 17h6"></path>
                 </svg>
-              </div>
-              <div className="grow">
-                <b>Invite people</b>
-                <span>Search mutual follows and send an invite</span>
-              </div>
-              <span className="chev">›</span>
-            </Link>
+              }
+              title="Invite people"
+              subtitle="Search mutual follows and send an invite"
+            />
           </div>
         </>
       )}
