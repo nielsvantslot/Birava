@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ordinal } from "@/lib/utils";
+import { OrdinalFormatter } from "@/lib/format/ordinalFormatter";
 import type { CrewSummary } from "@/lib/queries/groupQueries";
 
 interface CrewsListProps {
@@ -34,7 +34,7 @@ export function CrewsList({ crews }: CrewsListProps) {
             <span>
               {crew.memberCount} member{crew.memberCount === 1 ? "" : "s"}
               {crew.closed ? " · Closed" : ""}
-              {crew.rank ? ` · you're ${ordinal(crew.rank)} since you joined` : ""}
+              {crew.rank ? ` · you're ${OrdinalFormatter.format(crew.rank)} since you joined` : ""}
             </span>
           </div>
           {/* A closed crew stops accepting new members (joinGroup blocks it),
