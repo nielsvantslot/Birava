@@ -6,16 +6,12 @@ import { getUserTimeZone } from "@/lib/timezone";
 import { getDrinkHistoryForUser, getRecentSessionsForUser } from "@/lib/controllers/drinkController";
 import { getProfileByUsername } from "@/lib/controllers/profileController";
 import { getFollowCounts, isFollowingUser } from "@/lib/controllers/socialController";
-import {
-  groupIntoSessions,
-  activeWeeks,
-  sessionTitle,
-} from "@/lib/sessions";
+import { groupIntoSessions, activeWeeks } from "@/lib/sessions";
 import { computeAchievements } from "@/lib/achievements";
-import { relativeDay } from "@/lib/dates";
 import { avatarSrc } from "@/lib/utils";
 import { FollowButton } from "@/components/drink/follow-button";
 import { AchievementGlyph } from "@/components/drink/achievement-icon";
+import { RecentSessionsList } from "@/components/drink/recent-sessions-list";
 import type { ProfileDTO, SessionUserDTO } from "@/lib/dtos";
 import { ProfileHeadSkeleton, RecentSessionsSkeleton } from "@/components/ui/skeleton";
 
@@ -168,38 +164,7 @@ async function RecentSessionsLoader({ userId }: { userId: string }) {
           No sessions yet.
         </p>
       ) : (
-        recentSessions.map((session) => {
-          const meta = [
-            `${session.checkins.length} check-in${session.checkins.length === 1 ? "" : "s"}`,
-            session.venues.length
-              ? `${session.venues.length} venue${session.venues.length === 1 ? "" : "s"}`
-              : null,
-            relativeDay(new Date(session.start), tz).toLowerCase(),
-          ]
-            .filter(Boolean)
-            .join(" · ");
-          return (
-            <Link
-              key={session.id}
-              href={`/sessions/${session.id}`}
-              className="row"
-              style={{ textDecoration: "none", color: "inherit" }}
-              prefetch={false}
-            >
-              <div className="rowmark">
-                <svg viewBox="0 0 24 24">
-                  <path d="M9 3h6M12 3v4"></path>
-                  <path d="M7 21c-2 0-3-1.6-3-3.5C4 13 7 11 12 11s8 2 8 6.5c0 1.9-1 3.5-3 3.5z"></path>
-                </svg>
-              </div>
-              <div className="grow">
-                <b>{sessionTitle(session, tz)}</b>
-                <span>{meta}</span>
-              </div>
-              <span className="chev">›</span>
-            </Link>
-          );
-        })
+        <RecentSessionsList sessions={recentSessions} tz={tz} />
       )}
     </div>
   );
