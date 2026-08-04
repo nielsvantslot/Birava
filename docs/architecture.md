@@ -82,18 +82,21 @@ flowchart TB
 
 ## Offline support (service worker)
 
-`public/sw.js` maintains two separate caches: a static-asset cache (`_next/static`, icons, the manifest — content-hashed, safe to serve cache-first forever) and a **navigation cache** keyed by URL, holding the last successfully-rendered HTML for each page the user has actually visited. Navigations are always network-first — a page never goes stale while online — and only fall back to the cache when the fetch itself fails (no connection).
+`public/sw.js` maintains two separate caches: a static-asset cache (`_next/static`, icons, the manifest — content-hashed, safe to serve cache-first forever) and a **navigation cache** holding the last successfully-fetched response for every app-route request the user's browser has made. Page content is always network-first — never stale while online — and only falls back to the cache when the fetch itself fails (no connection).
+
+**"Page content" is two different request shapes, not one.** A hard navigation (open the PWA fresh, reload, back/forward) requests full server-rendered HTML. Every other in-app move — clicking a `<Link>` — is client-side routing: Next's App Router fetches just that route's RSC (Flight) payload instead, marked with an `RSC: 1` header and a `_rsc=<hash>` cache-busting param, and never triggers a real browser navigation at all. Missing that distinction was a real bug caught after shipping this: only the very first hard-loaded page (typically the dashboard) was ever ending up in the cache, so navigating anywhere else while offline had nothing to fall back to. Both shapes are handled now, kept in **separate cache entries per URL** since one format is never a valid substitute for the other.
 
 ```mermaid
 flowchart TD
-    Nav["Browser navigation<br/>(open app, reload, back/forward)"] --> Fetch{"fetch() the network"}
-    Fetch -->|succeeds| Store["Cache the response<br/>(nav cache, keyed by URL)"] --> Render["Render fresh page"]
-    Fetch -->|fails — no connection| Lookup{"Cached copy of<br/>this exact URL?"}
-    Lookup -->|yes| Stale["Serve last-cached HTML<br/>+ OfflineBanner shows"]
-    Lookup -->|no — never visited| Offline["Serve /offline<br/>(precached at SW install,<br/>excluded from the auth<br/>redirect in proxy-session.ts)"]
+    Req["GET some app route<br/>(hard navigation OR client-side RSC fetch)"] --> Fetch{"fetch() the network"}
+    Fetch -->|succeeds| Store["Cache the response<br/>(nav cache; key includes whether<br/>it was the HTML or RSC shape)"] --> Render["Render fresh"]
+    Fetch -->|fails — no connection| Lookup{"Cached copy of this<br/>exact URL + shape?"}
+    Lookup -->|yes| Stale["Serve last-cached response<br/>+ OfflineBanner shows"]
+    Lookup -->|"no, and it was a hard navigation"| Offline["Serve /offline<br/>(precached at SW install,<br/>excluded from the auth<br/>redirect in proxy-session.ts)"]
+    Lookup -->|"no, and it was an RSC fetch"| Fail["Let it fail —<br/>no valid Flight-payload fallback;<br/>the client-side transition<br/>just doesn't complete"]
 ```
 
-This is why a **returning, already-authenticated** user can open every page they've previously visited with no connection at all — each one plays back exactly as it last rendered, server data included, with `components/offline-banner.tsx` making clear it isn't live. A page that was **never** opened before falls through to `/offline`, which is why that route has to render for a logged-out request too — the middleware auth gate (`lib/auth/proxy-session.ts`) explicitly carves it out, alongside `/login`/`/signup`.
+This is why a **returning, already-authenticated** user can open every page they've previously visited with no connection at all — each one plays back exactly as it last rendered, server data included, with `components/offline-banner.tsx` making clear it isn't live. A page whose *hard-navigation* shape was **never** cached falls through to `/offline`, which is why that route has to render for a logged-out request too — the middleware auth gate (`lib/auth/proxy-session.ts`) explicitly carves it out, alongside `/login`/`/signup`.
 
 **What this does not solve:** a genuinely first-time visitor — nothing installed, nothing cached, no account yet — still needs at least one successful round trip to sign up; there's no offline-capable identity system. The offline story here is "resume where you left off with no signal," not "onboard a brand-new user with zero connectivity ever." The **check-in itself** is the one action that's fully offline-safe regardless: `lib/offline/pendingCheckins.ts` queues it in IndexedDB the instant "Log drink" is tapped, synced later by `PendingCheckinsSync` (foreground-only — WebKit has no Background Sync API).
 

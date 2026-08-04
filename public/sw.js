@@ -55,6 +55,37 @@ self.addEventListener("notificationclick", (event) => {
   );
 });
 
+// Next's App Router client-side <Link> transitions never do a real browser
+// navigation (mode: "navigate") — they fetch just the RSC payload for the
+// new route, marked with an `RSC: 1` request header and a `_rsc=<hash>`
+// cache-busting query param. Only the very first hard load of a session is
+// an actual navigation; everything reached by clicking around afterward is
+// this. Missing that meant only the landing page ever got cached.
+function isRscRequest(request, url) {
+  return request.headers.get("RSC") === "1" || url.searchParams.has("_rsc");
+}
+
+// The hash in `_rsc` reflects the *current* route's client state, not the
+// destination, so the same target page can arrive under different hashes
+// depending on where you navigated from — strip it so they all share one
+// cache entry instead of colliding into cache misses.
+function pageCacheKey(url, { rsc }) {
+  const key = new URL(url);
+  key.searchParams.delete("_rsc");
+  // A hard navigation to a URL requests full HTML; an RSC transition to the
+  // *same* URL requests the very different Flight payload format — keep them
+  // in separate cache entries so one is never served in place of the other.
+  return rsc ? `${key.toString()}#rsc` : key.toString();
+}
+
+function isStaticAsset(url) {
+  return (
+    url.pathname.startsWith("/_next/static") ||
+    url.pathname.startsWith("/icons") ||
+    url.pathname === "/manifest.webmanifest"
+  );
+}
+
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
@@ -76,23 +107,35 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Page navigations: server-rendered and auth-sensitive, so always prefer
-  // a fresh fetch over cache. Only fall back to the last-cached copy of that
-  // exact URL (or the offline page, for a URL never successfully visited)
-  // when the network is actually unavailable.
-  if (event.request.mode === "navigate") {
+  // Page content — a real navigation or a client-side RSC transition to some
+  // app route — is server-rendered and auth-sensitive, so always prefer a
+  // fresh fetch over cache. Only fall back to the last-cached copy of that
+  // exact request shape (or the offline page, for a hard navigation to a URL
+  // never successfully visited) when the network is actually unavailable.
+  const isPageContent =
+    !url.pathname.startsWith("/api/") && !isStaticAsset(url) && url.origin === self.location.origin;
+  if (isPageContent) {
+    const rsc = isRscRequest(event.request, url);
+    const cacheKey = pageCacheKey(url, { rsc });
     event.respondWith(
       fetch(event.request)
         .then((response) => {
           if (response.ok) {
             const clone = response.clone();
-            caches.open(NAV_CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            caches.open(NAV_CACHE_NAME).then((cache) => cache.put(cacheKey, clone));
           }
           return response;
         })
         .catch(async () => {
-          const cached = await caches.match(event.request, { cacheName: NAV_CACHE_NAME });
-          return cached ?? (await caches.match(OFFLINE_URL));
+          const cached = await caches.match(cacheKey, { cacheName: NAV_CACHE_NAME });
+          if (cached) return cached;
+          // No cached copy of this exact shape. A hard navigation can fall
+          // back to the offline page; an RSC transition can't — there's no
+          // valid Flight-payload substitute — so let the fetch failure
+          // propagate and Next's router simply won't complete that
+          // client-side transition.
+          if (event.request.mode === "navigate") return caches.match(OFFLINE_URL);
+          throw new Error("offline, no cached RSC payload for this route");
         })
     );
     return;
