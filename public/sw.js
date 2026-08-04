@@ -1,5 +1,13 @@
 const STATIC_CACHE_NAME = "birava-static-v1";
+// A hard navigation requests full HTML; a client-side RSC transition to the
+// very same URL requests a structurally different Flight-payload response —
+// these MUST live in separate caches, not just under different keys in one
+// cache. (An earlier version tried a `#rsc` URL-fragment suffix to keep one
+// cache's keys apart; the Cache API ignores fragments entirely when
+// matching, so the two shapes silently collided into the same entry and
+// browsers ended up rendering raw Flight-protocol text as if it were HTML.)
 const NAV_CACHE_NAME = "birava-nav-v1";
+const RSC_CACHE_NAME = "birava-rsc-v1";
 // Avatars and check-in photos (/api/avatars/*, /api/photos/*) are the one
 // auth-gated content that's safe to serve cache-first: each is immutable at
 // its URL (an edit swaps in a new one — CLAUDE.md's "Image pipeline"), so
@@ -13,7 +21,7 @@ const STATIC_ASSETS = [
   "/icons/icon-512x512.png",
   OFFLINE_URL,
 ];
-const CURRENT_CACHES = [STATIC_CACHE_NAME, NAV_CACHE_NAME, MEDIA_CACHE_NAME];
+const CURRENT_CACHES = [STATIC_CACHE_NAME, NAV_CACHE_NAME, RSC_CACHE_NAME, MEDIA_CACHE_NAME];
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
@@ -75,13 +83,10 @@ function isRscRequest(request, url) {
 // destination, so the same target page can arrive under different hashes
 // depending on where you navigated from — strip it so they all share one
 // cache entry instead of colliding into cache misses.
-function pageCacheKey(url, { rsc }) {
+function pageCacheKey(url) {
   const key = new URL(url);
   key.searchParams.delete("_rsc");
-  // A hard navigation to a URL requests full HTML; an RSC transition to the
-  // *same* URL requests the very different Flight payload format — keep them
-  // in separate cache entries so one is never served in place of the other.
-  return rsc ? `${key.toString()}#rsc` : key.toString();
+  return key.toString();
 }
 
 function isStaticAsset(url) {
@@ -111,6 +116,7 @@ self.addEventListener("fetch", (event) => {
           .then((res) => {
             if (res.ok) {
               caches.delete(NAV_CACHE_NAME);
+              caches.delete(RSC_CACHE_NAME);
               caches.delete(MEDIA_CACHE_NAME);
             }
           })
@@ -147,18 +153,19 @@ self.addEventListener("fetch", (event) => {
     !url.pathname.startsWith("/api/") && !isStaticAsset(url) && url.origin === self.location.origin;
   if (isPageContent) {
     const rsc = isRscRequest(event.request, url);
-    const cacheKey = pageCacheKey(url, { rsc });
+    const cacheName = rsc ? RSC_CACHE_NAME : NAV_CACHE_NAME;
+    const cacheKey = pageCacheKey(url);
     event.respondWith(
       fetch(event.request)
         .then((response) => {
           if (response.ok) {
             const clone = response.clone();
-            caches.open(NAV_CACHE_NAME).then((cache) => cache.put(cacheKey, clone));
+            caches.open(cacheName).then((cache) => cache.put(cacheKey, clone));
           }
           return response;
         })
         .catch(async () => {
-          const cached = await caches.match(cacheKey, { cacheName: NAV_CACHE_NAME });
+          const cached = await caches.match(cacheKey, { cacheName });
           if (cached) return cached;
           // No cached copy of this exact shape. A hard navigation can fall
           // back to the offline page; an RSC transition can't — there's no
