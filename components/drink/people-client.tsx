@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useTransition, useCallback } from "react";
+import { useState, useTransition, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import { FollowButton } from "@/components/drink/follow-button";
 import { searchUsers } from "@/lib/controllers/socialController";
 import { avatarSrc } from "@/lib/utils";
+
+const SEARCH_DEBOUNCE_MS = 300;
 
 interface UserResult {
   id: string;
@@ -25,19 +27,38 @@ export function PeopleClient({
   const [results, setResults] = useState<UserResult[]>([]);
   const [searched, setSearched] = useState(false);
   const [, startTransition] = useTransition();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Guards against an in-flight search for a since-superseded query
+  // resolving after a newer one and clobbering fresher results.
+  const requestIdRef = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   const handleSearch = useCallback((value: string) => {
     setQuery(value);
-    if (value.trim().length < 2) {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    const trimmed = value.trim();
+    if (trimmed.length < 2) {
+      requestIdRef.current += 1;
       setResults([]);
       setSearched(false);
       return;
     }
-    startTransition(async () => {
-      const data = await searchUsers({ query: value.trim() });
-      setResults(data as UserResult[]);
-      setSearched(true);
-    });
+
+    debounceRef.current = setTimeout(() => {
+      const requestId = ++requestIdRef.current;
+      startTransition(async () => {
+        const data = await searchUsers({ query: trimmed });
+        if (requestIdRef.current !== requestId) return;
+        setResults(data as UserResult[]);
+        setSearched(true);
+      });
+    }, SEARCH_DEBOUNCE_MS);
   }, []);
 
   const followingSet = new Set(followingIds);
@@ -79,7 +100,7 @@ export function PeopleClient({
             <div className="avatar">
               {u.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarSrc(u.id)} alt={u.username} />
+                <img src={avatarSrc(u.id)} alt={u.username} loading="lazy" decoding="async" />
               ) : (
                 u.username.slice(0, 2).toUpperCase()
               )}

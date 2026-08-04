@@ -39,7 +39,7 @@ export function UserList({ users, currentUserId, followingIds, emptyMessage }: U
             <div className="avatar">
               {u.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarSrc(u.id)} alt={u.username} />
+                <img src={avatarSrc(u.id)} alt={u.username} loading="lazy" decoding="async" />
               ) : (
                 u.username.slice(0, 2).toUpperCase()
               )}

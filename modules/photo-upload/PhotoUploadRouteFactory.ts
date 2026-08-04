@@ -1,14 +1,20 @@
 import { PhotoUploadError } from "./Errors/PhotoUploadError";
 import type { Authenticate } from "./Authenticate";
-import type { DeletePhotoRequestDto } from "./Dto/DeletePhotoRequestDto";
 import type { ErrorResponseDto } from "./Dto/ErrorResponseDto";
-import type { FinalizeUploadRequestDto } from "./Dto/FinalizeUploadRequestDto";
+import type { Json } from "./Models";
 import type { IPhotoUploadService } from "./services/IPhotoUploadService";
 
 /** Next.js Route Handler factories wrapping an `IPhotoUploadService` — one static method per route this module needs mounted. */
 export class PhotoUploadRouteFactory {
   private static unauthenticated(): Response {
     return Response.json({ error: "Not authenticated" } satisfies ErrorResponseDto, { status: 401 });
+  }
+
+  /** Reads a string field off a parsed JSON body (`Dto/DeletePhotoRequestDto.ts`/`FinalizeUploadRequestDto.ts`'s `url`), without trusting its shape beyond that one field. */
+  private static readStringField(body: Json, key: string): string {
+    if (typeof body !== "object" || body === null || Array.isArray(body)) return "";
+    const value = body[key];
+    return typeof value === "string" ? value : "";
   }
 
   /** POST multipart/form-data `file` → `UploadResultDto`. The plain, single-request upload path. */
@@ -56,10 +62,8 @@ export class PhotoUploadRouteFactory {
       const user = await authenticate(request, context);
       if (!user) return PhotoUploadRouteFactory.unauthenticated();
 
-      const body = (await request.json().catch(() => null)) as Partial<DeletePhotoRequestDto> | null;
-      if (!body) return Response.json({ error: "Invalid request body." } satisfies ErrorResponseDto, { status: 400 });
-
-      const url = typeof body.url === "string" ? body.url : "";
+      const body: Json = await request.json().catch(() => null);
+      const url = PhotoUploadRouteFactory.readStringField(body, "url");
       if (!url) return Response.json({ error: "Invalid request body." } satisfies ErrorResponseDto, { status: 400 });
 
       try {
@@ -82,7 +86,9 @@ export class PhotoUploadRouteFactory {
       if (!user) return PhotoUploadRouteFactory.unauthenticated();
 
       try {
-        const requestBody = await request.json();
+        // Annotated (not cast) the moment it leaves the untyped Fetch API
+        // boundary — Request.json() itself returns Promise<any>.
+        const requestBody: Json = await request.json();
         const result = await service.createDirectUploadToken({ requestBody, request, ownerId: user.id });
         return Response.json(result);
       } catch (error) {
@@ -100,8 +106,8 @@ export class PhotoUploadRouteFactory {
       const user = await authenticate(request, context);
       if (!user) return PhotoUploadRouteFactory.unauthenticated();
 
-      const body = (await request.json().catch(() => null)) as Partial<FinalizeUploadRequestDto> | null;
-      const rawUrl = typeof body?.url === "string" ? body.url : "";
+      const body: Json = await request.json().catch(() => null);
+      const rawUrl = PhotoUploadRouteFactory.readStringField(body, "url");
       if (!rawUrl) return Response.json({ error: "Invalid upload." } satisfies ErrorResponseDto, { status: 400 });
 
       if (request.signal.aborted) {

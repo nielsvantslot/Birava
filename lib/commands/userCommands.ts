@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/password";
 import { avatarPhotoService } from "@/lib/avatarPhoto";
-import { ActionResultDTO, CreateUserDTO, UpdateProfileDTO } from "@/lib/dtos";
+import { ActionResultDTO, AvatarUploadResultDTO, CreateUserDTO, UpdateProfileDTO } from "@/lib/dtos";
 
 export async function createUser(input: CreateUserDTO): Promise<ActionResultDTO> {
   const username = input.username.trim();
@@ -103,4 +103,33 @@ export async function updateProfileAvatar(
   }
 
   return {};
+}
+
+/**
+ * The saga shared by both avatar upload routes (`app/api/uploads/avatar/route.ts`
+ * for the plain path, `finalize/route.ts` for the direct-upload path): the
+ * blob is already durably stored by the time this runs, so a failed DB link
+ * is rolled back by deleting it — otherwise it's an orphan with nothing left
+ * to reference it (see `lib/commands/photoCleanupCommands.ts`, the backstop
+ * for whatever still slips through).
+ */
+async function linkAvatarOrRollback(userId: string, url: string): Promise<AvatarUploadResultDTO> {
+  const result = await updateProfileAvatar(userId, url);
+  if (result.error) {
+    await avatarPhotoService.remove(url, userId);
+    return { error: result.error };
+  }
+  return { url };
+}
+
+/** Plain single-request upload path (local dev disk storage — see lib/storageAdapterFactory.ts). */
+export async function storeAvatar(userId: string, file: File): Promise<AvatarUploadResultDTO> {
+  const { url } = await avatarPhotoService.processAndStore(file, userId);
+  return linkAvatarOrRollback(userId, url);
+}
+
+/** Direct-to-Blob upload path's follow-up step (production/staging — see lib/storageAdapterFactory.ts). */
+export async function finalizeAvatarUpload(userId: string, rawUrl: string): Promise<AvatarUploadResultDTO> {
+  const { url } = await avatarPhotoService.finalizeDirectUpload(rawUrl, userId);
+  return linkAvatarOrRollback(userId, url);
 }

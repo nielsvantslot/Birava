@@ -54,13 +54,18 @@ export async function cleanupOrphanedBlobs(): Promise<BlobCleanupResultDTO> {
 
   const cutoff = new Date(Date.now() - GRACE_PERIOD_MS);
 
+  // Prisma's `where: { ...: { not: null } }` filters rows at the DB level but
+  // doesn't narrow the selected column's TS type — it's still `string | null`
+  // — so the null case is excluded with a type guard rather than asserted.
+  const isNonNull = <T>(value: T | null): value is T => value !== null;
+
   const [entryUrls, avatarUrls] = await Promise.all([
     db.drinkEntry
       .findMany({ where: { photoUrl: { not: null } }, select: { photoUrl: true } })
-      .then((rows) => new Set(rows.map((r) => r.photoUrl!))),
+      .then((rows) => new Set(rows.map((r) => r.photoUrl).filter(isNonNull))),
     db.user
       .findMany({ where: { avatarUrl: { not: null } }, select: { avatarUrl: true } })
-      .then((rows) => new Set(rows.map((r) => r.avatarUrl!))),
+      .then((rows) => new Set(rows.map((r) => r.avatarUrl).filter(isNonNull))),
   ]);
   const referencedByPrefix: Record<(typeof PREFIXES)[number], Set<string>> = {
     "entries-photos/": entryUrls,

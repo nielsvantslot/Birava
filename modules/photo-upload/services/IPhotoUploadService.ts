@@ -1,9 +1,9 @@
-import type { StoredFile } from "../Models";
+import type { Json, StoredFile } from "../Models";
 import type { UploadResultDto } from "../Dto/UploadResultDto";
 
 /** Input to `IPhotoUploadService.createDirectUploadToken` — named once here so the interface and its implementation can't drift apart. */
 export interface CreateDirectUploadTokenInput {
-  readonly requestBody: unknown;
+  readonly requestBody: Json;
   readonly request: Request;
   readonly ownerId: string;
 }
@@ -25,7 +25,7 @@ export interface IPhotoUploadService {
   /** Re-runs processing over a photo that's already in storage (e.g. a migration/backfill). */
   reprocessStored(url: string, ownerId: string): Promise<UploadResultDto>;
   /** Issues a browser-direct upload token. Throws if no direct-upload coordinator was configured. */
-  createDirectUploadToken(input: CreateDirectUploadTokenInput): Promise<unknown>;
+  createDirectUploadToken(input: CreateDirectUploadTokenInput): Promise<Json>;
   /** The follow-up to a direct upload: fetch the raw bytes back, process, store, clean up. */
   finalizeDirectUpload(rawUrl: string, ownerId: string): Promise<UploadResultDto>;
   readonly supportsDirectUpload: boolean;

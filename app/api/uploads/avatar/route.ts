@@ -1,7 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/session";
-import { avatarPhotoService } from "@/lib/avatarPhoto";
-import { updateProfileAvatar } from "@/lib/commands/userCommands";
+import { storeAvatar } from "@/lib/commands/userCommands";
 import { PhotoUploadError } from "@/modules/photo-upload/Errors/PhotoUploadError";
 import { AvatarUploadResultDTO } from "@/lib/dtos";
 
@@ -21,18 +20,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Square-crops + re-encodes to WebP and stores publicly; then point the
-    // user's avatarUrl at it. Every avatar read site already reads avatarUrl.
-    const { url } = await avatarPhotoService.processAndStore(file, user.id);
-    const result = await updateProfileAvatar(user.id, url);
+    const result = await storeAvatar(user.id, file);
     if (result.error) {
-      // Mirrors finalize/route.ts's own rollback — the stored blob is about
-      // to become unreachable from any DB row, so clean it up now.
-      await avatarPhotoService.remove(url, user.id);
-      return Response.json({ error: result.error } satisfies AvatarUploadResultDTO, { status: 500 });
+      return Response.json(result, { status: 500 });
     }
     revalidatePath("/profile");
-    return Response.json({ url } satisfies AvatarUploadResultDTO);
+    return Response.json(result);
   } catch (e) {
     if (e instanceof PhotoUploadError) {
       return Response.json({ error: e.message } satisfies AvatarUploadResultDTO, { status: 400 });

@@ -9,6 +9,30 @@ import { SessionUserMapper } from "@/lib/mappers";
 const SESSION_COOKIE = "birava_session";
 const SESSION_TTL_DAYS = 30;
 
+// `middleware.ts`/`proxy-session.ts` strip this header from every incoming
+// request before setting it themselves, so it isn't attacker-reachable — but
+// JSON.parse's result is still untyped, and this is the standard, correct
+// pattern for proving a parsed value's shape at runtime rather than trusting
+// a bare cast. A future SessionUserDTO field change that isn't mirrored here
+// fails closed (falls through to the real session lookup) instead of
+// silently shipping a malformed session.
+function isSessionUserDTO(value: unknown): value is SessionUserDTO {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    typeof value.id === "string" &&
+    "username" in value &&
+    typeof value.username === "string" &&
+    "avatarUrl" in value &&
+    (value.avatarUrl === null || typeof value.avatarUrl === "string") &&
+    "createdAt" in value &&
+    typeof value.createdAt === "string" &&
+    "email" in value &&
+    typeof value.email === "string"
+  );
+}
+
 function expiryDate() {
   const expires = new Date();
   expires.setDate(expires.getDate() + SESSION_TTL_DAYS);
@@ -63,7 +87,10 @@ export const getCurrentUser = cache(async (): Promise<SessionUserDTO | null> => 
   // result here — reuse it instead of paying a second Session lookup on every
   // page render. Routes outside the middleware matcher (api/*) fall through.
   const trusted = (await headers()).get(TRUSTED_USER_HEADER);
-  if (trusted) return JSON.parse(trusted) as SessionUserDTO;
+  if (trusted) {
+    const parsed = JSON.parse(trusted);
+    if (isSessionUserDTO(parsed)) return parsed;
+  }
 
   const token = await readSessionToken();
   if (!token) return null;
