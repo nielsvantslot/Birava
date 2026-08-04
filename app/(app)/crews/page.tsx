@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { getMyCrews } from "@/lib/controllers/groupController";
 import { CreateCrewForm, JoinCrewForm } from "@/components/drink/crews-forms";
+import { Skeleton, SkeletonRow } from "@/components/ui/skeleton";
 
 function ordinal(n: number): string {
   const rem10 = n % 10;
@@ -11,48 +13,16 @@ function ordinal(n: number): string {
   return `${n}th`;
 }
 
-export default async function CrewsPage() {
-  const crews = await getMyCrews();
-
+// Not async: the two forms below have no server data dependency (plain
+// client components), so they'd otherwise wait behind — and get
+// skeleton-mimicked ahead of — a query they don't need. Only the crew list
+// itself is Suspense-gated.
+export default function CrewsPage() {
   return (
     <>
-      <div className="section">
-        <div className="h-row">
-          <h3>Your crews</h3>
-        </div>
-        {crews.length === 0 ? (
-          <p style={{ fontSize: 14, color: "var(--ink-dim)" }}>
-            No crews yet — start one below or join with a code.
-          </p>
-        ) : (
-          crews.map((crew) => (
-            // prefetch={false}: staleTimes.dynamic is 0 (next.config.ts), so
-            // prefetching every crew's detail page on render is pure waste.
-            <Link
-              key={crew.id}
-              href={`/crews/${crew.id}`}
-              className="row"
-              style={{ textDecoration: "none", color: "inherit" }}
-              prefetch={false}
-            >
-              <div className="avatar">{crew.name.slice(0, 2).toUpperCase()}</div>
-              <div className="grow">
-                <b>{crew.name}</b>
-                <span>
-                  {crew.memberCount} member{crew.memberCount === 1 ? "" : "s"}
-                  {crew.closed ? " · Closed" : ""}
-                  {crew.rank
-                    ? ` · you're ${ordinal(crew.rank)} since you joined`
-                    : ""}
-                </span>
-              </div>
-              {/* A closed crew stops accepting new members (joinGroup blocks
-                  it), so showing the code that no longer works is misleading. */}
-              {!crew.closed && <span className="code">{crew.inviteCode}</span>}
-            </Link>
-          ))
-        )}
-      </div>
+      <Suspense fallback={<CrewsListSkeleton />}>
+        <CrewsList />
+      </Suspense>
 
       <div className="section">
         <div className="h-row" style={{ marginBottom: 6 }}>
@@ -72,5 +42,62 @@ export default async function CrewsPage() {
         <JoinCrewForm />
       </div>
     </>
+  );
+}
+
+async function CrewsList() {
+  const crews = await getMyCrews();
+
+  return (
+    <div className="section">
+      <div className="h-row">
+        <h3>Your crews</h3>
+      </div>
+      {crews.length === 0 ? (
+        <p style={{ fontSize: 14, color: "var(--ink-dim)" }}>
+          No crews yet — start one below or join with a code.
+        </p>
+      ) : (
+        crews.map((crew) => (
+          // prefetch={false}: staleTimes.dynamic is 0 (next.config.ts), so
+          // prefetching every crew's detail page on render is pure waste.
+          <Link
+            key={crew.id}
+            href={`/crews/${crew.id}`}
+            className="row"
+            style={{ textDecoration: "none", color: "inherit" }}
+            prefetch={false}
+          >
+            <div className="avatar">{crew.name.slice(0, 2).toUpperCase()}</div>
+            <div className="grow">
+              <b>{crew.name}</b>
+              <span>
+                {crew.memberCount} member{crew.memberCount === 1 ? "" : "s"}
+                {crew.closed ? " · Closed" : ""}
+                {crew.rank
+                  ? ` · you're ${ordinal(crew.rank)} since you joined`
+                  : ""}
+              </span>
+            </div>
+            {/* A closed crew stops accepting new members (joinGroup blocks
+                it), so showing the code that no longer works is misleading. */}
+            {!crew.closed && <span className="code">{crew.inviteCode}</span>}
+          </Link>
+        ))
+      )}
+    </div>
+  );
+}
+
+function CrewsListSkeleton() {
+  return (
+    <div className="section">
+      <div className="h-row">
+        <Skeleton className="h-5 w-28" />
+      </div>
+      {[0, 1].map((i) => (
+        <SkeletonRow key={i} />
+      ))}
+    </div>
   );
 }
