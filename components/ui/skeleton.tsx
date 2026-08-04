@@ -266,6 +266,21 @@ export function StatsBodySkeleton() {
   );
 }
 
+// "Your crews" list header + 2 rows — app/(app)/crews/page.tsx's own
+// Suspense fallback for its crew-list loader, so the two can't drift apart.
+export function CrewsListSkeleton() {
+  return (
+    <div className="section">
+      <div className="h-row">
+        <Skeleton className="h-5 w-28" />
+      </div>
+      {[0, 1].map((i) => (
+        <SkeletonRow key={i} />
+      ))}
+    </div>
+  );
+}
+
 // A dashboard-feed session card's shape — built from the app's own native
 // classes (.who, .act-title, .act-stats, .card-photo, .social.acts —
 // app/globals.css), not the generic Tailwind card shell the rest of this
