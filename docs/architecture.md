@@ -80,6 +80,25 @@ flowchart TB
 
 **Why two entry points (Routes vs. Actions) instead of one:** Server Actions are the primary path for anything a logged-in client component calls directly (mutations, most reads) — they get Next's built-in CSRF protection and don't need a hand-rolled fetch. Route Handlers exist for what Server Actions can't do: endpoints that need a specific HTTP method/response shape (image bytes, direct-upload tokens), that Content-Type: multipart/JSON bodies (photo uploads), or that are invoked by something other than this app's own client (GitHub Actions cron pings, the browser's own direct-to-Blob PUT).
 
+## Offline support (service worker)
+
+`public/sw.js` maintains two separate caches: a static-asset cache (`_next/static`, icons, the manifest — content-hashed, safe to serve cache-first forever) and a **navigation cache** keyed by URL, holding the last successfully-rendered HTML for each page the user has actually visited. Navigations are always network-first — a page never goes stale while online — and only fall back to the cache when the fetch itself fails (no connection).
+
+```mermaid
+flowchart TD
+    Nav["Browser navigation<br/>(open app, reload, back/forward)"] --> Fetch{"fetch() the network"}
+    Fetch -->|succeeds| Store["Cache the response<br/>(nav cache, keyed by URL)"] --> Render["Render fresh page"]
+    Fetch -->|fails — no connection| Lookup{"Cached copy of<br/>this exact URL?"}
+    Lookup -->|yes| Stale["Serve last-cached HTML<br/>+ OfflineBanner shows"]
+    Lookup -->|no — never visited| Offline["Serve /offline<br/>(precached at SW install,<br/>excluded from the auth<br/>redirect in proxy-session.ts)"]
+```
+
+This is why a **returning, already-authenticated** user can open every page they've previously visited with no connection at all — each one plays back exactly as it last rendered, server data included, with `components/offline-banner.tsx` making clear it isn't live. A page that was **never** opened before falls through to `/offline`, which is why that route has to render for a logged-out request too — the middleware auth gate (`lib/auth/proxy-session.ts`) explicitly carves it out, alongside `/login`/`/signup`.
+
+**What this does not solve:** a genuinely first-time visitor — nothing installed, nothing cached, no account yet — still needs at least one successful round trip to sign up; there's no offline-capable identity system. The offline story here is "resume where you left off with no signal," not "onboard a brand-new user with zero connectivity ever." The **check-in itself** is the one action that's fully offline-safe regardless: `lib/offline/pendingCheckins.ts` queues it in IndexedDB the instant "Log drink" is tapped, synced later by `PendingCheckinsSync` (foreground-only — WebKit has no Background Sync API).
+
+The nav cache is cleared on sign-out (the SW watches for a successful `POST /api/auth/logout` and drops it) so the next person to open the app offline on a shared device lands on the login screen, not the previous user's last-cached page.
+
 ## Direct-to-Blob upload flow
 
 The one flow worth its own diagram — it's non-obvious because the server is only involved at the *start* and *end*, not during the actual transfer.
