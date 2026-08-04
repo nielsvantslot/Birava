@@ -28,7 +28,9 @@ test("a notification's actor avatar renders through the private-blob proxy and a
   await actorLogin.goto();
   await actorLogin.login(actor.email, actor.password);
 
-  await page.goto("/profile", { waitUntil: "networkidle" });
+  // Avatar editing lives on /settings/profile, not /profile itself (which is
+  // read-only, same rendering as viewing someone else's profile).
+  await page.goto("/settings/profile", { waitUntil: "networkidle" });
   await page
     .locator('input[type="file"][accept="image/*"]')
     .setInputFiles(path.join(__dirname, "..", "prisma", "seed-assets", "party-cup.jpg"));
