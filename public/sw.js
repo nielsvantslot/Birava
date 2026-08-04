@@ -1,5 +1,11 @@
 const STATIC_CACHE_NAME = "birava-static-v1";
 const NAV_CACHE_NAME = "birava-nav-v1";
+// Avatars and check-in photos (/api/avatars/*, /api/photos/*) are the one
+// auth-gated content that's safe to serve cache-first: each is immutable at
+// its URL (an edit swaps in a new one — CLAUDE.md's "Image pipeline"), so
+// there's no staleness risk the way there is for a page. Kept separate from
+// STATIC_CACHE_NAME so it can be cleared independently on sign-out.
+const MEDIA_CACHE_NAME = "birava-media-v1";
 const OFFLINE_URL = "/offline";
 const STATIC_ASSETS = [
   "/manifest.webmanifest",
@@ -7,7 +13,7 @@ const STATIC_ASSETS = [
   "/icons/icon-512x512.png",
   OFFLINE_URL,
 ];
-const CURRENT_CACHES = [STATIC_CACHE_NAME, NAV_CACHE_NAME];
+const CURRENT_CACHES = [STATIC_CACHE_NAME, NAV_CACHE_NAME, MEDIA_CACHE_NAME];
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
@@ -86,6 +92,10 @@ function isStaticAsset(url) {
   );
 }
 
+function isMediaAsset(url) {
+  return url.pathname.startsWith("/api/avatars/") || url.pathname.startsWith("/api/photos/");
+}
+
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
@@ -99,11 +109,32 @@ self.addEventListener("fetch", (event) => {
       event.waitUntil(
         fetch(event.request.clone())
           .then((res) => {
-            if (res.ok) caches.delete(NAV_CACHE_NAME);
+            if (res.ok) {
+              caches.delete(NAV_CACHE_NAME);
+              caches.delete(MEDIA_CACHE_NAME);
+            }
           })
           .catch(() => {})
       );
     }
+    return;
+  }
+
+  // Avatars/photos: cache-first, since these are immutable at their URL —
+  // no fetch-first round trip needed the way pages need one for freshness.
+  if (isMediaAsset(url)) {
+    event.respondWith(
+      caches.match(event.request, { cacheName: MEDIA_CACHE_NAME }).then((cached) => {
+        if (cached) return cached;
+        return fetch(event.request).then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(MEDIA_CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        });
+      })
+    );
     return;
   }
 
