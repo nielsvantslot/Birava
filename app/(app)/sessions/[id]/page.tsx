@@ -85,7 +85,7 @@ export default async function SessionDetailPage({
     <>
       {/* who + serif title + full stat row */}
       <div className="section flush">
-        <Link className="who" href={`/profile/${session.username}`}>
+        <Link className="who" href={`/profile/${session.username}`} prefetch={false}>
           <div className="avatar">
             {session.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element

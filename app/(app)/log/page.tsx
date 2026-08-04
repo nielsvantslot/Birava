@@ -88,6 +88,7 @@ async function RecentDrinksLoader() {
             href={`/log?edit=${entry.id}`}
             className="row"
             style={{ textDecoration: "none", color: "inherit" }}
+            prefetch={false}
           >
             <div className="rowmark">
               <svg viewBox="0 0 24 24">
