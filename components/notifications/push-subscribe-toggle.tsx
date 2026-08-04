@@ -31,10 +31,16 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
-export function PushSubscribeToggle() {
+export function PushSubscribeToggle({ onStatusChange }: { onStatusChange?: (enabled: boolean) => void }) {
   const [status, setStatus] = useState<Status>("checking");
   const [busy, setBusy] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
+
+  // Single place that reports "is push actually on" upward, rather than
+  // threading it through every setStatus call site above.
+  useEffect(() => {
+    onStatusChange?.(status === "on");
+  }, [status, onStatusChange]);
 
   useEffect(() => {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
@@ -152,7 +158,7 @@ export function PushSubscribeToggle() {
       : "Get notified the moment someone cheers, follows, or logs a session.";
 
   return (
-    <div className="section" id="push-notifications">
+    <div id="push-notifications">
       <div className="switch-row">
         <div className="rowmark">
           <svg viewBox="0 0 24 24">
@@ -161,7 +167,7 @@ export function PushSubscribeToggle() {
           </svg>
         </div>
         <div className="grow">
-          <b>Push notifications</b>
+          <b>Allow on this device</b>
           <p>
             {status === "unsupported"
               ? "Not available in this browser. Install Birava to your home screen to enable push."

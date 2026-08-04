@@ -183,7 +183,7 @@ html {
 .btn-danger { background: var(--destructive); color: #fff; }
 .btn:disabled { opacity: 0.6; cursor: default; }
 .btn:focus-visible, .tabs button:focus-visible, .nav a:focus-visible,
-input:focus-visible, .chip:focus-visible {
+input:focus-visible, .chip:focus-visible, .switch:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 2px;
 }
 
@@ -230,11 +230,20 @@ input:focus-visible, .chip:focus-visible {
 .callout.warn .mark { color: var(--destructive); }
 
 /* ---- settings row with a switch (push notifications, etc.) ---- */
-.switch-row { display: flex; align-items: center; gap: 13px; padding: 4px 0; }
+.switch-row { display: flex; align-items: center; gap: 13px; padding: 12px 0; }
+.switch-row + .switch-row { border-top: 1px solid var(--line); }
 .switch-row .rowmark { flex: none; }
 .switch-row .grow { flex: 1; min-width: 0; }
 .switch-row .grow b { display: block; font-size: 15px; font-weight: 700; }
 .switch-row .grow p { font-size: 13px; color: var(--ink-dim); margin-top: 2px; line-height: 1.4; }
+.switch-row.pending .grow { opacity: 0.6; }
+
+/* ---- small caps label above a sub-group of switch-rows within a .section ---- */
+.settings-subhead {
+  font-size: 12px; font-weight: 700; color: var(--ink-dim);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  margin: 20px 0 4px;
+}
 .switch {
   flex: none; width: 46px; height: 27px; border-radius: 999px; border: none;
   background: var(--surface-2); position: relative; cursor: pointer; padding: 0;
@@ -677,6 +686,24 @@ input:focus-visible, .chip:focus-visible {
 .ach-card.locked { opacity: 0.5; }
 .ach-card.locked .ac-ic { color: var(--ink-dim); }
 .ach-card.locked .prog i { background: var(--ink-dim); }
+
+/* ---- achievement badge strip: compact summary on /profile, not the full
+   grid above (that stays on /achievements) ---- */
+.badge-strip { display: flex; gap: 16px; overflow-x: auto; scrollbar-width: none; padding: 4px 16px 6px; }
+.badge-strip::-webkit-scrollbar { display: none; }
+.badge-chip { display: flex; flex-direction: column; align-items: center; gap: 7px; flex: none; width: 66px; text-decoration: none; }
+.badge-chip .ac-ic { width: 48px; height: 48px; border-radius: 50%; background: #20241b; display: grid; place-items: center; color: var(--honey); }
+.badge-chip .ac-ic svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.badge-chip span { font-size: 11px; font-weight: 600; color: var(--ink); text-align: center; line-height: 1.25; }
+.badge-chip.locked .ac-ic { color: var(--ink-dim); }
+.badge-chip.locked span { color: var(--ink-dim); }
+
+/* ---- tappable follower/following counts on a profile head ---- */
+.follow-counts { display: flex; gap: 18px; margin-top: 6px; }
+.follow-counts a { display: flex; align-items: baseline; gap: 5px; text-decoration: none; }
+.follow-counts b { font-size: 15px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.follow-counts span { font-size: 13px; color: var(--ink-dim); font-weight: 600; }
+.follow-counts a:hover span { color: var(--ink); }
 
 /* ---- crew leaderboard: live scoreboard ---- */
 .lb .lr { display: flex; align-items: center; gap: 13px; padding: 13px 0; }

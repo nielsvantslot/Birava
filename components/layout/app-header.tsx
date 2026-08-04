@@ -16,6 +16,8 @@ const TITLES: Array<[prefix: string, title: string]> = [
   ["/profile/", "Profile"],
   ["/profile", "You"],
   ["/people", "Find people"],
+  ["/settings/notifications", "Push notifications"],
+  ["/settings/profile", "Edit profile"],
   ["/settings", "Settings"],
 ];
 
@@ -33,12 +35,18 @@ export function AppHeader({ userId, username, avatarUrl, unreadCount = 0 }: AppH
   const pathname = usePathname();
   const router = useRouter();
 
-  const title =
-    TITLES.find(([prefix]) =>
-      prefix.endsWith("/")
-        ? pathname.startsWith(prefix) && pathname !== prefix.slice(0, -1)
-        : pathname === prefix || pathname.startsWith(prefix + "/")
-    )?.[1] ?? "Birava";
+  // Own and public followers/following share the same suffix regardless of
+  // whose profile they're under — checked before the prefix table since a
+  // username segment there can't be hardcoded into it.
+  const title = pathname.endsWith("/followers")
+    ? "Followers"
+    : pathname.endsWith("/following")
+      ? "Following"
+      : TITLES.find(([prefix]) =>
+          prefix.endsWith("/")
+            ? pathname.startsWith(prefix) && pathname !== prefix.slice(0, -1)
+            : pathname === prefix || pathname.startsWith(prefix + "/")
+        )?.[1] ?? "Birava";
 
   const isCrewDetail =
     pathname.startsWith("/crews/") && pathname !== "/crews";

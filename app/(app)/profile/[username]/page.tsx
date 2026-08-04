@@ -44,8 +44,14 @@ export default async function PublicProfilePage({ params }: Props) {
         <PublicProfileMain currentUser={currentUser} targetUser={targetUser} />
       </Suspense>
 
+      {/* Sessions are the hero unit app-wide — shown right after the head,
+          ahead of achievements, not the other way around. */}
       <Suspense fallback={<RecentSessionsSkeleton />}>
         <RecentSessionsLoader userId={targetUser.id} />
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <PublicAchievementBadgesLoader userId={targetUser.id} />
       </Suspense>
     </>
   );
@@ -60,8 +66,7 @@ async function PublicProfileMain({
 }) {
   const isOwnProfile = currentUser?.id === targetUser.id;
 
-  const [tz, isFollowing, counts, entries] = await Promise.all([
-    getUserTimeZone(),
+  const [isFollowing, counts, entries] = await Promise.all([
     currentUser && !isOwnProfile
       ? isFollowingUser({ targetUserId: targetUser.id })
       : Promise.resolve(false),
@@ -71,85 +76,74 @@ async function PublicProfileMain({
   const { followers: followerCount, following: followingCount } = counts;
 
   const sessions = groupIntoSessions(entries);
-  const weeks = activeWeeks(sessions, tz);
   const venues = new Set(
     entries.map((e) => e.venue?.trim()).filter((v): v is string => !!v)
   );
   const types = new Set(entries.map((e) => e.drink_type).filter(Boolean));
-  const earned = computeAchievements(entries, tz).filter((a) => a.earned);
 
   const memberSince = new Date(targetUser.createdAt).toLocaleDateString("en-GB", {
     month: "long",
     year: "numeric",
   });
 
+  // activeWeeks needs tz, which nothing else on this specific fetch does —
+  // pulled in only here rather than widening the Promise.all above.
+  const tz = await getUserTimeZone();
+  const weeks = activeWeeks(sessions, tz);
+
   return (
-    <>
-      <div className="section flush">
-        <div className="profile-head">
-          <div className="avatar">
-            {targetUser.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarSrc(targetUser.id)} alt={targetUser.username} />
-            ) : (
-              targetUser.username.slice(0, 2).toUpperCase()
-            )}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h1>{targetUser.username}</h1>
-            <p>
-              member since {memberSince} · {followerCount} followers ·{" "}
-              {followingCount} following
-            </p>
-          </div>
-          {!isOwnProfile && currentUser && (
-            <FollowButton
-              targetUserId={targetUser.id}
-              initialIsFollowing={isFollowing}
-            />
+    <div className="section flush">
+      <div className="profile-head">
+        <div className="avatar">
+          {targetUser.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarSrc(targetUser.id)} alt={targetUser.username} />
+          ) : (
+            targetUser.username.slice(0, 2).toUpperCase()
           )}
         </div>
-        <div style={{ padding: "0 16px 20px" }}>
-          <div className="stats">
-            <div className="stat">
-              <div className="label">Sessions</div>
-              <div className="num">{sessions.length}</div>
-            </div>
-            <div className="stat">
-              <div className="label">Venues</div>
-              <div className="num">{venues.size}</div>
-            </div>
-            <div className="stat">
-              <div className="label">Types tried</div>
-              <div className="num">{types.size}</div>
-            </div>
-            <div className="stat">
-              <div className="label">Active wks</div>
-              <div className="num">{weeks.current}</div>
-            </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h1>{targetUser.username}</h1>
+          <p>member since {memberSince}</p>
+          <div className="follow-counts">
+            <Link href={`/profile/${targetUser.username}/followers`}>
+              <b>{followerCount}</b>
+              <span>followers</span>
+            </Link>
+            <Link href={`/profile/${targetUser.username}/following`}>
+              <b>{followingCount}</b>
+              <span>following</span>
+            </Link>
+          </div>
+        </div>
+        {!isOwnProfile && currentUser && (
+          <FollowButton
+            targetUserId={targetUser.id}
+            initialIsFollowing={isFollowing}
+          />
+        )}
+      </div>
+      <div style={{ padding: "0 16px 20px" }}>
+        <div className="stats">
+          <div className="stat">
+            <div className="label">Sessions</div>
+            <div className="num">{sessions.length}</div>
+          </div>
+          <div className="stat">
+            <div className="label">Venues</div>
+            <div className="num">{venues.size}</div>
+          </div>
+          <div className="stat">
+            <div className="label">Types tried</div>
+            <div className="num">{types.size}</div>
+          </div>
+          <div className="stat">
+            <div className="label">Active wks</div>
+            <div className="num">{weeks.current}</div>
           </div>
         </div>
       </div>
-
-      {earned.length > 0 && (
-        <div className="section">
-          <div className="h-row">
-            <h3>Achievements</h3>
-          </div>
-          {earned.map((a) => (
-            <div key={a.id} className="row">
-              <div className="rowmark ach">
-                <AchievementGlyph icon={a.icon} />
-              </div>
-              <div className="grow">
-                <b>{a.label}</b>
-                <span>{a.progressText}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </>
+    </div>
   );
 }
 
@@ -206,6 +200,38 @@ async function RecentSessionsLoader({ userId }: { userId: string }) {
           );
         })
       )}
+    </div>
+  );
+}
+
+/**
+ * Compact badge strip, not the full progress-card grid (that stays on
+ * /achievements) — earned-only here (unlike the owner's own /profile, a
+ * visitor doesn't need locked/in-progress badges spelled out).
+ */
+async function PublicAchievementBadgesLoader({ userId }: { userId: string }) {
+  const [tz, entries] = await Promise.all([
+    getUserTimeZone(),
+    getDrinkHistoryForUser({ userId }),
+  ]);
+  const earned = computeAchievements(entries, tz).filter((a) => a.earned);
+  if (earned.length === 0) return null;
+
+  return (
+    <div className="section">
+      <div className="h-row">
+        <h3>Achievements</h3>
+      </div>
+      <div className="badge-strip">
+        {earned.map((a) => (
+          <div key={a.id} className="badge-chip">
+            <div className="ac-ic">
+              <AchievementGlyph icon={a.icon} />
+            </div>
+            <span>{a.label}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
