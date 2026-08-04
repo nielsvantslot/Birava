@@ -70,7 +70,7 @@ export default async function CrewSettingsPage({
           </div>
 
           <div className="section">
-            <Link href={`/crews/${crew.id}/invite`} className="row">
+            <Link href={`/crews/${crew.id}/invite`} className="row" prefetch={false}>
               <div className="rowmark">
                 <svg viewBox="0 0 24 24">
                   <circle cx="9" cy="8" r="4"></circle>

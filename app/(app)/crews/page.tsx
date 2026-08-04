@@ -26,11 +26,14 @@ export default async function CrewsPage() {
           </p>
         ) : (
           crews.map((crew) => (
+            // prefetch={false}: staleTimes.dynamic is 0 (next.config.ts), so
+            // prefetching every crew's detail page on render is pure waste.
             <Link
               key={crew.id}
               href={`/crews/${crew.id}`}
               className="row"
               style={{ textDecoration: "none", color: "inherit" }}
+              prefetch={false}
             >
               <div className="avatar">{crew.name.slice(0, 2).toUpperCase()}</div>
               <div className="grow">

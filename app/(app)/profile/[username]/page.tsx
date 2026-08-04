@@ -106,11 +106,11 @@ async function PublicProfileMain({
           <h1>{targetUser.username}</h1>
           <p>member since {memberSince}</p>
           <div className="follow-counts">
-            <Link href={`/profile/${targetUser.username}/followers`}>
+            <Link href={`/profile/${targetUser.username}/followers`} prefetch={false}>
               <b>{followerCount}</b>
               <span>followers</span>
             </Link>
-            <Link href={`/profile/${targetUser.username}/following`}>
+            <Link href={`/profile/${targetUser.username}/following`} prefetch={false}>
               <b>{followingCount}</b>
               <span>following</span>
             </Link>
@@ -184,6 +184,7 @@ async function RecentSessionsLoader({ userId }: { userId: string }) {
               href={`/sessions/${session.id}`}
               className="row"
               style={{ textDecoration: "none", color: "inherit" }}
+              prefetch={false}
             >
               <div className="rowmark">
                 <svg viewBox="0 0 24 24">
