@@ -1,6 +1,12 @@
 import { DrinkEntry, DRINK_TYPES } from "@/lib/types";
-import { groupIntoSessions, getLocalLegendVenue } from "@/lib/sessions";
+import { countSessions, getLocalLegendVenue } from "@/lib/sessions";
 import { weekIndex } from "@/lib/dates";
+
+/** Every field computeAchievements/earnedIds actually read — callers with the full DrinkEntry shape still satisfy this. */
+type AchievementEntry = Pick<
+  DrinkEntry,
+  "user_id" | "created_at" | "drink_type" | "venue" | "notes"
+>;
 
 /**
  * Every badge rewards variety — new types, venues, places — never how
@@ -27,10 +33,10 @@ export type VarietyAchievement = {
 };
 
 export function computeAchievements(
-  entries: DrinkEntry[],
+  entries: AchievementEntry[],
   tz: string
 ): VarietyAchievement[] {
-  const sessions = groupIntoSessions(entries);
+  const sessionCount = countSessions(entries);
 
   const types = new Set(entries.map((e) => e.drink_type).filter(Boolean));
   const venues = new Set(
@@ -68,10 +74,10 @@ export function computeAchievements(
       label: "First Round",
       description: "Log your very first session.",
       icon: "glass",
-      progress: Math.min(sessions.length, 1),
+      progress: Math.min(sessionCount, 1),
       goal: 1,
-      earned: sessions.length >= 1,
-      progressText: sessions.length >= 1 ? "Earned" : "0 of 1 sessions",
+      earned: sessionCount >= 1,
+      progressText: sessionCount >= 1 ? "Earned" : "0 of 1 sessions",
     },
     {
       id: "range",
@@ -137,7 +143,7 @@ export function computeAchievements(
   ];
 }
 
-export function earnedIds(entries: DrinkEntry[], tz: string): Set<string> {
+export function earnedIds(entries: AchievementEntry[], tz: string): Set<string> {
   return new Set(
     computeAchievements(entries, tz)
       .filter((a) => a.earned)

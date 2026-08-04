@@ -1,8 +1,8 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/session";
-import { avatarPhotoService } from "@/lib/avatarPhoto";
-import { updateProfileAvatar } from "@/lib/commands/userCommands";
+import { finalizeAvatarUpload } from "@/lib/commands/userCommands";
 import { PhotoUploadError } from "@/modules/photo-upload/Errors/PhotoUploadError";
+import type { Json } from "@/modules/photo-upload/Models";
 import { AvatarUploadResultDTO } from "@/lib/dtos";
 
 // sharp + storage need Node, not edge.
@@ -18,8 +18,8 @@ export async function POST(request: Request) {
     return Response.json({ error: "Not signed in." } satisfies AvatarUploadResultDTO, { status: 401 });
   }
 
-  const body = await request.json().catch(() => null);
-  const rawUrl = typeof body?.url === "string" ? body.url : "";
+  const body: Json = await request.json().catch(() => null);
+  const rawUrl = typeof body === "object" && body !== null && !Array.isArray(body) && typeof body.url === "string" ? body.url : "";
   if (!rawUrl) {
     return Response.json({ error: "Invalid upload." } satisfies AvatarUploadResultDTO, { status: 400 });
   }
@@ -29,17 +29,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { url } = await avatarPhotoService.finalizeDirectUpload(rawUrl, user.id);
-    const result = await updateProfileAvatar(user.id, url);
+    const result = await finalizeAvatarUpload(user.id, rawUrl);
     if (result.error) {
-      // The finalized blob is durable and fully processed at this point but
-      // about to become unreachable from any DB row — delete it now rather
-      // than leaving it for the next scheduled cleanup (photoCleanupCommands.ts).
-      await avatarPhotoService.remove(url, user.id);
-      return Response.json({ error: result.error } satisfies AvatarUploadResultDTO, { status: 500 });
+      return Response.json(result, { status: 500 });
     }
     revalidatePath("/profile");
-    return Response.json({ url } satisfies AvatarUploadResultDTO);
+    return Response.json(result);
   } catch (e) {
     const message = e instanceof PhotoUploadError ? e.message : "Failed to process photo.";
     return Response.json({ error: message } satisfies AvatarUploadResultDTO, { status: 400 });

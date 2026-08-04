@@ -8,7 +8,11 @@ type Status = "checking" | "unsupported" | "denied" | "off" | "on";
 
 const SUBSCRIBE_TIMEOUT_MS = 10_000;
 
-function urlBase64ToUint8Array(base64: string): Uint8Array {
+// Uint8Array.from() always allocates a real ArrayBuffer (never shared), so
+// this pins that down explicitly rather than widening to the generic
+// Uint8Array<ArrayBufferLike> a bare `Uint8Array` return type now defaults
+// to — PushSubscriptionOptionsInit's BufferSource wants the former.
+function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
   const base64Safe = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
   const raw = atob(base64Safe);
@@ -72,13 +76,24 @@ export function PushSubscribeToggle({ onStatusChange }: { onStatusChange?: (enab
       if (settled) return;
       settled = true;
       const json = subscription.toJSON();
+      if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
+        showToast("Couldn't enable push notifications.");
+        return;
+      }
       await subscribeToPush({
-        endpoint: json.endpoint!,
-        keys: { p256dh: json.keys!.p256dh, auth: json.keys!.auth },
+        endpoint: json.endpoint,
+        keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
       });
       setStatus("on");
       setTimedOut(false);
     };
+
+    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!vapidPublicKey) {
+      showToast("Push notifications aren't configured.");
+      setBusy(false);
+      return;
+    }
 
     try {
       // iOS Safari only honors Notification.requestPermission() while the call
@@ -97,7 +112,7 @@ export function PushSubscribeToggle({ onStatusChange }: { onStatusChange?: (enab
       const registration = await withTimeout(navigator.serviceWorker.ready, SUBSCRIBE_TIMEOUT_MS);
       const subscribePromise = registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!) as BufferSource,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
       });
       subscribePromise.then(completeSuccess).catch(() => {});
 

@@ -1,3 +1,4 @@
+import { WebPushError } from "web-push";
 import { db } from "@/lib/db";
 import { getWebPushClient } from "@/lib/push/webPushClient";
 
@@ -28,8 +29,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
           body
         );
       } catch (err) {
-        const statusCode = (err as { statusCode?: number }).statusCode;
-        if (statusCode === 404 || statusCode === 410) {
+        if (err instanceof WebPushError && (err.statusCode === 404 || err.statusCode === 410)) {
           await db.pushSubscription.deleteMany({ where: { endpoint: sub.endpoint } });
         }
       }

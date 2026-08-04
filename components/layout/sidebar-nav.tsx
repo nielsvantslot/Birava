@@ -79,7 +79,10 @@ function SidebarInner({
           const active = pathname === href || pathname.startsWith(href + "/");
           const isProfile = href === "/profile";
           return (
-            <Link key={href} href={href} className={cn(active && "active")}>
+            // Prefetching a dynamic route's RSC payload here is pure waste —
+            // staleTimes.dynamic is 0 (next.config.ts), so every navigation
+            // refetches regardless of what's already prefetched.
+            <Link key={href} href={href} className={cn(active && "active")} prefetch={false}>
               {isProfile && avatarUrl && userId ? (
                 <span className="sidebar-avatar">
                   {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -105,12 +105,12 @@ export function SocialActs({
     setState((s) => ({ on: !s.on, count: s.count + (s.on ? -1 : 1) }));
     startTransition(async () => {
       const result = await toggleCheer({ sessionId });
-      if (result.error) {
+      if (result.error || result.count === undefined || result.on === undefined) {
         setState({ count, on });
-        showToast(result.error);
+        if (result.error) showToast(result.error);
         return;
       }
-      setState({ count: result.count!, on: result.on! });
+      setState({ count: result.count, on: result.on });
     });
   };
 

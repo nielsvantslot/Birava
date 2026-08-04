@@ -1,6 +1,8 @@
+import type { Json } from "../Models";
+
 /** Input to `IDirectUploadCoordinator.handleTokenRequest` — named once here so the interface and its implementations can't drift apart. */
 export interface HandleTokenRequestInput {
-  readonly requestBody: unknown;
+  readonly requestBody: Json;
   readonly request: Request;
   readonly maxUploadBytes: number;
   readonly allowedContentTypes: string[];
@@ -21,5 +23,5 @@ export interface HandleTokenRequestInput {
  * opaquely — `PhotoUploadRouteFactory` (`PhotoUploadRouteFactory.ts`) just forwards it.
  */
 export interface IDirectUploadCoordinator {
-  handleTokenRequest(input: HandleTokenRequestInput): Promise<unknown>;
+  handleTokenRequest(input: HandleTokenRequestInput): Promise<Json>;
 }
