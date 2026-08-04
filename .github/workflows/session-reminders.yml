@@ -1,0 +1,26 @@
+name: Session reminders
+
+# Vercel Hobby plan only allows a cron to run once a day, so vercel.json
+# can't run this on the every-15-min cadence the feature actually needs
+# (see the "Switch session-reminder cron to a daily schedule" commit) —
+# a once-daily fixed-time check almost never overlaps a session's 1-4h
+# quiet window. GitHub Actions has no such restriction, so this pings the
+# same CRON_SECRET-guarded endpoint on the originally intended cadence.
+# app/api/cron/session-reminders/route.ts dedupes against already-sent
+# Notification rows, so overlapping/duplicate runs are harmless.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger session-reminders cron
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -sf -X GET \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://birava.nl/api/cron/session-reminders"
