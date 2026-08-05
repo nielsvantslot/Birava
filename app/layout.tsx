@@ -3,6 +3,7 @@ import { Archivo, Source_Serif_4 } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
+import { SwRevalidateListener } from "@/components/sw-revalidate-listener";
 
 const archivo = Archivo({
   subsets: ["latin"],
@@ -62,6 +63,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col font-sans">
         <ServiceWorkerRegistration />
+        <SwRevalidateListener />
         {children}
         <SpeedInsights />
       </body>
