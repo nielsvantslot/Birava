@@ -7,7 +7,7 @@ import type { PhotoUploadResultDto } from "@/modules/photo-upload/client";
 import { editDrink, deleteDrink } from "@/lib/controllers/drinkController";
 import { showToast } from "@/components/ui/toast-pill";
 import { confirmModal } from "@/components/ui/confirm-modal";
-import { DrinkEntry, DRINK_TYPES } from "@/lib/types";
+import { DrinkEntry, DrinkType, DRINK_TYPES } from "@/lib/types";
 import { drinkPhotoSrc, cn } from "@/lib/utils";
 import { DRINK_PHOTO_MAX_DIMENSION, DRINK_PHOTO_MAX_UPLOAD_BYTES, drinkPhotoUploadEndpoints } from "@/lib/photoUploadConfig";
 import { addPendingCheckin } from "@/lib/offline/pendingCheckins";
@@ -83,7 +83,7 @@ export function CheckinForm({
   const editing = !!editEntry;
   const [isPending, startTransition] = useTransition();
   const [name, setName] = useState(editEntry?.drink_name ?? "");
-  const [type, setType] = useState<string>(
+  const [type, setType] = useState<DrinkType>(
     editEntry?.drink_type ?? DRINK_TYPES[0]
   );
   const [venue, setVenue] = useState(editEntry?.venue ?? "");
@@ -340,7 +340,6 @@ export function CheckinForm({
       venue: venue.trim() || null,
       lat: coords?.lat ?? null,
       lng: coords?.lng ?? null,
-      notes: entry.notes ?? null,
       photoUrl,
       photoLqip,
     });
@@ -402,7 +401,6 @@ export function CheckinForm({
         venue: venue.trim() || null,
         lat: coords?.lat ?? null,
         lng: coords?.lng ?? null,
-        notes: null,
       },
       photo: photoForQueue,
     });

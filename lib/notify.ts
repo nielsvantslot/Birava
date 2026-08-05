@@ -59,24 +59,24 @@ export function queueNotifications(events: NotificationEvent[]) {
   after(async () => {
     await db.notification.createMany({ data: filtered });
 
+    // NotificationPreference is sparse — only categories a user explicitly
+    // turned off have a row (see lib/commands/notificationCommands.ts), so
+    // absence here means the category is still at its default: enabled.
     const userIds = [...new Set(filtered.map((e) => e.userId))];
-    const prefs = await db.user.findMany({
-      where: { id: { in: userIds } },
-      select: {
-        id: true,
-        notifyCrewCheckin: true,
-        notifyCheer: true,
-        notifyCrewActivity: true,
-        notifyAchievement: true,
-        notifyFollowing: true,
-        notifySessionReminder: true,
-      },
+    const overrides = await db.notificationPreference.findMany({
+      where: { userId: { in: userIds } },
     });
-    const prefById = new Map(prefs.map((p) => [p.id, p]));
+    const disabledKeysByUser = new Map<string, Set<string>>();
+    for (const o of overrides) {
+      if (o.enabled) continue;
+      const keys = disabledKeysByUser.get(o.userId) ?? new Set<string>();
+      keys.add(o.key);
+      disabledKeysByUser.set(o.userId, keys);
+    }
 
     const pushAllowed = filtered.filter((e) => {
-      const pref = prefById.get(e.userId);
-      return pref ? pref[PREFERENCE_KEY_BY_TYPE[e.type]] : true;
+      const key = PREFERENCE_KEY_BY_TYPE[e.type];
+      return !disabledKeysByUser.get(e.userId)?.has(key);
     });
     if (pushAllowed.length === 0) return;
 

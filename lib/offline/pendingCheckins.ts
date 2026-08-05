@@ -10,6 +10,8 @@
  * same bus pattern as components/ui/toast-pill.tsx.
  */
 
+import type { DrinkType } from "@/lib/types";
+
 const DB_NAME = "birava-offline";
 const DB_VERSION = 1;
 const STORE_NAME = "pending-checkins";
@@ -22,11 +24,10 @@ export type PendingCheckinPhoto =
 
 export type PendingCheckinPayload = {
   drinkName: string | null;
-  drinkType: string;
+  drinkType: DrinkType;
   venue: string | null;
   lat: number | null;
   lng: number | null;
-  notes: string | null;
 };
 
 export type PendingCheckin = {

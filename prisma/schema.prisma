@@ -14,16 +14,6 @@ model User {
   passwordHash      String
   avatarUrl         String?
   createdAt         DateTime           @default(now()) @db.Timestamptz(6)
-  /// Per-category notification preferences — each gates whether
-  /// queueNotifications (lib/notify.ts) even creates the Notification row
-  /// for that category, not just whether push fires. The master
-  /// PushSubscription on/off (above) is a separate, coarser switch.
-  notifyCrewCheckin  Boolean           @default(true)
-  notifyCheer        Boolean           @default(true)
-  notifyCrewActivity Boolean           @default(true)
-  notifyAchievement  Boolean           @default(true)
-  notifyFollowing    Boolean           @default(true)
-  notifySessionReminder Boolean        @default(true)
   drinkEntries      DrinkEntry[]
   drinkSessions     DrinkSession[]
   ownedGroups       Group[]            @relation("GroupOwner")
@@ -38,6 +28,30 @@ model User {
   notifications     Notification[]
   pushSubscriptions PushSubscription[]
   comments          Comment[]
+  notificationPreferences NotificationPreference[]
+}
+
+/// Per-category notification preferences — gates whether queueNotifications
+/// (lib/notify.ts) sends push for that category; the in-app Notification
+/// row is always created regardless. The master PushSubscription on/off is
+/// a separate, coarser switch.
+///
+/// Sparse by design: a category defaults to enabled, so a row only exists
+/// once a user has explicitly touched that toggle (see
+/// lib/commands/notificationCommands.ts). Extracted from what used to be
+/// six Boolean columns directly on User — a settings concern with its own
+/// independent change lifecycle, not identity data, sharing a row with the
+/// password hash for no benefit.
+model NotificationPreference {
+  userId  String  @db.Uuid
+  /// One of lib/dtos's NOTIFICATION_PREFERENCE_KEYS (e.g. "notifyCheer") —
+  /// plain text, not an enum, matching the existing app-level union type
+  /// rather than introducing a second parallel representation of it.
+  key     String
+  enabled Boolean
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, key])
 }
 
 model Session {
@@ -130,16 +144,23 @@ model GroupInvite {
   @@index([invitedUserId, status])
 }
 
+/// Kept in sync with DRINK_TYPES in lib/types.ts — that's the single source
+/// of truth for display order/copy; this just enforces the same set at the
+/// DB layer instead of relying on app-code validation alone.
+enum DrinkType {
+  Beer
+  Wine
+  Cocktail
+  Other
+}
+
 model DrinkEntry {
   id        String        @id @default(uuid()) @db.Uuid
   userId    String        @db.Uuid
   sessionId String        @db.Uuid
   drinkName String?
-  drinkType String        @default("Beer")
-  venue     String?
-  lat       Decimal?      @db.Decimal(9, 6)
-  lng       Decimal?      @db.Decimal(9, 6)
-  notes     String?
+  drinkType DrinkType     @default(Beer)
+  venueId   String?       @db.Uuid
   photoUrl  String?
   /// Tiny base64 blurred placeholder generated at upload time, rendered via
   /// next/image's placeholder="blur" while the real photo streams in.
@@ -147,9 +168,34 @@ model DrinkEntry {
   createdAt DateTime      @default(now()) @db.Timestamptz(6)
   user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   session   DrinkSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  venue     Venue?        @relation(fields: [venueId], references: [id])
 
   @@index([userId, createdAt])
   @@index([sessionId])
+  @@index([venueId])
+}
+
+/// A physical place check-ins happen at — extracted from DrinkEntry's old
+/// free-text venue/lat/lng (see lib/venueMatching.ts for how a typed name
+/// and/or captured coordinates get resolved to one of these rows, or
+/// create a new one). Matching is a heuristic (name and/or rough
+/// proximity), not a DB constraint, so there is deliberately no unique
+/// index here — two rows can legitimately represent the same real place if
+/// the matching heuristic didn't catch it.
+///
+/// name is nullable: a check-in can carry coordinates with no venue name
+/// typed at all (geolocation is captured independently of the venue text
+/// field), so a Venue can be coordinates-only until some later visit
+/// supplies a name (see resolveVenueId's backfill behavior).
+model Venue {
+  id        String       @id @default(uuid()) @db.Uuid
+  name      String?
+  lat       Decimal?     @db.Decimal(9, 6)
+  lng       Decimal?     @db.Decimal(9, 6)
+  createdAt DateTime     @default(now()) @db.Timestamptz(6)
+  entries   DrinkEntry[]
+
+  @@index([name])
 }
 
 /// A drink session: check-ins auto-grouped by a 4-hour inactivity gap
