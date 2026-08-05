@@ -1,0 +1,86 @@
+name: Backup restore drill
+
+# Verifies db-backup.yml's nightly pipeline actually produces a restorable
+# backup — an unrestored backup is a hypothesis, not a backup. Monthly, not
+# more often: this provisions real (if short-lived) Neon compute, and the
+# point is proving the chain still works end to end, not continuous
+# monitoring.
+#
+# Restores into a schema-only branch (same schema as production, zero rows,
+# no shared history with the parent) rather than a normal branch — a normal
+# branch is an instant copy-on-write of production's CURRENT data, which
+# would make this test meaningless (the branch would already have fresher
+# data than the backup before pg_restore ever runs). Schema-only starts
+# genuinely empty, so a passing verify step proves the backup file itself
+# is sufficient to recreate real data, not that Neon's branching worked.
+on:
+  schedule:
+    - cron: "0 5 2 * *" # 2nd of month, a day after that month's db-backup.yml run
+  workflow_dispatch:
+
+jobs:
+  restore-drill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        env:
+          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
+        run: npm ci
+
+      # Backstop in case this job gets cancelled/crashes before the delete
+      # step at the bottom runs — Neon will expire the branch on its own.
+      - name: Compute scratch branch expiry
+        id: expiry
+        run: echo "at=$(date -u -d '+2 hours' +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Create empty schema-only scratch branch
+        id: branch
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          branch_name: restore-drill-${{ github.run_id }}
+          parent_branch: ${{ vars.NEON_PRODUCTION_BRANCH }}
+          branch_type: schema-only
+          expires_at: ${{ steps.expiry.outputs.at }}
+
+      - name: Download latest backup
+        env:
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: npx tsx scripts/download-latest-backup.ts backup.dump.gpg
+
+      - name: Decrypt backup
+        env:
+          PASSPHRASE: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+        run: |
+          gpg --batch --yes --passphrase "$PASSPHRASE" --decrypt backup.dump.gpg > backup.dump
+
+      # postgres:18-alpine matches the actual Neon server version (confirmed
+      # in the Neon dashboard), not ci.yml's postgres:16-alpine test DB —
+      # pg_restore must be >= the server's major version.
+      - name: Restore into scratch branch
+        env:
+          DATABASE_URL: ${{ steps.branch.outputs.db_url }}
+        run: |
+          docker run --rm -v "$PWD/backup.dump:/backup.dump:ro" postgres:18-alpine \
+            pg_restore --no-owner --no-privileges --clean --if-exists --dbname="$DATABASE_URL" /backup.dump
+
+      - name: Verify restored data looks real
+        env:
+          DATABASE_URL: ${{ steps.branch.outputs.db_url }}
+        run: npx tsx scripts/verify-restore.ts
+
+      - name: Delete scratch branch
+        if: always()
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          branch: restore-drill-${{ github.run_id }}
+          api_key: ${{ secrets.NEON_API_KEY }}

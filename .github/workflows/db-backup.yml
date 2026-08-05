@@ -1,0 +1,83 @@
+name: Database backup
+
+# Nightly encrypted logical backup of the PRODUCTION database only — staging
+# data is disposable (see CLAUDE.md), so it isn't backed up here.
+#
+# Layered UNDER Neon's own built-in point-in-time restore, not a replacement
+# for it: Neon PITR covers "I just broke something" (6h history on the Free
+# plan), this covers "nobody noticed for days" — daily cadence is
+# deliberate, since anything finer-grained just duplicates what PITR
+# already gives for free. Retention (14 daily / ~13 weekly / ~13 monthly) is
+# computed by lib/backupRetention.ts and applied by scripts/backup-database.ts
+# after each upload — see docs/database-backups.md for the full reasoning.
+#
+# Storage is Vercel Blob, the same store this app already uses for photos —
+# deliberately reusing BLOB_READ_WRITE_TOKEN rather than standing up a
+# separate provider: the risk this guards against (a bad migration wiping
+# Neon data) has nothing to do with Vercel, so Blob already provides real
+# isolation from it. It does NOT protect against a Vercel-account-level
+# incident taking down the whole project, backups included — that's a
+# known, accepted gap at this project's scale (see docs/database-backups.md).
+on:
+  schedule:
+    - cron: "17 3 * * *" # daily, off-peak UTC; odd minute to dodge the top-of-hour stampede
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        env:
+          # prisma generate (postinstall) only parses the schema — it never
+          # connects — but still requires the env var to be present.
+          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
+        run: npm ci
+
+      # Neon requires a direct (non-pooled) connection for pg_dump — see
+      # docs/database-backups.md for where PROD_DATABASE_URL_DIRECT comes
+      # from. Dumped via a postgres:18-alpine client matching the actual
+      # Neon server version (confirmed in the Neon dashboard — NOT the same
+      # as ci.yml's postgres:16-alpine test DB, which only matches this
+      # repo's Prisma-managed schema version, unrelated to Neon's engine
+      # version). pg_dump must be >= the server's major version or it can
+      # silently mis-handle newer catalog features.
+      - name: Dump production database
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL_DIRECT }}
+        run: |
+          docker run --rm postgres:18-alpine \
+            pg_dump --format=custom --no-owner --no-privileges --dbname="$DATABASE_URL" \
+            > backup.dump
+
+      - name: Sanity-check dump before trusting it
+        run: |
+          size=$(stat -c%s backup.dump)
+          echo "Dump size: $size bytes"
+          if [ "$size" -lt 1024 ]; then
+            echo "::error::Dump is suspiciously small ($size bytes) — refusing to upload a possibly-empty backup."
+            exit 1
+          fi
+
+      # The dump contains real user PII (emails, check-in GPS coordinates) —
+      # encrypted client-side before it ever leaves this runner, so it stays
+      # unreadable even from raw bucket contents alone.
+      - name: Encrypt dump
+        env:
+          PASSPHRASE: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+        run: |
+          gpg --batch --yes --passphrase "$PASSPHRASE" --symmetric --cipher-algo AES256 \
+            -o backup.dump.gpg backup.dump
+          rm backup.dump
+
+      - name: Upload to Vercel Blob and prune old backups
+        env:
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: npx tsx scripts/backup-database.ts backup.dump.gpg
