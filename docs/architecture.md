@@ -86,22 +86,24 @@ flowchart TB
 
 **"Page content" is two different request shapes, not one — and they need two separate caches, not just two keys in one.** A hard navigation (open the PWA fresh, reload, back/forward) requests full server-rendered HTML. Every other in-app move — clicking a `<Link>` — is client-side routing instead: Next's App Router fetches just that route's RSC (Flight) payload, marked with an `RSC: 1` header and a `_rsc=<hash>` cache-busting param, and never triggers a real browser navigation at all. Missing that distinction was the first bug caught after shipping this (only the very first hard-loaded page, typically the dashboard, was ever ending up cached). The *second* bug came from fixing the first one carelessly: an early version kept both shapes in one `NAV_CACHE_NAME` cache, distinguished only by appending a `#rsc` URL fragment to the key — but the Cache API ignores fragments entirely when matching, so the two shapes silently collided into a single entry, and a hard-navigation cache miss could return the *other* shape's raw Flight-protocol text, which the browser then rendered as if it were HTML (visible as literal `1:"$Sreact.fragment"...`-style text on screen). Fixed by giving them genuinely separate caches (`NAV_CACHE_NAME`, `RSC_CACHE_NAME`), not just separate keys in a shared one.
 
-**The two shapes also get different freshness strategies, not just different caches.** A hard navigation stays network-first — never stale while online — and only falls back to the cache when the fetch itself fails (no connection). An RSC transition (the dominant navigation mode once the app is open — almost every in-session move is a `<Link>` click) is **stale-while-revalidate** instead: a cache hit paints the destination instantly rather than blocking every click on a round trip, while the real fetch runs in the background and updates the cache for next time. The reason a hard navigation can't use the same trick: there's no way to swap a document's content after it's already rendered without a reload, so a stale hit there would have no self-correction path. An RSC transition does have one — once the background fetch lands, the SW posts an `RSC_REVALIDATED` message to any open tab; `components/sw-revalidate-listener.tsx` calls `router.refresh()` if that tab is still sitting on the exact route that just got revalidated, re-fetching the RSC payload and correcting any staleness (own-vs-others' accent, cheer/comment counts) within moments instead of leaving it until the next navigation.
+**Both shapes are stale-while-revalidate, but only one of them can self-correct via a message.** A cache hit for either shape paints instantly instead of blocking on a round trip, while the real fetch runs in the background and updates the cache for next time. The two differ in how staleness gets corrected afterward: an RSC transition's background fetch, once it lands, has the SW post an `RSC_REVALIDATED` message to any open tab; `components/sw-revalidate-listener.tsx` calls `router.refresh()` if that tab is still sitting on the exact route that just got revalidated. A hard navigation can't use that same message-based correction — there's no way to swap a *document's* content after it's already rendered without a reload, and by the time the background fetch resolves, there's no guarantee a listener is attached yet to catch the message. Instead, `sw-revalidate-listener.tsx` unconditionally calls `router.refresh()` once on mount — since it lives in the root layout, which only remounts on a hard navigation (never on a client-side `<Link>` transition), this fires exactly once per app launch, correcting any staleness from a cached cold-start paint (this is also why every app launch — the PWA's actual entry point — now paints instantly if it's been opened before, not just previously-visited in-app routes).
 
 ```mermaid
 flowchart TD
     Req["GET some app route"] --> Shape{"Hard navigation or<br/>client-side RSC fetch?"}
 
-    Shape -->|"hard navigation"| Fetch{"fetch() the network"}
-    Fetch -->|succeeds| Store["Cache in NAV_CACHE_NAME"] --> Render["Render fresh"]
-    Fetch -->|fails — no connection| Lookup{"Cached copy in<br/>NAV_CACHE_NAME?"}
-    Lookup -->|yes| Stale["Serve last-cached response<br/>+ OfflineBanner shows"]
-    Lookup -->|no| Offline["Serve /offline<br/>(precached at SW install,<br/>excluded from the auth<br/>redirect in proxy-session.ts)"]
+    Shape -->|"hard navigation"| Lookup{"Cached copy in<br/>NAV_CACHE_NAME?"}
+    Lookup -->|yes| Paint["Respond with cache<br/>immediately — instant paint"]
+    Paint --> BgFetch["fetch() in the background"] --> Store["Update NAV_CACHE_NAME"]
+    Paint -.->|"on mount, unconditionally"| MountRefresh["SwRevalidateListener calls<br/>router.refresh() once"]
+    Lookup -->|"no — first visit"| Fetch{"fetch() the network"}
+    Fetch -->|succeeds| Render["Cache + render fresh"]
+    Fetch -->|"fails — no connection"| Offline["Serve /offline<br/>(precached at SW install,<br/>excluded from the auth<br/>redirect in proxy-session.ts)"]
 
     Shape -->|"RSC transition"| RscLookup{"Cached copy in<br/>RSC_CACHE_NAME?"}
-    RscLookup -->|yes| Paint["Respond with cache<br/>immediately — instant paint"]
-    Paint --> BgFetch["fetch() in the background"]
-    BgFetch -->|succeeds| RscStore["Update RSC_CACHE_NAME"] --> Notify["postMessage RSC_REVALIDATED<br/>to open tabs"] --> Correct["Matching tab calls<br/>router.refresh()"]
+    RscLookup -->|yes| RscPaint["Respond with cache<br/>immediately — instant paint"]
+    RscPaint --> RscBgFetch["fetch() in the background"]
+    RscBgFetch -->|succeeds| RscStore["Update RSC_CACHE_NAME"] --> Notify["postMessage RSC_REVALIDATED<br/>to open tabs"] --> Correct["Matching tab calls<br/>router.refresh()"]
     RscLookup -->|"no — first visit"| RscFetch{"fetch() the network"}
     RscFetch -->|succeeds| RscRender["Cache + render fresh"]
     RscFetch -->|"fails — no connection"| RscFail["Let it fail —<br/>no valid Flight-payload fallback;<br/>the client-side transition<br/>just doesn't complete"]

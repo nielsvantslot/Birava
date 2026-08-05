@@ -15,6 +15,17 @@ export function SwRevalidateListener() {
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
+    // This component lives in the root layout, which only remounts on a
+    // hard navigation (a client-side <Link> transition never re-runs it) —
+    // so this fires exactly once per app launch. The initial paint may have
+    // come from sw.js's NAV_CACHE_NAME on a cache hit; refreshing once here
+    // reconciles with live data shortly after, the hard-navigation
+    // equivalent of the RSC branch's postMessage correction below.
+    router.refresh();
+  }, [router]);
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
 
     function handleMessage(event: MessageEvent) {
       if (event.data?.type !== "RSC_REVALIDATED") return;

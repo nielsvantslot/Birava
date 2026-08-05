@@ -203,23 +203,37 @@ self.addEventListener("fetch", (event) => {
       return;
     }
 
-    // Hard navigation: full server-rendered HTML. Keep this network-first —
-    // never stale while online — and only fall back to the last-cached copy
-    // (or /offline, for a URL never successfully visited) when the fetch
-    // itself fails.
+    // Hard navigation: full server-rendered HTML. This is the PWA's entry
+    // point — every cold app launch is one of these — so it gets the same
+    // stale-while-revalidate treatment as the RSC branch above: a cache hit
+    // (typically the app's own start_url) paints instantly instead of
+    // blocking launch on a round trip, while the real fetch still updates
+    // the cache in the background. There's no postMessage correction here
+    // like the RSC branch — instead, SwRevalidateListener unconditionally
+    // calls router.refresh() once on mount, since that component only
+    // remounts on a hard navigation, so there's no message-timing race to
+    // worry about between paint and hydration.
     event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(NAV_CACHE_NAME).then((cache) => cache.put(cacheKey, clone));
-          }
-          return response;
-        })
-        .catch(async () => {
-          const cached = await caches.match(cacheKey, { cacheName: NAV_CACHE_NAME });
-          return cached ?? caches.match(OFFLINE_URL);
-        })
+      caches.match(cacheKey, { cacheName: NAV_CACHE_NAME }).then((cached) => {
+        const revalidate = fetch(event.request)
+          .then((response) => {
+            if (response.ok) {
+              const clone = response.clone();
+              caches.open(NAV_CACHE_NAME).then((cache) => cache.put(cacheKey, clone));
+            }
+            return response;
+          })
+          .catch(() => null);
+
+        if (cached) {
+          event.waitUntil(revalidate);
+          return cached;
+        }
+        // No cached copy of this URL yet — nothing to paint early, so fall
+        // through to the network exactly as before, with /offline as the
+        // last resort if that fails too.
+        return revalidate.then((response) => response ?? caches.match(OFFLINE_URL));
+      })
     );
     return;
   }
