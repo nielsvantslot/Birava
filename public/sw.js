@@ -101,6 +101,15 @@ function isMediaAsset(url) {
   return url.pathname.startsWith("/api/avatars/") || url.pathname.startsWith("/api/photos/");
 }
 
+// Tells any open tab that a route it may currently be showing a cached
+// RSC payload for has just been re-fetched — see sw-revalidate-listener.tsx,
+// which router.refresh()es only if that tab's current URL matches.
+function notifyClientsOfRevalidation(pageUrl) {
+  self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientsArr) => {
+    clientsArr.forEach((client) => client.postMessage({ type: "RSC_REVALIDATED", url: pageUrl }));
+  });
+}
+
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
@@ -145,35 +154,71 @@ self.addEventListener("fetch", (event) => {
   }
 
   // Page content — a real navigation or a client-side RSC transition to some
-  // app route — is server-rendered and auth-sensitive, so always prefer a
-  // fresh fetch over cache. Only fall back to the last-cached copy of that
-  // exact request shape (or the offline page, for a hard navigation to a URL
-  // never successfully visited) when the network is actually unavailable.
+  // app route — is server-rendered and auth-sensitive.
   const isPageContent =
     !url.pathname.startsWith("/api/") && !isStaticAsset(url) && url.origin === self.location.origin;
   if (isPageContent) {
     const rsc = isRscRequest(event.request, url);
-    const cacheName = rsc ? RSC_CACHE_NAME : NAV_CACHE_NAME;
     const cacheKey = pageCacheKey(url);
+
+    if (rsc) {
+      // Client-side <Link> transitions: stale-while-revalidate, not
+      // network-first. A cache hit paints the destination instantly instead
+      // of blocking every single click on a round trip — the real fetch
+      // still runs in the background, and if it comes back different, the
+      // open tab is told to router.refresh() (see sw-revalidate-listener.tsx)
+      // so any auth/social state (own-vs-others' accent, cheer/comment
+      // counts) self-corrects within moments rather than staying stale until
+      // the next navigation. A hard navigation can't safely do this — there
+      // is no way to swap a document's content after it's already rendered
+      // without a reload — so it stays network-first below.
+      event.respondWith(
+        caches.match(cacheKey, { cacheName: RSC_CACHE_NAME }).then((cached) => {
+          const revalidate = fetch(event.request)
+            .then((response) => {
+              if (response.ok) {
+                const clone = response.clone();
+                caches.open(RSC_CACHE_NAME).then((cache) => cache.put(cacheKey, clone));
+                if (cached) notifyClientsOfRevalidation(cacheKey);
+              }
+              return response;
+            })
+            .catch(() => null);
+
+          if (cached) {
+            event.waitUntil(revalidate);
+            return cached;
+          }
+          // No cached copy yet — a genuinely first visit to this route, so
+          // there's nothing to paint early. There's also no valid
+          // Flight-payload substitute to fall back to, so a network failure
+          // here has to propagate — Next's router simply won't complete
+          // that client-side transition.
+          return revalidate.then((response) => {
+            if (response) return response;
+            throw new Error("offline, no cached RSC payload for this route");
+          });
+        })
+      );
+      return;
+    }
+
+    // Hard navigation: full server-rendered HTML. Keep this network-first —
+    // never stale while online — and only fall back to the last-cached copy
+    // (or /offline, for a URL never successfully visited) when the fetch
+    // itself fails.
     event.respondWith(
       fetch(event.request)
         .then((response) => {
           if (response.ok) {
             const clone = response.clone();
-            caches.open(cacheName).then((cache) => cache.put(cacheKey, clone));
+            caches.open(NAV_CACHE_NAME).then((cache) => cache.put(cacheKey, clone));
           }
           return response;
         })
         .catch(async () => {
-          const cached = await caches.match(cacheKey, { cacheName });
-          if (cached) return cached;
-          // No cached copy of this exact shape. A hard navigation can fall
-          // back to the offline page; an RSC transition can't — there's no
-          // valid Flight-payload substitute — so let the fetch failure
-          // propagate and Next's router simply won't complete that
-          // client-side transition.
-          if (event.request.mode === "navigate") return caches.match(OFFLINE_URL);
-          throw new Error("offline, no cached RSC payload for this route");
+          const cached = await caches.match(cacheKey, { cacheName: NAV_CACHE_NAME });
+          return cached ?? caches.match(OFFLINE_URL);
         })
     );
     return;

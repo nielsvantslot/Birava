@@ -4,7 +4,7 @@
   "installCommand": "npm install",
   "framework": "nextjs",
   "outputDirectory": ".next",
-  "regions": ["iad1"],
+  "regions": ["fra1"],
   "git": {
     "deploymentEnabled": {
       "main": true,

@@ -82,18 +82,29 @@ flowchart TB
 
 ## Offline support (service worker)
 
-`public/sw.js` maintains four caches: a static-asset cache (`_next/static`, icons, the manifest — content-hashed, safe to serve cache-first forever), a **media cache** (`/api/avatars/*`, `/api/photos/*` — also cache-first, since each is immutable at its URL per the Image pipeline section above: an edit swaps in a new one, never mutates in place), and **two page-content caches**. Page content is always network-first — never stale while online — and only falls back to the cache when the fetch itself fails (no connection). Missing the media cache initially was its own reported gap: avatars and check-in photos are served through auth-gated `/api/*` routes, which the nav-cache logic deliberately excludes, so without a dedicated branch for them they never got cached at all and just broke offline.
+`public/sw.js` maintains four caches: a static-asset cache (`_next/static`, icons, the manifest — content-hashed, safe to serve cache-first forever), a **media cache** (`/api/avatars/*`, `/api/photos/*` — also cache-first, since each is immutable at its URL per the Image pipeline section above: an edit swaps in a new one, never mutates in place), and **two page-content caches**. Missing the media cache initially was its own reported gap: avatars and check-in photos are served through auth-gated `/api/*` routes, which the nav-cache logic deliberately excludes, so without a dedicated branch for them they never got cached at all and just broke offline.
 
 **"Page content" is two different request shapes, not one — and they need two separate caches, not just two keys in one.** A hard navigation (open the PWA fresh, reload, back/forward) requests full server-rendered HTML. Every other in-app move — clicking a `<Link>` — is client-side routing instead: Next's App Router fetches just that route's RSC (Flight) payload, marked with an `RSC: 1` header and a `_rsc=<hash>` cache-busting param, and never triggers a real browser navigation at all. Missing that distinction was the first bug caught after shipping this (only the very first hard-loaded page, typically the dashboard, was ever ending up cached). The *second* bug came from fixing the first one carelessly: an early version kept both shapes in one `NAV_CACHE_NAME` cache, distinguished only by appending a `#rsc` URL fragment to the key — but the Cache API ignores fragments entirely when matching, so the two shapes silently collided into a single entry, and a hard-navigation cache miss could return the *other* shape's raw Flight-protocol text, which the browser then rendered as if it were HTML (visible as literal `1:"$Sreact.fragment"...`-style text on screen). Fixed by giving them genuinely separate caches (`NAV_CACHE_NAME`, `RSC_CACHE_NAME`), not just separate keys in a shared one.
 
+**The two shapes also get different freshness strategies, not just different caches.** A hard navigation stays network-first — never stale while online — and only falls back to the cache when the fetch itself fails (no connection). An RSC transition (the dominant navigation mode once the app is open — almost every in-session move is a `<Link>` click) is **stale-while-revalidate** instead: a cache hit paints the destination instantly rather than blocking every click on a round trip, while the real fetch runs in the background and updates the cache for next time. The reason a hard navigation can't use the same trick: there's no way to swap a document's content after it's already rendered without a reload, so a stale hit there would have no self-correction path. An RSC transition does have one — once the background fetch lands, the SW posts an `RSC_REVALIDATED` message to any open tab; `components/sw-revalidate-listener.tsx` calls `router.refresh()` if that tab is still sitting on the exact route that just got revalidated, re-fetching the RSC payload and correcting any staleness (own-vs-others' accent, cheer/comment counts) within moments instead of leaving it until the next navigation.
+
 ```mermaid
 flowchart TD
-    Req["GET some app route<br/>(hard navigation OR client-side RSC fetch)"] --> Fetch{"fetch() the network"}
-    Fetch -->|succeeds| Store["Cache the response<br/>(NAV_CACHE_NAME or RSC_CACHE_NAME<br/>depending on which shape it is)"] --> Render["Render fresh"]
-    Fetch -->|fails — no connection| Lookup{"Cached copy in the<br/>matching cache for<br/>this URL?"}
+    Req["GET some app route"] --> Shape{"Hard navigation or<br/>client-side RSC fetch?"}
+
+    Shape -->|"hard navigation"| Fetch{"fetch() the network"}
+    Fetch -->|succeeds| Store["Cache in NAV_CACHE_NAME"] --> Render["Render fresh"]
+    Fetch -->|fails — no connection| Lookup{"Cached copy in<br/>NAV_CACHE_NAME?"}
     Lookup -->|yes| Stale["Serve last-cached response<br/>+ OfflineBanner shows"]
-    Lookup -->|"no, and it was a hard navigation"| Offline["Serve /offline<br/>(precached at SW install,<br/>excluded from the auth<br/>redirect in proxy-session.ts)"]
-    Lookup -->|"no, and it was an RSC fetch"| Fail["Let it fail —<br/>no valid Flight-payload fallback;<br/>the client-side transition<br/>just doesn't complete"]
+    Lookup -->|no| Offline["Serve /offline<br/>(precached at SW install,<br/>excluded from the auth<br/>redirect in proxy-session.ts)"]
+
+    Shape -->|"RSC transition"| RscLookup{"Cached copy in<br/>RSC_CACHE_NAME?"}
+    RscLookup -->|yes| Paint["Respond with cache<br/>immediately — instant paint"]
+    Paint --> BgFetch["fetch() in the background"]
+    BgFetch -->|succeeds| RscStore["Update RSC_CACHE_NAME"] --> Notify["postMessage RSC_REVALIDATED<br/>to open tabs"] --> Correct["Matching tab calls<br/>router.refresh()"]
+    RscLookup -->|"no — first visit"| RscFetch{"fetch() the network"}
+    RscFetch -->|succeeds| RscRender["Cache + render fresh"]
+    RscFetch -->|"fails — no connection"| RscFail["Let it fail —<br/>no valid Flight-payload fallback;<br/>the client-side transition<br/>just doesn't complete"]
 ```
 
 This is why a **returning, already-authenticated** user can open every page they've previously visited with no connection at all — each one plays back exactly as it last rendered, server data included, with `components/offline-banner.tsx` making clear it isn't live. A page whose *hard-navigation* shape was **never** cached falls through to `/offline`, which is why that route has to render for a logged-out request too — the middleware auth gate (`lib/auth/proxy-session.ts`) explicitly carves it out, alongside `/login`/`/signup`.
