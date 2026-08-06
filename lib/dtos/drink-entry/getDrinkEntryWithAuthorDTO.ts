@@ -5,7 +5,6 @@ export class DrinkEntryWithAuthorDTO {
   declare id: string;
   declare userId: string;
   declare drinkName: string | null;
-  declare notes: string | null;
   declare photoUrl: string | null;
   declare photoLqip: string | null;
   declare createdAt: string;

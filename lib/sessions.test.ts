@@ -15,7 +15,6 @@ function entry(overrides: Partial<DrinkEntry> & { created_at: string }): DrinkEn
     venue: null,
     lat: null,
     lng: null,
-    notes: null,
     photo_url: null,
     photo_lqip: null,
     ...overrides,

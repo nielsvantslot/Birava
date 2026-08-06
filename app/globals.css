@@ -457,7 +457,6 @@ input:focus-visible, .chip:focus-visible, .switch:focus-visible {
 /* slim variant — a lone check-in, no fake session stats */
 .checkin-line { padding: 0 16px 14px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .checkin-line .meta { font-size: 13.5px; color: var(--ink-dim); }
-.checkin-note { font-size: 14.5px; line-height: 1.55; color: var(--ink); padding: 0 16px 16px; }
 
 /* ---- expander: reveal check-ins inline ---- */
 .expander {

@@ -5,7 +5,7 @@ import { weekIndex } from "@/lib/dates";
 /** Every field computeAchievements/earnedIds actually read — callers with the full DrinkEntry shape still satisfy this. */
 type AchievementEntry = Pick<
   DrinkEntry,
-  "user_id" | "created_at" | "drink_type" | "venue" | "notes"
+  "user_id" | "created_at" | "drink_type" | "venue"
 >;
 
 /**
@@ -17,7 +17,6 @@ export type AchievementIcon =
   | "pin"
   | "badge"
   | "glass"
-  | "pen"
   | "repeat";
 
 export type VarietyAchievement = {
@@ -42,7 +41,6 @@ export function computeAchievements(
   const venues = new Set(
     entries.map((e) => e.venue?.trim()).filter((v): v is string => !!v)
   );
-  const notes = entries.filter((e) => e.notes?.trim()).length;
   const legendVenue = getLocalLegendVenue(entries);
 
   // Regular: distinct calendar weeks per venue, best venue counts
@@ -65,7 +63,6 @@ export function computeAchievements(
 
   const range = Math.min(types.size, DRINK_TYPES.length);
   const cartographer = Math.min(venues.size, 25);
-  const chronicler = Math.min(notes, 20);
   const regular = Math.min(regularWeeks, 5);
 
   return [
@@ -115,17 +112,6 @@ export function computeAchievements(
       goal: 1,
       earned: !!legendVenue,
       progressText: legendVenue ? `Earned · ${legendVenue}` : "Not yet earned",
-    },
-    {
-      id: "chronicler",
-      label: "Chronicler",
-      description: "Add a written note to 20 check-ins.",
-      icon: "pen",
-      progress: chronicler,
-      goal: 20,
-      earned: notes >= 20,
-      progressText:
-        notes >= 20 ? `Earned · ${notes} notes` : `${notes} of 20 notes`,
     },
     {
       id: "regular",

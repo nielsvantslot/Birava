@@ -29,13 +29,6 @@ export function AchievementGlyph({ icon }: { icon: AchievementIcon }) {
           <path d="M7 21c-2 0-3-1.6-3-3.5C4 13 7 11 12 11s8 2 8 6.5c0 1.9-1 3.5-3 3.5z"></path>
         </svg>
       );
-    case "pen":
-      return (
-        <svg viewBox="0 0 24 24">
-          <path d="M4 20h4l10-10a2.8 2.8 0 00-4-4L4 16z"></path>
-          <path d="M13.5 6.5l4 4"></path>
-        </svg>
-      );
     case "repeat":
       return (
         <svg viewBox="0 0 24 24">

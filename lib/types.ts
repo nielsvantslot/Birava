@@ -23,11 +23,10 @@ export type DrinkEntry = {
    */
   session_id: string;
   drink_name: string | null;
-  drink_type: string;
+  drink_type: DrinkType;
   venue: string | null;
   lat: number | null;
   lng: number | null;
-  notes: string | null;
   photo_url: string | null;
   photo_lqip: string | null;
   created_at: string;

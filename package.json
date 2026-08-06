@@ -15,6 +15,7 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "backfill:photos": "tsx scripts/backfill-photo-derivatives.ts",
+    "restore:backup": "tsx scripts/restore-backup.ts",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f app db",

@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { hashPassword } from "@/lib/auth/password";
+import { resolveVenueId } from "@/lib/commands/venueCommands";
 import type {
   DrinkEntryFixture,
   DrinkEntryFixtureInput,
@@ -45,16 +46,15 @@ export class DrinkEntryFixtureFactory implements IDrinkEntryFixtureFactory {
       });
     }
 
+    const venueId = await resolveVenueId(this.db, overrides.venue ?? null, overrides.lat ?? null, overrides.lng ?? null);
+
     return this.db.drinkEntry.create({
       data: {
         userId,
         sessionId,
         drinkName: overrides.drinkName ?? `Fixture Drink ${this.entrySequence}`,
         drinkType: overrides.drinkType ?? "Beer",
-        venue: overrides.venue ?? null,
-        lat: overrides.lat ?? null,
-        lng: overrides.lng ?? null,
-        notes: overrides.notes ?? null,
+        venueId,
         photoUrl: overrides.photoUrl ?? null,
         photoLqip: overrides.photoLqip ?? null,
         createdAt,

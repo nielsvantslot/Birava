@@ -1,0 +1,32 @@
+name: Prune client error logs
+
+# Keeps the ClientErrorLog table (lib/commands/clientErrorLogCommands.ts)
+# bounded on Neon's free-tier storage — same GitHub Actions scheduling
+# pattern as session-reminders.yml/cleanup-orphaned-blobs.yml rather than
+# vercel.json's native cron, so every scheduled job lives on one platform.
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      # www.birava.nl directly, not birava.nl — see session-reminders.yml for
+      # why (the apex domain's redirect drops the Authorization header).
+      - name: Trigger prune-client-error-logs cron (production)
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -sf -X GET \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://www.birava.nl/api/cron/prune-client-error-logs"
+
+      - name: Trigger prune-client-error-logs cron (staging)
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -sf -X GET \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://staging.birava.nl/api/cron/prune-client-error-logs"

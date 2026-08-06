@@ -1,23 +1,24 @@
-import type { DrinkEntry as DrinkEntryRow } from "@prisma/client";
+import type { DrinkEntry as DrinkEntryRow, Venue } from "@prisma/client";
 import { describe, expect, it } from "vitest";
 import { scoreCrew, type CrewMemberInput } from "./crews";
 
 let idCounter = 0;
 
-function row(overrides: Partial<DrinkEntryRow> & { userId: string; createdAt: Date }): DrinkEntryRow {
+function row(
+  overrides: Partial<DrinkEntryRow> & { userId: string; createdAt: Date; venueName?: string }
+): DrinkEntryRow & { venue: Pick<Venue, "name" | "lat" | "lng"> | null } {
   idCounter += 1;
+  const { venueName, ...rest } = overrides;
   return {
     id: `row-${idCounter}`,
     sessionId: `session-${idCounter}`,
     drinkName: null,
     drinkType: "Beer",
-    venue: null,
-    lat: null,
-    lng: null,
-    notes: null,
+    venueId: null,
     photoUrl: null,
     photoLqip: null,
-    ...overrides,
+    ...rest,
+    venue: venueName ? { name: venueName, lat: null, lng: null } : null,
   };
 }
 
@@ -57,11 +58,11 @@ describe("scoreCrew", () => {
     const members = [member({ userId: "alice", joinedAt }), member({ userId: "bob", joinedAt })];
     const rows = [
       // alice: 1 session, 2 venues
-      row({ userId: "alice", createdAt: new Date("2026-02-01T18:00:00.000Z"), venue: "Taphouse" }),
-      row({ userId: "alice", createdAt: new Date("2026-02-01T19:00:00.000Z"), venue: "Gollem" }),
+      row({ userId: "alice", createdAt: new Date("2026-02-01T18:00:00.000Z"), venueName: "Taphouse" }),
+      row({ userId: "alice", createdAt: new Date("2026-02-01T19:00:00.000Z"), venueName: "Gollem" }),
       // bob: 2 sessions (>4h apart), 1 venue
-      row({ userId: "bob", createdAt: new Date("2026-02-01T08:00:00.000Z"), venue: "Taphouse" }),
-      row({ userId: "bob", createdAt: new Date("2026-02-02T08:00:00.000Z"), venue: "Taphouse" }),
+      row({ userId: "bob", createdAt: new Date("2026-02-01T08:00:00.000Z"), venueName: "Taphouse" }),
+      row({ userId: "bob", createdAt: new Date("2026-02-02T08:00:00.000Z"), venueName: "Taphouse" }),
     ];
 
     const board = scoreCrew(members, rows);
@@ -77,11 +78,11 @@ describe("scoreCrew", () => {
     const members = [member({ userId: "alice", joinedAt }), member({ userId: "bob", joinedAt })];
     const rows = [
       // alice: 1 session, 3 drinks, 1 venue
-      row({ userId: "alice", createdAt: new Date("2026-02-01T18:00:00.000Z"), venue: "Taphouse" }),
-      row({ userId: "alice", createdAt: new Date("2026-02-01T18:30:00.000Z"), venue: "Taphouse" }),
-      row({ userId: "alice", createdAt: new Date("2026-02-01T19:00:00.000Z"), venue: "Taphouse" }),
+      row({ userId: "alice", createdAt: new Date("2026-02-01T18:00:00.000Z"), venueName: "Taphouse" }),
+      row({ userId: "alice", createdAt: new Date("2026-02-01T18:30:00.000Z"), venueName: "Taphouse" }),
+      row({ userId: "alice", createdAt: new Date("2026-02-01T19:00:00.000Z"), venueName: "Taphouse" }),
       // bob: 1 session, 1 drink, 1 venue — fewer drinks despite equal sessions/venues
-      row({ userId: "bob", createdAt: new Date("2026-02-01T08:00:00.000Z"), venue: "Gollem" }),
+      row({ userId: "bob", createdAt: new Date("2026-02-01T08:00:00.000Z"), venueName: "Gollem" }),
     ];
 
     const board = scoreCrew(members, rows);

@@ -1,3 +1,5 @@
+import type { DrinkType } from "@/lib/types";
+
 export type UserFixtureInput = {
   username?: string;
   email?: string;
@@ -13,11 +15,10 @@ export type UserFixture = {
 
 export type DrinkEntryFixtureInput = {
   drinkName?: string | null;
-  drinkType?: string;
+  drinkType?: DrinkType;
   venue?: string | null;
   lat?: number | null;
   lng?: number | null;
-  notes?: string | null;
   photoUrl?: string | null;
   photoLqip?: string | null;
   createdAt?: Date;

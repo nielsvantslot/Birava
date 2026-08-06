@@ -68,6 +68,7 @@ export async function getCrewSummariesForUser(
               ),
             },
           },
+          include: { venue: { select: { name: true, lat: true, lng: true } } },
           orderBy: { createdAt: "asc" },
         });
 
