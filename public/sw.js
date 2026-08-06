@@ -202,12 +202,37 @@ self.addEventListener("fetch", (event) => {
       event.respondWith(
         caches.match(cacheKey, { cacheName: RSC_CACHE_NAME }).then((cached) => {
           const revalidate = fetch(event.request)
-            .then((response) => {
-              if (response.ok) {
-                const clone = response.clone();
-                caches.open(RSC_CACHE_NAME).then((cache) => cache.put(cacheKey, clone));
-                if (cached) notifyClientsOfRevalidation(cacheKey);
+            .then(async (response) => {
+              if (!response.ok) return response;
+              const forCache = response.clone();
+              // router.refresh() (sw-revalidate-listener.tsx) sends the exact
+              // same RSC-shaped fetch a real <Link> transition would — this
+              // SW has no way to tell them apart. Without this comparison,
+              // every refresh() lands here, always finds a cache hit, and
+              // once its background fetch resolves it unconditionally
+              // notified below — which made the listener call refresh()
+              // again, landing right back here: a self-sustaining loop with
+              // no exit condition, bounded only by network round-trip time.
+              // Fast enough connections cycled it 10+ times/second, which
+              // was enough to blow through Safari's built-in
+              // history.replaceState() rate limit (100 calls/10s, tripped by
+              // Next's router-sync effect running once per cycle) and crash
+              // the page with a SecurityError — this is the "client-side
+              // exception" ClientErrorLog was built to catch. Only notify
+              // when the content actually changed, so a refresh whose fetch
+              // turns out identical to what's already cached — which is what
+              // every one of this loop's later cycles was — has nothing left
+              // to correct and the chain stops on its own.
+              if (cached) {
+                const [cachedText, freshText] = await Promise.all([
+                  cached.clone().text(),
+                  response.clone().text(),
+                ]);
+                if (cachedText !== freshText) {
+                  notifyClientsOfRevalidation(cacheKey);
+                }
               }
+              caches.open(RSC_CACHE_NAME).then((cache) => cache.put(cacheKey, forCache));
               return response;
             })
             .catch(() => null);
