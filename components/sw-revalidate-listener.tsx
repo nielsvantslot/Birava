@@ -3,13 +3,26 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-// public/sw.js serves client-side RSC transitions stale-while-revalidate:
-// a cached route paints instantly, then the real fetch runs in the
-// background and posts a message here once it lands. If the tab is still
-// sitting on that exact route, router.refresh() re-fetches the RSC payload
-// and re-renders with fresh data — correcting any staleness (own-vs-others'
-// accent, cheer/comment counts) within moments instead of leaving it stale
-// until the next navigation.
+// public/sw.js serves both hard navigations and client-side RSC transitions
+// stale-while-revalidate: a cached route paints instantly while the real
+// fetch runs in the background to refresh the cache for next time. This
+// component's only job is a single router.refresh() on mount, to reconcile
+// this page's initial paint with live data shortly after a cold-start hit on
+// a stale cache entry (own-vs-others' accent, cheer/comment counts).
+//
+// There used to also be a postMessage-driven second refresh — sw.js posted a
+// message once its background fetch landed, and this listened for it and
+// called router.refresh() again if the tab was still on that route. Removed
+// (2026-08-06): router.refresh() sends the exact same RSC-shaped fetch a
+// real <Link> transition does, so sw.js has no way to tell them apart, which
+// meant every refresh's own background fetch became the trigger for the
+// *next* refresh — an infinite loop with no natural exit, fast enough to
+// blow through Safari's history.replaceState() rate limit and crash the
+// page (and, on browsers without that limit, just reload forever silently).
+// See sw.js's RSC branch for the full writeup, including why comparing the
+// response body couldn't fix it either. The one remaining refresh below
+// can't loop: it's a fixed effect that fires once per mount, not a reaction
+// to anything sw.js sends back.
 export function SwRevalidateListener() {
   const router = useRouter();
 
@@ -17,26 +30,8 @@ export function SwRevalidateListener() {
     if (!("serviceWorker" in navigator)) return;
     // This component lives in the root layout, which only remounts on a
     // hard navigation (a client-side <Link> transition never re-runs it) —
-    // so this fires exactly once per app launch. The initial paint may have
-    // come from sw.js's NAV_CACHE_NAME on a cache hit; refreshing once here
-    // reconciles with live data shortly after, the hard-navigation
-    // equivalent of the RSC branch's postMessage correction below.
+    // so this fires exactly once per app launch.
     router.refresh();
-  }, [router]);
-
-  useEffect(() => {
-    if (!("serviceWorker" in navigator)) return;
-
-    function handleMessage(event: MessageEvent) {
-      if (event.data?.type !== "RSC_REVALIDATED") return;
-      const updatedUrl = new URL(event.data.url, window.location.origin);
-      if (updatedUrl.pathname === window.location.pathname) {
-        router.refresh();
-      }
-    }
-
-    navigator.serviceWorker.addEventListener("message", handleMessage);
-    return () => navigator.serviceWorker.removeEventListener("message", handleMessage);
   }, [router]);
 
   return null;

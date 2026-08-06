@@ -128,15 +128,6 @@ function isMediaAsset(url) {
   return url.pathname.startsWith("/api/avatars/") || url.pathname.startsWith("/api/photos/");
 }
 
-// Tells any open tab that a route it may currently be showing a cached
-// RSC payload for has just been re-fetched — see sw-revalidate-listener.tsx,
-// which router.refresh()es only if that tab's current URL matches.
-function notifyClientsOfRevalidation(pageUrl) {
-  self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientsArr) => {
-    clientsArr.forEach((client) => client.postMessage({ type: "RSC_REVALIDATED", url: pageUrl }));
-  });
-}
-
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
@@ -192,47 +183,46 @@ self.addEventListener("fetch", (event) => {
       // Client-side <Link> transitions: stale-while-revalidate, not
       // network-first. A cache hit paints the destination instantly instead
       // of blocking every single click on a round trip — the real fetch
-      // still runs in the background, and if it comes back different, the
-      // open tab is told to router.refresh() (see sw-revalidate-listener.tsx)
-      // so any auth/social state (own-vs-others' accent, cheer/comment
-      // counts) self-corrects within moments rather than staying stale until
-      // the next navigation. A hard navigation can't safely do this — there
-      // is no way to swap a document's content after it's already rendered
-      // without a reload — so it stays network-first below.
+      // still runs in the background and updates the cache for next time.
+      //
+      // There used to also be a postMessage telling any open tab to
+      // router.refresh() once the background fetch landed, so stale
+      // auth/social state (own-vs-others' accent, cheer/comment counts)
+      // self-corrected within moments. That was removed (2026-08-06) because
+      // it was fundamentally unsound, not just buggy: router.refresh() sends
+      // the exact same RSC-shaped fetch a real <Link> transition does, so
+      // this SW has no way to tell them apart, meaning every refresh()
+      // landed right back here, found a cache hit, and its own background
+      // fetch becoming the trigger for the *next* refresh() — a
+      // self-sustaining loop with no natural exit. An attempted fix that
+      // only notified when the response body actually changed didn't work
+      // either: fetching this exact endpoint twice in a row, zero data
+      // changes, still differs — Next embeds a fresh random key + timestamp
+      // into its internal metadata/viewport streaming boundaries on every
+      // single render, so two Flight payloads for the same route are never
+      // guaranteed byte-identical no matter what. That comparison always
+      // found "different" and always notified anyway; it only reduced the
+      // loop's cycle rate (reading two ~80KB bodies as text on every fetch)
+      // enough to drop under Safari's history.replaceState() rate limit
+      // (100 calls/10s, tripped once per cycle by Next's router-sync
+      // effect) — no more SecurityError crash, but the page kept silently
+      // re-rendering forever. The only fix that actually terminates the
+      // loop is not having anything react to "a revalidation happened" by
+      // calling refresh() again — see sw-revalidate-listener.tsx, which now
+      // only refreshes once, unconditionally, on mount. The tradeoff: a
+      // cold-start paint that happens to hit a stale cache entry stays
+      // stale for that page view instead of self-correcting a few moments
+      // later — acceptable, since the loop this replaced caused a
+      // production crash on iOS Safari and silent-forever reloading
+      // everywhere else.
       event.respondWith(
         caches.match(cacheKey, { cacheName: RSC_CACHE_NAME }).then((cached) => {
           const revalidate = fetch(event.request)
-            .then(async (response) => {
-              if (!response.ok) return response;
-              const forCache = response.clone();
-              // router.refresh() (sw-revalidate-listener.tsx) sends the exact
-              // same RSC-shaped fetch a real <Link> transition would — this
-              // SW has no way to tell them apart. Without this comparison,
-              // every refresh() lands here, always finds a cache hit, and
-              // once its background fetch resolves it unconditionally
-              // notified below — which made the listener call refresh()
-              // again, landing right back here: a self-sustaining loop with
-              // no exit condition, bounded only by network round-trip time.
-              // Fast enough connections cycled it 10+ times/second, which
-              // was enough to blow through Safari's built-in
-              // history.replaceState() rate limit (100 calls/10s, tripped by
-              // Next's router-sync effect running once per cycle) and crash
-              // the page with a SecurityError — this is the "client-side
-              // exception" ClientErrorLog was built to catch. Only notify
-              // when the content actually changed, so a refresh whose fetch
-              // turns out identical to what's already cached — which is what
-              // every one of this loop's later cycles was — has nothing left
-              // to correct and the chain stops on its own.
-              if (cached) {
-                const [cachedText, freshText] = await Promise.all([
-                  cached.clone().text(),
-                  response.clone().text(),
-                ]);
-                if (cachedText !== freshText) {
-                  notifyClientsOfRevalidation(cacheKey);
-                }
+            .then((response) => {
+              if (response.ok) {
+                const clone = response.clone();
+                caches.open(RSC_CACHE_NAME).then((cache) => cache.put(cacheKey, clone));
               }
-              caches.open(RSC_CACHE_NAME).then((cache) => cache.put(cacheKey, forCache));
               return response;
             })
             .catch(() => null);
