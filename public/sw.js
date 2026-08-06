@@ -46,6 +46,33 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// Errors thrown inside this scope never reach window.onerror on any page, so
+// without forwarding them they'd be invisible to the app's only error
+// tracking (components/client-error-reporter.tsx, which POSTs whatever it
+// receives to app/api/debug/client-error/route.ts).
+function reportSwError(info) {
+  self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientsArr) => {
+    clientsArr.forEach((client) => client.postMessage({ type: "SW_ERROR", ...info }));
+  });
+}
+self.addEventListener("error", (event) => {
+  reportSwError({
+    source: "error",
+    message: event.message,
+    filename: event.filename,
+    lineno: event.lineno,
+    stack: event.error?.stack,
+  });
+});
+self.addEventListener("unhandledrejection", (event) => {
+  const reason = event.reason;
+  reportSwError({
+    source: "unhandledrejection",
+    message: reason?.message ?? String(reason),
+    stack: reason?.stack,
+  });
+});
+
 self.addEventListener("push", (event) => {
   const data = event.data ? event.data.json() : {};
   event.waitUntil(

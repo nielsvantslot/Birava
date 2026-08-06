@@ -31,6 +31,7 @@ flowchart TB
         R3["photos/*, avatars/* — auth-gated blob proxy"]
         R4["sessions/[id]/share-image — recap image"]
         R5["cron/* — CRON_SECRET bearer auth, not user session"]
+        R6["debug/client-error — ungated error beacon"]
     end
 
     subgraph Actions["Server Actions — lib/controllers/*.ts"]
@@ -61,6 +62,7 @@ flowchart TB
     Routes --> Commands
     Routes --> Queries
     Routes --> Render
+    R6 --> Commands
     Actions --> Commands
     Actions --> Queries
     Commands --> Mappers
@@ -116,6 +118,16 @@ This is why a **returning, already-authenticated** user can open every page they
 All three content caches — nav, RSC, and media — are cleared on sign-out (the SW watches for a successful `POST /api/auth/logout`) so the next person to open the app offline on a shared device lands on the login screen, not the previous user's last-cached pages or photos.
 
 **Last-resort fallbacks can't assume their own CSS loaded.** `/offline` and `app/global-error.tsx` both render in exactly the situations where an asset fetch just failed — so unlike every other page in this app, they use literal color values instead of `var(--token)` Tailwind classes. A `var()` reference resolves to nothing if `globals.css` itself is the thing that's missing (a real, previously-hit failure mode: the browser's own dark-mode default styling — a dark background with light default text — showing through as an unstyled, broken-looking page instead of Birava's actual, intentional dark theme).
+
+## Client-side error capture
+
+No error-tracking service (Sentry, Bugsnag, etc.) is wired up — `ClientErrorLog` (`prisma/schema.prisma`) plus `components/client-error-reporter.tsx` is the app's only visibility into what actually breaks for a real user. It exists because an iOS Safari-only crash surfaced in the field with no way to get a stack trace off the device (remote Safari debugging needs a Mac); it's a standing capability now, not a one-off diagnostic, and runs in both staging and production.
+
+`ClientErrorReporter` (mounted unconditionally in `app/layout.tsx`) listens for `window.onerror` and `unhandledrejection` on every page, and POSTs whatever it catches to `app/api/debug/client-error/route.ts` → `lib/commands/clientErrorLogCommands.ts`'s `reportClientError`. That route is deliberately ungated — a crash on `/login` before any session exists is exactly the kind of thing worth seeing — so it attaches `getCurrentUser()`'s id only if one exists, rather than requiring auth.
+
+**`public/sw.js` has its own copy of the same idea**, because errors thrown inside a service worker's scope never reach any page's `window.onerror` — it listens for `error`/`unhandledrejection` on `self` and forwards them to every open tab via `postMessage`, which `ClientErrorReporter` also listens for and reports the same way. This is why the SW's own stale-while-revalidate caching bugs are the kind of thing this system was built to catch.
+
+`app/api/cron/prune-client-error-logs/route.ts`, scheduled daily via `.github/workflows/prune-client-error-logs.yml` (GitHub Actions, consolidated onto the same platform every other scheduled job already uses), deletes rows older than 30 days — unlike the backup retention tiers in `lib/backupRetention.ts`, there's no reason to keep an old error report once it's aged out, so this is a flat cutoff, not a tiered policy.
 
 ## Direct-to-Blob upload flow
 
