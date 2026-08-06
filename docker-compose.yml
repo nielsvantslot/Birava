@@ -15,6 +15,7 @@ services:
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
       VAPID_SUBJECT: ${VAPID_SUBJECT}
       NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY}
+      NEXT_PUBLIC_FORCE_SW_IN_DEV: ${NEXT_PUBLIC_FORCE_SW_IN_DEV:-}
     command: >
       sh -c "if [ ! -d node_modules ] || [ ! -f node_modules/.install-stamp ] || [ package-lock.json -nt node_modules/.install-stamp ]; then npm install && touch node_modules/.install-stamp; fi &&
       npm run prisma:generate &&
