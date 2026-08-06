@@ -29,6 +29,7 @@ model User {
   pushSubscriptions PushSubscription[]
   comments          Comment[]
   notificationPreferences NotificationPreference[]
+  clientErrorLogs   ClientErrorLog[]
 }
 
 /// Per-category notification preferences — gates whether queueNotifications
@@ -291,6 +292,39 @@ model Notification {
   user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+}
+
+/// Client-side error capture — no error-tracking service is wired up, so
+/// this is the app's only visibility into what actually breaks in the field
+/// (components/client-error-reporter.tsx for window.onerror/unhandledrejection,
+/// public/sw.js forwarding its own errors via postMessage since the service
+/// worker's global scope has no window to report to directly).
+///
+/// Deliberately schema-loose: `source` varies ("window.onerror",
+/// "unhandledrejection", "sw:error", "sw:unhandledrejection") and each shape
+/// carries different extra fields (filename/lineno/colno for a thrown error,
+/// nothing extra for a rejection) — `context` holds whatever the reporter
+/// sent beyond the common fields rather than growing a column per shape.
+///
+/// Unauthenticated pages can report too (userId is nullable) — a crash on
+/// /login is exactly the kind of thing worth seeing. Pruned by
+/// pruneClientErrorLogs (lib/commands/clientErrorLogCommands.ts, run daily
+/// via app/api/cron/prune-client-error-logs/route.ts) — unbounded growth
+/// isn't acceptable on Neon's free-tier storage.
+model ClientErrorLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  source    String
+  message   String
+  stack     String?
+  pageUrl   String?
+  userAgent String?
+  userId    String?  @db.Uuid
+  context   Json?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([userId])
 }
 
 model PushSubscription {
