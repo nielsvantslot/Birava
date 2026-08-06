@@ -21,7 +21,20 @@ export default defineConfig({
     trace: "retain-on-failure",
     navigationTimeout: 30_000,
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    // WebKit is real Apple WebKit, not an approximation — the only project
+    // here that would actually reproduce the history.replaceState() rate
+    // limit a regression of e2e/rsc-revalidate-loop.spec.ts's bug depends
+    // on. Scoped to that one spec via testMatch rather than running the
+    // whole suite twice — every other spec's chromium-only coverage is fine
+    // since none of them are WebKit-engine-specific.
+    {
+      name: "webkit",
+      use: { ...devices["Desktop Safari"] },
+      testMatch: /rsc-revalidate-loop\.spec\.ts/,
+    },
+  ],
   webServer: {
     // Deliberately `next dev`, not `next build && next start`: `next start`
     // hardcodes NODE_ENV=production, which flips
