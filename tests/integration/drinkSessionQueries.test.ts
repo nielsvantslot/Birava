@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
 import { createDrinkEntry } from "@/lib/commands/drinkEntryCommands";
 import { getSessionById, getSessionsForUserIds } from "@/lib/queries/drinkSessionQueries";
+import type { DrinkType } from "@/lib/types";
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -10,9 +11,9 @@ async function createAt(
   userId: string,
   actor: { username: string; avatarUrl: string | null },
   createdAt: number,
-  overrides: Partial<{ venue: string | null; drinkType: string; photoUrl: string | null }> = {}
+  overrides: Partial<{ venue: string | null; drinkType: DrinkType; photoUrl: string | null }> = {}
 ) {
-  const base = { drinkName: "Tripel", drinkType: "Beer", venue: "Café Gollem", lat: null, lng: null, notes: null, photoUrl: null, photoLqip: null };
+  const base = { drinkName: "Tripel", drinkType: "Beer" as const, venue: "Café Gollem", lat: null, lng: null, photoUrl: null, photoLqip: null };
   const result = await createDrinkEntry(userId, { ...base, ...overrides, createdAt }, actor);
   if (result.error) throw new Error(result.error);
   return db.drinkEntry.findUniqueOrThrow({ where: { id: result.id! } });

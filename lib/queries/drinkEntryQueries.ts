@@ -70,6 +70,7 @@ export async function getDrinkHistory(userId: string): Promise<DrinkEntry[]> {
     async () => {
       const entries = await db.drinkEntry.findMany({
         where: { userId },
+        include: { venue: { select: { name: true, lat: true, lng: true } } },
         orderBy: { createdAt: "asc" },
       });
       return entries.map(toDrinkEntry);
@@ -84,7 +85,10 @@ export async function getDrinkEntryForUser(
   userId: string,
   id: string
 ): Promise<DrinkEntry | null> {
-  const entry = await db.drinkEntry.findFirst({ where: { id, userId } });
+  const entry = await db.drinkEntry.findFirst({
+    where: { id, userId },
+    include: { venue: { select: { name: true, lat: true, lng: true } } },
+  });
   return entry ? toDrinkEntry(entry) : null;
 }
 
@@ -95,6 +99,7 @@ export async function getRecentDrinkHistory(
 ): Promise<DrinkEntry[]> {
   const entries = await db.drinkEntry.findMany({
     where: { userId },
+    include: { venue: { select: { name: true, lat: true, lng: true } } },
     orderBy: { createdAt: "desc" },
     take: limit,
   });

@@ -9,6 +9,7 @@ import { drinkPhotoService } from "@/lib/photoUpload";
 import { shareImageCache } from "@/lib/shareImageCache";
 import { getFollowerIds } from "@/lib/queries/followQueries";
 import { queueNotifications, type NotificationEvent } from "@/lib/notify";
+import { resolveVenueId } from "@/lib/commands/venueCommands";
 import {
   ActionResultDTO,
   AddDrinkResultDTO,
@@ -179,7 +180,12 @@ export async function createDrinkEntry(
   // countSessions actually read (lib/achievements.ts), not every column.
   const before = await db.drinkEntry.findMany({
     where: { userId },
-    select: { userId: true, createdAt: true, drinkType: true, venue: true, notes: true },
+    select: {
+      userId: true,
+      createdAt: true,
+      drinkType: true,
+      venue: { select: { name: true } },
+    },
   });
 
   const createdAt = resolveCreatedAt(input.createdAt);
@@ -198,6 +204,7 @@ export async function createDrinkEntry(
       // (auto-released at commit/rollback) without blocking other users.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
       const assignment = await assignSessionForNewEntry(tx, userId, entryId, createdAt);
+      const venueId = await resolveVenueId(tx, input.venue, input.lat, input.lng);
       const entry = await tx.drinkEntry.create({
         data: {
           id: entryId,
@@ -205,10 +212,7 @@ export async function createDrinkEntry(
           sessionId: assignment.sessionId,
           drinkName: input.drinkName,
           drinkType: input.drinkType,
-          venue: input.venue,
-          lat: input.lat,
-          lng: input.lng,
-          notes: input.notes,
+          venueId,
           photoUrl: input.photoUrl,
           photoLqip: input.photoLqip,
           createdAt,
@@ -233,8 +237,7 @@ export async function createDrinkEntry(
     user_id: e.userId,
     created_at: e.createdAt.toISOString(),
     drink_type: e.drinkType,
-    venue: e.venue,
-    notes: e.notes,
+    venue: e.venue?.name ?? null,
   }));
   const earnedBefore = new Set(
     computeAchievements(beforeEntries, tz)
@@ -316,15 +319,13 @@ export async function updateDrinkEntry(
 
   try {
     await db.$transaction(async (tx) => {
+      const venueId = await resolveVenueId(tx, input.venue, input.lat, input.lng);
       await tx.drinkEntry.updateMany({
         where: { id: input.id, userId },
         data: {
           drinkName: input.drinkName,
           drinkType: input.drinkType,
-          venue: input.venue,
-          lat: input.lat,
-          lng: input.lng,
-          notes: input.notes,
+          venueId,
           photoUrl: input.photoUrl,
           photoLqip: input.photoLqip,
         },

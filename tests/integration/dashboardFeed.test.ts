@@ -11,7 +11,7 @@ const FEED_PAGE_SIZE = 12; // matches drinkController.ts's FEED_SESSION_LIMIT
 
 async function createSessionsFor(userId: string, count: number, base: number) {
   const actor = { username: "unused", avatarUrl: null };
-  const payload = { drinkName: null, drinkType: "Beer", venue: null, lat: null, lng: null, notes: null, photoUrl: null, photoLqip: null };
+  const payload = { drinkName: null, drinkType: "Beer" as const, venue: null, lat: null, lng: null, photoUrl: null, photoLqip: null };
   const created = [];
   for (let i = 0; i < count; i++) {
     const result = await createDrinkEntry(userId, { ...payload, createdAt: base + i * GAP }, actor);

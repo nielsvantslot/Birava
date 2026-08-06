@@ -154,7 +154,6 @@ async function StatsBody() {
     count: entries.filter((e) => e.drink_type === t).length,
   }));
   const maxType = Math.max(...typeCounts.map((t) => t.count), 1);
-  const notesCount = entries.filter((e) => e.notes?.trim()).length;
   const legend = achievements.find((a) => a.id === "local_legend");
 
   return (
@@ -219,10 +218,6 @@ async function StatsBody() {
             <div className="num">
               {typeCounts.filter((t) => t.count > 0).length}
             </div>
-          </div>
-          <div className="stat">
-            <div className="label">Notes written</div>
-            <div className="num">{notesCount}</div>
           </div>
           <div className="stat">
             <div className="label">Local Legend</div>

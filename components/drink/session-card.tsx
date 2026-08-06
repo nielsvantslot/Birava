@@ -211,10 +211,6 @@ export function SessionCard({
           </span>
         </div>
       )}
-      {lone && checkins[0].notes?.trim() && (
-        <p className="checkin-note">{checkins[0].notes}</p>
-      )}
-
       {!lone && routePoints.length >= 2 && multiVenue && (
         <Link className="routechip" href={`/sessions/${session.id}`} prefetch={false}>
           <Minimap points={routePoints} />

@@ -15,7 +15,6 @@ function entry(overrides: Partial<DrinkEntry> & { created_at: string }): DrinkEn
     venue: null,
     lat: null,
     lng: null,
-    notes: null,
     photo_url: null,
     photo_lqip: null,
     ...overrides,
@@ -63,22 +62,14 @@ describe("computeAchievements", () => {
     expect(byId(allFour, "range").earned).toBe(true);
   });
 
-  it("never counts drink volume — only distinct venues/notes/weeks, never a raw count of check-ins", () => {
-    // 50 check-ins, all the same venue, same week, no notes — nothing here
-    // should read as "more drinking = more progress" on any badge.
+  it("never counts drink volume — only distinct venues/weeks, never a raw count of check-ins", () => {
+    // 50 check-ins, all the same venue, same week — nothing here should
+    // read as "more drinking = more progress" on any badge.
     const manyEntries = Array.from({ length: 50 }, (_, i) =>
       entry({ created_at: `2026-01-0${(i % 6) + 1}T12:00:00.000Z`, venue: "The Local Taphouse" })
     );
     const achievements = computeAchievements(manyEntries, "UTC");
-    expect(byId(achievements, "chronicler").progress).toBe(0); // no notes were added
     expect(byId(achievements, "cartographer").progress).toBe(1); // one distinct venue, not 50
-  });
-
-  it("earns Chronicler once 20 check-ins have a note", () => {
-    const entries = Array.from({ length: 20 }, (_, i) =>
-      entry({ created_at: "2026-01-01T12:00:00.000Z", notes: `note ${i}` })
-    );
-    expect(byId(computeAchievements(entries, "UTC"), "chronicler").earned).toBe(true);
   });
 
   it("earns Regular by returning to the same venue across 5 distinct weeks", () => {

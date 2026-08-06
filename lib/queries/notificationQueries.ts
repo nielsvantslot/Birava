@@ -30,16 +30,9 @@ export async function hasAnyPushSubscription(userId: string): Promise<boolean> {
 }
 
 export async function getNotificationPreferences(userId: string): Promise<NotificationPreferencesDTO> {
-  const row = await db.user.findUniqueOrThrow({
-    where: { id: userId },
-    select: {
-      notifyCrewCheckin: true,
-      notifyCheer: true,
-      notifyCrewActivity: true,
-      notifyAchievement: true,
-      notifyFollowing: true,
-      notifySessionReminder: true,
-    },
+  const overrides = await db.notificationPreference.findMany({
+    where: { userId },
+    select: { key: true, enabled: true },
   });
-  return NotificationPreferencesMapper.toDTO(row);
+  return NotificationPreferencesMapper.toDTO(overrides);
 }

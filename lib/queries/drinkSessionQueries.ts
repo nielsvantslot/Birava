@@ -3,13 +3,15 @@ import { db } from "@/lib/db";
 import { toDrinkEntry } from "@/lib/mappers";
 import { assembleDrinkSession, type DrinkSession } from "@/lib/sessions";
 import { drinkHistoryTag } from "@/lib/queries/drinkEntryQueries";
-import type { DrinkEntry, DrinkSession as DrinkSessionRow, User } from "@prisma/client";
+import type { DrinkEntry, DrinkSession as DrinkSessionRow, User, Venue } from "@prisma/client";
 
 const SESSION_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+type EntryWithVenue = DrinkEntry & { venue: Pick<Venue, "name" | "lat" | "lng"> | null };
+
 type SessionRowWithRelations = DrinkSessionRow & {
   user: Pick<User, "username" | "avatarUrl">;
-  entries: DrinkEntry[];
+  entries: EntryWithVenue[];
 };
 
 function toDrinkSession(row: SessionRowWithRelations): DrinkSession {
@@ -35,7 +37,7 @@ export async function getSessionById(id: string): Promise<DrinkSession | null> {
     where: { id },
     include: {
       user: { select: { username: true, avatarUrl: true } },
-      entries: { orderBy: { createdAt: "asc" } },
+      entries: { orderBy: { createdAt: "asc" }, include: { venue: { select: { name: true, lat: true, lng: true } } } },
     },
   });
   return row ? toDrinkSession(row) : null;
@@ -122,7 +124,7 @@ export async function getSessionsForUserIds(
         take: options.limit,
         include: {
           user: { select: { username: true, avatarUrl: true } },
-          entries: { orderBy: { createdAt: "asc" } },
+          entries: { orderBy: { createdAt: "asc" }, include: { venue: { select: { name: true, lat: true, lng: true } } } },
         },
       });
       return rows.map(toDrinkSession);
