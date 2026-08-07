@@ -338,3 +338,18 @@ model PushSubscription {
 
   @@index([userId])
 }
+
+/// Fixed-window counters backing lib/rateLimit's PostgresRateLimiter — reused
+/// instead of adding a Redis/Upstash dependency (this app stays on
+/// Neon/Vercel free tiers). Keyed by "<scope>:<identifier>" (e.g.
+/// "login:1.2.3.4", "join-crew:<userId>") so one table serves every
+/// rate-limited route. Pruned by RateLimitBucketPruner, run daily by the
+/// same cron as ClientErrorLog's prune job — a row past its window resets on
+/// its next hit anyway, so nothing past the retention cutoff has any use.
+model RateLimitBucket {
+  key         String   @id
+  count       Int      @default(1)
+  windowStart DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([windowStart])
+}

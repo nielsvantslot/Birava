@@ -37,7 +37,18 @@ test("a notification's actor avatar renders through the private-blob proxy and a
   // Not just ".avatar img" — that also matches the sidebar rail's own avatar
   // link, which shows the same picture and would make this locator resolve
   // to two elements (strict-mode violation).
-  await expect(page.locator('[aria-label="Change profile picture"] img')).toBeVisible({ timeout: 15_000 });
+  //
+  // Retries with a fresh reload rather than a flat wait: lib/auth/proxy-
+  // session.ts's resolveSessionUser keeps a short (a few seconds) in-memory
+  // cache of the session's SessionUserDTO — including avatarUrl — keyed by
+  // token, so the router.refresh() this upload triggers can still observe
+  // the pre-upload snapshot if it lands inside that window. Reloading until
+  // it clears is the same "eventually consistent" shape as the recipient
+  // notification check below, just against a different cache.
+  await expect(async () => {
+    await page.reload();
+    await expect(page.locator('[aria-label="Change profile picture"] img')).toBeVisible({ timeout: 5_000 });
+  }).toPass({ timeout: 15_000 });
 
   // Follow the recipient — queueNotifications (lib/notify.ts) writes the
   // FOLLOW notification via Next's after(), deferred past the response, so

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/session";
 import { NOT_AUTHENTICATED } from "@/lib/auth/authErrors";
+import { RateLimiterFactory } from "@/lib/rateLimit/RateLimiterFactory";
 import {
   createGroup as createGroupCommand,
   joinGroup,
@@ -69,6 +70,13 @@ export async function createGroup(input: CreateGroupDTO): Promise<CreateGroupRes
 export async function joinGroupByInvite(input: JoinGroupDTO): Promise<JoinGroupResultDTO> {
   const user = await getCurrentUser();
   if (!user) return NOT_AUTHENTICATED;
+
+  // 6-char base36 invite codes make brute-forcing impractical at any
+  // reasonable rate, but capping attempts is cheap insurance regardless.
+  const rateLimit = await RateLimiterFactory.create().consume(`join-crew:${user.id}`, 20, 10 * 60 * 1000);
+  if (!rateLimit.allowed) {
+    return { error: "Too many attempts — try again in a few minutes." };
+  }
 
   const result = await joinGroup(user.id, input, {
     username: user.username,
