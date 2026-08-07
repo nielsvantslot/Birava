@@ -5,9 +5,14 @@ import { AuthResultDTO, LoginDTO } from "@/lib/dtos";
 import { RateLimiterFactory } from "@/lib/rateLimit/RateLimiterFactory";
 import { ClientIpResolver } from "@/lib/rateLimit/ClientIpResolver";
 
-// 10 attempts / 5 minutes / IP — slows credential-stuffing and brute force
-// without getting in the way of someone mistyping a password a few times.
-const LOGIN_LIMIT = 10;
+// 30 attempts / 5 minutes / IP — slows credential-stuffing and brute force
+// while staying well clear of real login volume. Raised from an initial 10:
+// the E2E suite logs in from ~10 different specs against a plain localhost
+// server with no reverse proxy, so every request lacks x-forwarded-for and
+// collapses onto one shared "login:unknown" bucket (see the matching note
+// on SIGNUP_LIMIT in app/api/signup/route.ts) — 10 was already exceeded
+// within a single CI run.
+const LOGIN_LIMIT = 30;
 const LOGIN_WINDOW_MS = 5 * 60 * 1000;
 
 export async function POST(request: Request) {
