@@ -14,7 +14,7 @@ flowchart TB
     end
 
     subgraph Edge["middleware.ts — Node runtime"]
-        MW["Session gate<br/>lib/auth/proxy-session.ts"]
+        MW["Session gate + CSP nonce<br/>lib/auth/proxy-session.ts"]
     end
 
     UI -->|fetch| Routes
@@ -26,7 +26,7 @@ flowchart TB
 
     subgraph Routes["Route Handlers — app/api/**/route.ts"]
         direction TB
-        R1["auth/*, signup — no auth check (that's the point)"]
+        R1["auth/*, signup — no auth check (that's the point),<br/>IP rate-limited"]
         R2["uploads/* — photo/avatar direct-upload + plain upload"]
         R3["photos/*, avatars/* — auth-gated blob proxy"]
         R4["sessions/[id]/share-image — recap image"]
@@ -81,6 +81,24 @@ flowchart TB
 ```
 
 **Why two entry points (Routes vs. Actions) instead of one:** Server Actions are the primary path for anything a logged-in client component calls directly (mutations, most reads) — they get Next's built-in CSRF protection and don't need a hand-rolled fetch. Route Handlers exist for what Server Actions can't do: endpoints that need a specific HTTP method/response shape (image bytes, direct-upload tokens), that Content-Type: multipart/JSON bodies (photo uploads), or that are invoked by something other than this app's own client (GitHub Actions cron pings, the browser's own direct-to-Blob PUT).
+
+## Security headers, CSP, and rate limiting
+
+Added 2026-08-07 to close two gaps a pre-launch audit flagged and nothing had addressed since: no security headers at all, and no rate limiting on any unauthenticated endpoint.
+
+**Headers split across two layers, deliberately.** Static, request-independent headers (`X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Strict-Transport-Security`, `Permissions-Policy`) are set once via `next.config.ts`'s `headers()`, applied to every route including `app/api/**` and static assets. `Content-Security-Policy` can't live there because it needs a fresh nonce per request — that's set in `lib/auth/proxy-session.ts` (`lib/security/ContentSecurityPolicyBuilder.ts` builds it) on every response branch, request headers included (Next reads the nonce back off the incoming request to stamp its own inline hydration/RSC-streaming scripts — the documented Next.js pattern for CSP + nonce). Because `middleware.ts`'s matcher already excludes `api/`/static assets, CSP only ever applies to real page navigations, which is the only place it needs to.
+
+`script-src` uses `'strict-dynamic' 'nonce-<per-request>'`, so Next's own inline scripts (and anything they dynamically inject for code-split chunks) stay trusted without `'unsafe-inline'`. `'unsafe-eval'` is added *only* when `NODE_ENV !== "production"` — Next's dev-mode Fast Refresh runtime evals code to apply hot updates; production never does this. `style-src` keeps `'unsafe-inline'` (nonces can't cover `style=""` attributes, which this app uses throughout). `img-src` allowlists `https://*.basemaps.cartocdn.com` (the session map's CARTO tiles, rendered as direct `<image>` hrefs — see `lib/mapProjection.ts`) plus `blob:`/`data:` for client-side photo previews and base64 LQIP placeholders. `connect-src` allowlists `https://nominatim.openstreetmap.org` (reverse geocoding, called directly from `log-drink-form.tsx`).
+
+**Rate limiting is Postgres-backed (`lib/rateLimit/`), not Redis/Upstash** — this app stays on Neon/Vercel free tiers, and Postgres is already provisioned. `RateLimitBucket` (`prisma/schema.prisma`) is a fixed-window counter table, keyed by `"<scope>:<identifier>"`; `PostgresRateLimiter.consume()` is a single atomic `INSERT ... ON CONFLICT` so concurrent requests against the same key serialize on the row instead of racing on a read-then-write increment. `RateLimiterFactory.create()` hands back a shared instance; `ClientIpResolver` reads `x-forwarded-for` (Vercel sets it on every request) for the unauthenticated routes.
+
+| Route | Key | Limit |
+|---|---|---|
+| `POST /api/auth/login` | `login:<ip>` | 10 / 5 min |
+| `POST /api/signup` | `signup:<ip>` | 5 / hour |
+| `joinGroupByInvite` (`lib/controllers/groupController.ts`) | `join-crew:<userId>` | 20 / 10 min |
+
+`RateLimitBucket` rows are pruned by `RateLimitBucketPruner`, run daily inside the existing `prune-client-error-logs` cron (sharing its schedule rather than standing up a second one) — a row past its window has no further use since `PostgresRateLimiter` resets an expired window on its next hit regardless of whether the old row was ever deleted.
 
 ## Offline support (service worker)
 
@@ -168,6 +186,7 @@ Every recurring job runs the same way: a GitHub Actions workflow on a cron sched
 |---|---|---|---|
 | Session reminders | `session-reminders.yml` | `/api/cron/session-reminders` | every 15 min |
 | Orphaned blob cleanup | `cleanup-orphaned-blobs.yml` | `/api/cron/cleanup-orphaned-blobs` | daily |
+| Prune client error logs + rate-limit buckets | `prune-client-error-logs.yml` | `/api/cron/prune-client-error-logs` | daily |
 | Production DB backup | `db-backup.yml` | *(none — see below)* | daily |
 | Backup restore drill | `restore-drill.yml` | *(none — see below)* | monthly |
 

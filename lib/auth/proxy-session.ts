@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { SessionUserMapper } from "@/lib/mappers";
 import { SessionUserDTO } from "@/lib/dtos";
 import { NextResponse, type NextRequest } from "next/server";
+import { ContentSecurityPolicyBuilder } from "@/lib/security/ContentSecurityPolicyBuilder";
 
 /**
  * Carries the already-validated session user from middleware to the RSC render,
@@ -71,6 +72,7 @@ export async function updateSession(request: NextRequest) {
   const token = request.cookies.get("birava_session")?.value;
 
   const dto = token ? await resolveSessionUser(token) : null;
+  const { nonce, headerValue: csp } = ContentSecurityPolicyBuilder.build();
 
   const url = request.nextUrl.clone();
   const isAuthPage =
@@ -84,12 +86,16 @@ export async function updateSession(request: NextRequest) {
 
   if (!dto && !isAuthPage && !isOfflinePage) {
     url.pathname = "/login";
-    return NextResponse.redirect(url);
+    const response = NextResponse.redirect(url);
+    response.headers.set("Content-Security-Policy", csp);
+    return response;
   }
 
   if (dto && isAuthPage) {
     url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
+    const response = NextResponse.redirect(url);
+    response.headers.set("Content-Security-Policy", csp);
+    return response;
   }
 
   const requestHeaders = new Headers(request.headers);
@@ -97,6 +103,13 @@ export async function updateSession(request: NextRequest) {
   if (dto) {
     requestHeaders.set(TRUSTED_USER_HEADER, JSON.stringify(dto));
   }
+  // Forwarded so Next's own renderer can pick the nonce back up and stamp it
+  // onto the framework's inline hydration/RSC-streaming scripts — see
+  // ContentSecurityPolicyBuilder's doc comment.
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", csp);
 
-  return NextResponse.next({ request: { headers: requestHeaders } });
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set("Content-Security-Policy", csp);
+  return response;
 }
