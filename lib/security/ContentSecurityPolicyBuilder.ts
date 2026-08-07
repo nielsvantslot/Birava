@@ -19,6 +19,17 @@ import { ContentSecurityPolicyResult } from "@/lib/security/Models";
  * here that fetch throws "TypeError: Failed to fetch" (confirmed live:
  * connect-src governs fetch() targets regardless of scheme, not just
  * network origins — data:/blob: aren't automatically exempt).
+ * `upgrade-insecure-requests` is scoped to production for the same reason
+ * as 'unsafe-eval' is scoped away from it: local dev (and CI, which runs
+ * against a plain `next dev`) serves everything over plain HTTP on
+ * localhost, and WebKit — confirmed with a real Playwright WebKit browser
+ * against this exact app — enforces the upgrade for every subresource
+ * regardless, rewriting every asset request to `https://localhost:3000/...`
+ * where nothing is listening, breaking the entire page (every script/style/
+ * font request fails with an SSL error). Chrome tolerates plain HTTP on
+ * localhost well enough that this wasn't caught there. Vercel always serves
+ * production over HTTPS anyway, so the directive is a no-op there and only
+ * needs to be present for browsers/proxies that don't already guarantee it.
  */
 export class ContentSecurityPolicyBuilder {
   static build(): ContentSecurityPolicyResult {
@@ -42,8 +53,10 @@ export class ContentSecurityPolicyBuilder {
       "base-uri 'self'",
       "form-action 'self'",
       "frame-ancestors 'none'",
-      "upgrade-insecure-requests",
     ];
+    if (process.env.NODE_ENV === "production") {
+      directives.push("upgrade-insecure-requests");
+    }
 
     return { nonce, headerValue: directives.join("; ") };
   }
