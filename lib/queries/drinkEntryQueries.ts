@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { DrinkEntryMapper, toDrinkEntry } from "@/lib/mappers";
 import { DrinkEntryWithAuthorDTO } from "@/lib/dtos";
 import { getFollowingIds } from "@/lib/queries/followQueries";
+import { VENUE_SELECT } from "@/lib/queries/venueSelect";
 import type { DrinkEntry } from "@/lib/types";
 
 const ENTRY_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -70,7 +71,7 @@ export async function getDrinkHistory(userId: string): Promise<DrinkEntry[]> {
     async () => {
       const entries = await db.drinkEntry.findMany({
         where: { userId },
-        include: { venue: { select: { name: true, lat: true, lng: true } } },
+        include: { venue: VENUE_SELECT },
         orderBy: { createdAt: "asc" },
       });
       return entries.map(toDrinkEntry);
@@ -87,7 +88,7 @@ export async function getDrinkEntryForUser(
 ): Promise<DrinkEntry | null> {
   const entry = await db.drinkEntry.findFirst({
     where: { id, userId },
-    include: { venue: { select: { name: true, lat: true, lng: true } } },
+    include: { venue: VENUE_SELECT },
   });
   return entry ? toDrinkEntry(entry) : null;
 }
@@ -99,7 +100,7 @@ export async function getRecentDrinkHistory(
 ): Promise<DrinkEntry[]> {
   const entries = await db.drinkEntry.findMany({
     where: { userId },
-    include: { venue: { select: { name: true, lat: true, lng: true } } },
+    include: { venue: VENUE_SELECT },
     orderBy: { createdAt: "desc" },
     take: limit,
   });
