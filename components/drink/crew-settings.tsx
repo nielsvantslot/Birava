@@ -11,6 +11,7 @@ import {
 import { showToast } from "@/components/ui/toast-pill";
 import { confirmModal } from "@/components/ui/confirm-modal";
 import { avatarSrc } from "@/lib/utils";
+import { invalidateCachedPages } from "@/lib/swCache";
 
 type CrewRole = "OWNER" | "ADMIN" | "MEMBER";
 
@@ -27,7 +28,7 @@ type BannedCrewMember = {
   avatarUrl: string | null;
 };
 
-type ActionResult = { error?: string };
+type ActionResult = { error?: string; revalidatedPaths?: string[] };
 
 /**
  * Owner/admin-only crew management: visibility, member roles, kicking, and
@@ -60,7 +61,11 @@ export function CrewSettingsPanel({
     setBusyKey(key);
     startTransition(async () => {
       const result = await action();
-      if (result.error) showToast(result.error);
+      if (result.error) {
+        showToast(result.error);
+      } else {
+        invalidateCachedPages([...(result.revalidatedPaths ?? []), `/crews/${crewId}`]);
+      }
       setBusyKey(null);
       router.refresh();
     });

@@ -22,6 +22,16 @@ describe("renameSession", () => {
     expect(session.name).toBe("Friday kickoff");
   });
 
+  it("returns the session's own path for the client to evict its stale service-worker cache", async () => {
+    const owner = await fixtures.createUser();
+    const entry = await fixtures.createDrinkEntry(owner.id);
+    const sessionId = await sessionIdFor(entry.id);
+
+    const result = await renameSession(owner.id, { id: sessionId, name: "Friday kickoff" });
+
+    expect(result.revalidatedPaths).toEqual([`/sessions/${sessionId}`]);
+  });
+
   it("trims whitespace", async () => {
     const owner = await fixtures.createUser();
     const entry = await fixtures.createDrinkEntry(owner.id);

@@ -49,9 +49,12 @@ import {
   DeleteGroupDTO,
 } from "@/lib/dtos";
 
-function revalidateGroupPaths() {
+const GROUP_PATHS = ["/crews"];
+
+function revalidateGroupPaths(): string[] {
   revalidatePath("/crews");
   revalidatePath("/crews", "layout");
+  return GROUP_PATHS;
 }
 
 export async function createGroup(input: CreateGroupDTO): Promise<CreateGroupResultDTO> {
@@ -59,7 +62,7 @@ export async function createGroup(input: CreateGroupDTO): Promise<CreateGroupRes
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await createGroupCommand(user.id, input);
-  if (!result.error) revalidateGroupPaths();
+  if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
   return result;
 }
 
@@ -71,7 +74,7 @@ export async function joinGroupByInvite(input: JoinGroupDTO): Promise<JoinGroupR
     username: user.username,
     avatarUrl: user.avatarUrl,
   });
-  if (!result.error) revalidateGroupPaths();
+  if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
   return result;
 }
 
@@ -80,7 +83,7 @@ export async function leaveGroup(input: LeaveGroupDTO): Promise<ActionResultDTO>
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await leaveGroupCommand(user.id, input);
-  if (!result.error) revalidateGroupPaths();
+  if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
   return result;
 }
 
@@ -89,7 +92,7 @@ export async function setCrewVisibility(input: SetCrewVisibilityDTO): Promise<Ac
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await setCrewVisibilityCommand(user.id, input);
-  if (!result.error) revalidateGroupPaths();
+  if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
   return result;
 }
 
@@ -98,7 +101,7 @@ export async function renameGroup(input: RenameGroupDTO): Promise<ActionResultDT
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await renameGroupCommand(user.id, input);
-  if (!result.error) revalidateGroupPaths();
+  if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
   return result;
 }
 
@@ -107,7 +110,7 @@ export async function regenerateInviteCode(input: RegenerateInviteCodeDTO): Prom
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await regenerateInviteCodeCommand(user.id, input);
-  if (!result.error) revalidateGroupPaths();
+  if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
   return result;
 }
 
@@ -116,7 +119,7 @@ export async function setMemberRole(input: SetMemberRoleDTO): Promise<ActionResu
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await setMemberRoleCommand(user.id, input);
-  if (!result.error) revalidateGroupPaths();
+  if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
   return result;
 }
 
@@ -125,7 +128,7 @@ export async function kickMember(input: KickMemberDTO): Promise<ActionResultDTO>
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await kickMemberCommand(user.id, input);
-  if (!result.error) revalidateGroupPaths();
+  if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
   return result;
 }
 
@@ -134,7 +137,7 @@ export async function unbanMember(input: UnbanMemberDTO): Promise<ActionResultDT
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await unbanMemberCommand(user.id, input);
-  if (!result.error) revalidateGroupPaths();
+  if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
   return result;
 }
 
@@ -158,7 +161,7 @@ export async function respondToCrewInvite(input: RespondToCrewInviteDTO): Promis
   });
   if (!result.error) {
     revalidatePath("/notifications");
-    revalidateGroupPaths();
+    result.revalidatedPaths = ["/notifications", ...revalidateGroupPaths()];
   }
   return result;
 }
@@ -179,7 +182,7 @@ export async function closeGroup(input: CloseGroupDTO): Promise<ActionResultDTO>
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await closeGroupCommand(user.id, input);
-  if (!result.error) revalidateGroupPaths();
+  if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
   return result;
 }
 
@@ -188,7 +191,7 @@ export async function deleteGroup(input: DeleteGroupDTO): Promise<ActionResultDT
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await deleteGroupCommand(user.id, input);
-  if (!result.error) revalidateGroupPaths();
+  if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
   return result;
 }
 
