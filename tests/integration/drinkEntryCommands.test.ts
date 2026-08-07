@@ -50,6 +50,24 @@ describe("createDrinkEntry", () => {
     expect(entry.userId).toBe(userA.id);
     expect(entry.userId).not.toBe(userB.id);
   });
+
+  it("unlocks an achievement the new check-in's own venue newly qualifies for", async () => {
+    const user = await fixtures.createUser();
+    // Local Legend needs 3+ check-ins at the same venue within 90 days —
+    // seed 2 so the 3rd (created via createDrinkEntry itself) is the one
+    // that crosses the threshold.
+    await fixtures.createDrinkEntry(user.id, { venue: "The Local" });
+    await fixtures.createDrinkEntry(user.id, { venue: "The Local" });
+
+    const result = await createDrinkEntry(
+      user.id,
+      { ...emptyPayload, venue: "The Local" },
+      { username: user.username, avatarUrl: user.avatarUrl }
+    );
+
+    expect(result.error).toBeUndefined();
+    expect(result.achievementUnlocked).toBe(true);
+  });
 });
 
 describe("createDrinkEntry venue resolution", () => {

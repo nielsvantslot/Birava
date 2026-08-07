@@ -5,6 +5,7 @@ import {
   type CrewMemberInput,
   type CrewMemberScore,
 } from "@/lib/crews";
+import { VENUE_SELECT } from "@/lib/queries/venueSelect";
 import type { DrinkSession } from "@/lib/sessions";
 
 const memberSelect = {
@@ -68,7 +69,7 @@ export async function getCrewSummariesForUser(
               ),
             },
           },
-          include: { venue: { select: { name: true, lat: true, lng: true } } },
+          include: { venue: VENUE_SELECT },
           orderBy: { createdAt: "asc" },
         });
 

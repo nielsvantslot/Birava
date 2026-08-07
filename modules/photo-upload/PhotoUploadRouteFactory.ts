@@ -10,7 +10,7 @@ export class PhotoUploadRouteFactory {
     return Response.json({ error: "Not authenticated" } satisfies ErrorResponseDto, { status: 401 });
   }
 
-  /** Reads a string field off a parsed JSON body (`Dto/DeletePhotoRequestDto.ts`/`FinalizeUploadRequestDto.ts`'s `url`), without trusting its shape beyond that one field. */
+  /** Reads a string field (e.g. a delete/finalize request body's `url`) off a parsed JSON body, without trusting its shape beyond that one field. */
   private static readStringField(body: Json, key: string): string {
     if (typeof body !== "object" || body === null || Array.isArray(body)) return "";
     const value = body[key];
@@ -56,7 +56,7 @@ export class PhotoUploadRouteFactory {
     };
   }
 
-  /** POST a `DeletePhotoRequestDto` → deletes a previously uploaded photo, scoped to the caller's own namespace. */
+  /** POST `{ url }` → deletes a previously uploaded photo, scoped to the caller's own namespace. */
   static createDeleteRoute<Ctx>(service: IPhotoUploadService, authenticate: Authenticate<Ctx>) {
     return async (request: Request, context: Ctx): Promise<Response> => {
       const user = await authenticate(request, context);
@@ -100,7 +100,7 @@ export class PhotoUploadRouteFactory {
     };
   }
 
-  /** Step 2 of the direct-upload path: POST a `FinalizeUploadRequestDto` (the raw upload's URL) → `UploadResultDto`. */
+  /** Step 2 of the direct-upload path: POST `{ url }` (the raw upload's URL) → `UploadResultDto`. */
   static createFinalizeRoute<Ctx>(service: IPhotoUploadService, authenticate: Authenticate<Ctx>) {
     return async (request: Request, context: Ctx): Promise<Response> => {
       const user = await authenticate(request, context);
