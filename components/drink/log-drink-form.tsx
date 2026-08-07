@@ -13,6 +13,7 @@ import { DRINK_PHOTO_MAX_DIMENSION, DRINK_PHOTO_MAX_UPLOAD_BYTES, drinkPhotoUplo
 import { addPendingCheckin } from "@/lib/offline/pendingCheckins";
 import type { PendingCheckinPhoto } from "@/lib/offline/pendingCheckins";
 import { flushPendingCheckins } from "@/lib/offline/syncPendingCheckins";
+import { invalidateCachedPage } from "@/lib/swCache";
 
 type Coords = { lat: number; lng: number };
 
@@ -278,6 +279,7 @@ export function CheckinForm({
         return;
       }
       showToast("Check-in deleted");
+      invalidateCachedPage("/log");
       router.push("/log");
       router.refresh();
     });
@@ -348,6 +350,7 @@ export function CheckinForm({
       return;
     }
     showToast("Check-in updated");
+    invalidateCachedPage(`/sessions/${entry.session_id}`);
     router.push(`/sessions/${entry.session_id}`);
     router.refresh();
   };

@@ -13,6 +13,7 @@ import {
 } from "@/lib/controllers/groupController";
 import { showToast } from "@/components/ui/toast-pill";
 import { confirmModal } from "@/components/ui/confirm-modal";
+import { invalidateCachedPage } from "@/lib/swCache";
 
 export function CreateCrewForm() {
   const router = useRouter();
@@ -135,6 +136,7 @@ export function LeaveCrewButton({ crewId }: { crewId: string }) {
         return;
       }
       showToast("Left the crew");
+      invalidateCachedPage("/crews");
       router.push("/crews");
       router.refresh();
     });
@@ -203,6 +205,7 @@ export function DeleteCrewButton({ crewId, crewName }: { crewId: string; crewNam
         return;
       }
       showToast("Crew deleted");
+      invalidateCachedPage("/crews");
       router.push("/crews");
       router.refresh();
     });
