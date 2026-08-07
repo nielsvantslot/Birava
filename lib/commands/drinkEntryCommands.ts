@@ -314,7 +314,7 @@ export async function createDrinkEntry(
 
   queueNotifications(events);
 
-  return { achievementUnlocked, id: created.id };
+  return { achievementUnlocked, id: created.id, revalidatedPaths: [`/sessions/${created.sessionId}`] };
 }
 
 export async function updateDrinkEntry(
@@ -356,7 +356,7 @@ export async function updateDrinkEntry(
     await drinkPhotoService.remove(existing.photoUrl, userId);
   }
 
-  return {};
+  return { revalidatedPaths: [`/sessions/${existing.sessionId}`] };
 }
 
 /**
@@ -461,5 +461,5 @@ export async function deleteDrinkEntry(
     await Promise.all(orphanedShareImageUrls.map((url) => shareImageCache.remove(url)));
   }
 
-  return {};
+  return { revalidatedPaths: [`/sessions/${entry.sessionId}`] };
 }

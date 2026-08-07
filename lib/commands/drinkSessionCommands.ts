@@ -28,7 +28,7 @@ export async function renameSession(
     data: { name: trimmed, shareImageOpaqueUrl: null, shareImageTransparentUrl: null },
   });
 
-  return {};
+  return { revalidatedPaths: [`/sessions/${input.id}`] };
 }
 
 /** Persists a freshly rendered share-image pair after a cache miss (the share-image route's only write path). */
