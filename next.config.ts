@@ -1,9 +1,32 @@
 import type { NextConfig } from "next";
 import { HERO_WIDTHS } from "./lib/photoSizes";
 
+const SECURITY_HEADERS = [
+  // CSP is set per-request in lib/auth/proxy-session.ts (needs a fresh nonce
+  // each time) — everything else here is static and safe to apply globally,
+  // including to api/ routes and static assets that middleware's matcher
+  // skips for the CSP/auth pass.
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  // Legacy fallback for browsers that predate CSP's frame-ancestors; nothing
+  // in this app is ever meant to be iframed.
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+  // geolocation: check-in venue capture (log-drink-form.tsx). web-share: the
+  // native share sheet (share-sheet.tsx/social-row.tsx). Everything else this
+  // app never touches.
+  {
+    key: "Permissions-Policy",
+    value: "geolocation=(self), web-share=(self), camera=(), microphone=(), payment=(), usb=()",
+  },
+];
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   turbopack: {},
+  async headers() {
+    return [{ source: "/(.*)", headers: SECURITY_HEADERS }];
+  },
   images: {
     loader: "custom",
     loaderFile: "./lib/imageLoader.ts",
