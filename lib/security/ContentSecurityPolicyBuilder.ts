@@ -13,7 +13,12 @@ import { ContentSecurityPolicyResult } from "@/lib/security/Models";
  * direct `<image>` hrefs (lib/mapProjection.ts), plus blob:/data: for
  * client-side photo previews and base64 LQIP placeholders. `connect-src`
  * allowlists Nominatim, which log-drink-form.tsx calls directly from the
- * browser for reverse geocoding.
+ * browser for reverse geocoding, plus data:/blob: — social-row.tsx's
+ * dataUriToFile() does `fetch(dataUri)` to turn the share-image response
+ * into a File for navigator.share(), and without these two schemes listed
+ * here that fetch throws "TypeError: Failed to fetch" (confirmed live:
+ * connect-src governs fetch() targets regardless of scheme, not just
+ * network origins — data:/blob: aren't automatically exempt).
  */
 export class ContentSecurityPolicyBuilder {
   static build(): ContentSecurityPolicyResult {
@@ -30,7 +35,7 @@ export class ContentSecurityPolicyBuilder {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' blob: data: https://*.basemaps.cartocdn.com",
       "font-src 'self'",
-      "connect-src 'self' https://nominatim.openstreetmap.org",
+      "connect-src 'self' https://nominatim.openstreetmap.org data: blob:",
       "worker-src 'self'",
       "manifest-src 'self'",
       "object-src 'none'",

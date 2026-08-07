@@ -184,13 +184,15 @@ Every recurring job runs the same way: a GitHub Actions workflow on a cron sched
 
 | Job | Workflow | Route | Cadence |
 |---|---|---|---|
-| Session reminders | `session-reminders.yml` | `/api/cron/session-reminders` | every 15 min |
+| Session reminders | `session-reminders.yml` | `/api/cron/session-reminders` | every 15 min (nominal — see below) |
 | Orphaned blob cleanup | `cleanup-orphaned-blobs.yml` | `/api/cron/cleanup-orphaned-blobs` | daily |
 | Prune client error logs + rate-limit buckets | `prune-client-error-logs.yml` | `/api/cron/prune-client-error-logs` | daily |
 | Production DB backup | `db-backup.yml` | *(none — see below)* | daily |
 | Backup restore drill | `restore-drill.yml` | *(none — see below)* | monthly |
 
 **Database backup and its restore drill are the exceptions to the route pattern above**: they run `pg_dump`/`pg_restore`/GPG/Neon-branch-management directly on the GitHub Actions runner instead of hitting a Vercel route, because a serverless function can't shell out to `pg_dump`/`pg_restore` and shouldn't be streaming a multi-minute dump through a request/response cycle anyway. See `docs/database-backups.md`.
+
+**Session reminders got a second, opportunistic trigger (added 2026-08-08)**: GitHub Actions' `schedule` trigger doesn't reliably honor a sub-hourly cadence in practice — observed landing closer to hourly (45-90 min gaps) rather than every 15 minutes, a platform limitation, not a repo config issue. Rather than fight that, `app/(app)/layout.tsx`'s `AppHeaderLoader` (rendered on every authenticated page view) also calls `maybeSendSessionReminders()` (`lib/commands/sessionReminderCommands.ts`) via `after()`, so real app traffic — not just the external cron — can fire the check. It reuses `RateLimiterFactory`'s Postgres-backed fixed-window counter purely as a distributed "has it been 15 minutes since the last tick" debounce: whichever of potentially many concurrent requests hits it first wins the race and runs the real check; everyone else's call that window is a cheap no-op. The GitHub Actions cron stays in place as a backstop for near-zero-traffic windows (e.g. overnight) — this isn't a replacement, it's a second, more-reliable path that happens to require zero new infrastructure since it's built entirely on the rate-limiting table already added for security headers/rate limiting (see above).
 
 ## Venue extraction (complete — expand/contract migration)
 
