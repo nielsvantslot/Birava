@@ -37,6 +37,18 @@ describe("createDrinkEntry", () => {
     expect(stored.venue?.name).toBe("Café Gollem");
   });
 
+  it("returns the new entry's session path for the client to evict its stale service-worker cache", async () => {
+    const user = await fixtures.createUser();
+
+    const result = await createDrinkEntry(user.id, emptyPayload, {
+      username: user.username,
+      avatarUrl: user.avatarUrl,
+    });
+
+    const entry = await db.drinkEntry.findUniqueOrThrow({ where: { id: result.id! } });
+    expect(result.revalidatedPaths).toEqual([`/sessions/${entry.sessionId}`]);
+  });
+
   it("never attributes a new entry to a different user", async () => {
     const userA = await fixtures.createUser();
     const userB = await fixtures.createUser();
@@ -168,6 +180,16 @@ describe("updateDrinkEntry", () => {
     expect(updated.drinkType).toBe("Wine");
   });
 
+  it("returns the entry's session path for the client to evict its stale service-worker cache", async () => {
+    const owner = await fixtures.createUser();
+    const entry = await fixtures.createDrinkEntry(owner.id);
+    const sessionId = (await db.drinkEntry.findUniqueOrThrow({ where: { id: entry.id } })).sessionId;
+
+    const result = await updateDrinkEntry(owner.id, { ...emptyPayload, id: entry.id, drinkName: "Updated" });
+
+    expect(result.revalidatedPaths).toEqual([`/sessions/${sessionId}`]);
+  });
+
   it("refuses to update another user's entry", async () => {
     const owner = await fixtures.createUser();
     const attacker = await fixtures.createUser();
@@ -195,6 +217,16 @@ describe("deleteDrinkEntry", () => {
     expect(result.error).toBeUndefined();
     const stillThere = await db.drinkEntry.findUnique({ where: { id: entry.id } });
     expect(stillThere).toBeNull();
+  });
+
+  it("returns the entry's (pre-delete) session path for the client to evict its stale service-worker cache", async () => {
+    const owner = await fixtures.createUser();
+    const entry = await fixtures.createDrinkEntry(owner.id);
+    const sessionId = (await db.drinkEntry.findUniqueOrThrow({ where: { id: entry.id } })).sessionId;
+
+    const result = await deleteDrinkEntry(owner.id, { id: entry.id });
+
+    expect(result.revalidatedPaths).toEqual([`/sessions/${sessionId}`]);
   });
 
   it("leaves another user's entry alone when the id doesn't belong to the caller", async () => {

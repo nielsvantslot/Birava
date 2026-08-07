@@ -13,7 +13,7 @@ import {
 } from "@/lib/controllers/groupController";
 import { showToast } from "@/components/ui/toast-pill";
 import { confirmModal } from "@/components/ui/confirm-modal";
-import { invalidateCachedPage } from "@/lib/swCache";
+import { invalidateCachedPages } from "@/lib/swCache";
 
 export function CreateCrewForm() {
   const router = useRouter();
@@ -33,6 +33,7 @@ export function CreateCrewForm() {
       }
       showToast(`Crew created — share code ${result.inviteCode}`);
       setName("");
+      invalidateCachedPages(result.revalidatedPaths ?? []);
       router.refresh();
     });
   };
@@ -79,6 +80,7 @@ export function JoinCrewForm() {
       }
       showToast(`Joined ${result.groupName} — you're ranked from today`);
       setCode("");
+      invalidateCachedPages(result.revalidatedPaths ?? []);
       router.refresh();
     });
   };
@@ -136,7 +138,7 @@ export function LeaveCrewButton({ crewId }: { crewId: string }) {
         return;
       }
       showToast("Left the crew");
-      invalidateCachedPage("/crews");
+      invalidateCachedPages(result.revalidatedPaths ?? []);
       router.push("/crews");
       router.refresh();
     });
@@ -169,6 +171,7 @@ export function CloseCrewButton({ crewId }: { crewId: string }) {
         return;
       }
       showToast("Crew closed");
+      invalidateCachedPages([...(result.revalidatedPaths ?? []), `/crews/${crewId}`]);
       router.refresh();
     });
   };
@@ -205,7 +208,7 @@ export function DeleteCrewButton({ crewId, crewName }: { crewId: string; crewNam
         return;
       }
       showToast("Crew deleted");
-      invalidateCachedPage("/crews");
+      invalidateCachedPages(result.revalidatedPaths ?? []);
       router.push("/crews");
       router.refresh();
     });
@@ -239,6 +242,7 @@ export function RenameCrewForm({ crewId, name }: { crewId: string; name: string 
         return;
       }
       showToast("Crew renamed");
+      invalidateCachedPages([...(result.revalidatedPaths ?? []), `/crews/${crewId}`]);
       router.refresh();
     });
   };
@@ -287,6 +291,7 @@ export function RegenerateInviteCodeButton({ crewId }: { crewId: string }) {
         return;
       }
       showToast(`New code ${result.inviteCode} — share it with the crew`);
+      invalidateCachedPages([...(result.revalidatedPaths ?? []), `/crews/${crewId}`]);
       router.refresh();
     });
   };
