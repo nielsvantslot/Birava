@@ -1,10 +1,10 @@
 import { db } from "@/lib/db";
 import {
   scoreCrew,
-  getCrewBoard,
   type CrewMemberInput,
   type CrewMemberScore,
 } from "@/lib/crews";
+import { getSessionsForUserIds } from "@/lib/queries/drinkSessionQueries";
 import { VENUE_SELECT } from "@/lib/queries/venueSelect";
 import type { DrinkSession } from "@/lib/sessions";
 
@@ -119,6 +119,35 @@ export type CrewDetail = {
   recentSessions: DrinkSession[];
 };
 
+/**
+ * The board's "recent sessions" — real, DB-backed DrinkSession rows, not
+ * groupIntoSessions()'s in-memory recomputation. A session's id is
+ * permanent from creation and can drift from what that recomputation would
+ * derive after a backdated check-in triggers a merge/split (CLAUDE.md's
+ * locked session-id invariant) — this page links to `/sessions/[id]`, so it
+ * must go through the stored id, unlike scoreCrew()'s own `recentSessions`
+ * (aggregate-only, never exposed as a link, still fine to compute in-memory
+ * for pure/tested scoring).
+ *
+ * Overfetches past the eventual 4-item slice since some fetched sessions
+ * won't overlap a given member's crew window and get filtered out below.
+ */
+async function getRecentCrewSessions(
+  members: CrewMemberInput[],
+  closedAt: Date | null
+): Promise<DrinkSession[]> {
+  const joinedAt = new Map(members.map((m) => [m.userId, m.joinedAt]));
+  const cutoff = closedAt ?? new Date();
+
+  const sessions = await getSessionsForUserIds(members.map((m) => m.userId), { limit: 20 });
+  return sessions
+    .filter((s) => {
+      const joined = joinedAt.get(s.userId);
+      return joined !== undefined && new Date(s.start) <= cutoff && new Date(s.end) >= joined;
+    })
+    .slice(0, 4);
+}
+
 /** A crew's board for a viewer who must be a member — otherwise null (→ 404). */
 export async function getCrewDetailForViewer(
   crewId: string,
@@ -132,13 +161,24 @@ export async function getCrewDetailForViewer(
   const viewer = crew.members.find((m) => m.userId === viewerId);
   if (!viewer) return null;
 
-  const [{ scores, recentSessions }, bans] = await Promise.all([
-    getCrewBoard(toMemberInputs(crew.members), crew.closedAt),
+  const members = toMemberInputs(crew.members);
+  const earliest = new Date(Math.min(...members.map((m) => m.joinedAt.getTime())));
+  const [entryRows, recentSessions, bans] = await Promise.all([
+    db.drinkEntry.findMany({
+      where: {
+        userId: { in: members.map((m) => m.userId) },
+        createdAt: { gte: earliest, ...(crew.closedAt ? { lte: crew.closedAt } : {}) },
+      },
+      orderBy: { createdAt: "asc" },
+      include: { venue: VENUE_SELECT },
+    }),
+    getRecentCrewSessions(members, crew.closedAt),
     db.groupBan.findMany({
       where: { groupId: crewId },
       include: { user: { select: { username: true, avatarUrl: true } } },
     }),
   ]);
+  const { scores } = scoreCrew(members, entryRows, crew.closedAt);
 
   return {
     id: crew.id,

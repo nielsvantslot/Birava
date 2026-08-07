@@ -1,5 +1,4 @@
 import type { DrinkEntry } from "@prisma/client";
-import { db } from "@/lib/db";
 import { toDrinkEntry } from "@/lib/mappers";
 import { DrinkSession, groupIntoSessions } from "@/lib/sessions";
 
@@ -88,29 +87,4 @@ export function scoreCrew(
   }));
 
   return { scores, recentSessions };
-}
-
-/**
- * Board for a single crew — fetches that crew's since-earliest-join
- * check-ins and scores them. The member list is supplied by the caller,
- * which has already loaded it (so no per-crew re-query of members).
- */
-export async function getCrewBoard(
-  members: CrewMemberInput[],
-  closedAt: Date | null = null
-): Promise<CrewBoard> {
-  if (members.length === 0) return { scores: [], recentSessions: [] };
-
-  const earliest = new Date(
-    Math.min(...members.map((m) => m.joinedAt.getTime()))
-  );
-  const rows = await db.drinkEntry.findMany({
-    where: {
-      userId: { in: members.map((m) => m.userId) },
-      createdAt: { gte: earliest, ...(closedAt ? { lte: closedAt } : {}) },
-    },
-    orderBy: { createdAt: "asc" },
-  });
-
-  return scoreCrew(members, rows, closedAt);
 }
