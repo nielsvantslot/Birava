@@ -63,7 +63,7 @@ async function PushNudgeLoader() {
         <b>Get notified instantly</b>
         <p>
           Turn on push notifications so you don&apos;t have to check back.{" "}
-          <Link href="/settings/notifications#push-notifications" style={{ color: "var(--accent)", fontWeight: 700 }}>
+          <Link href="/settings/notifications#push-notifications" style={{ color: "var(--accent)", fontWeight: 700 }} prefetch={false}>
             Turn on
           </Link>
         </p>
@@ -123,6 +123,7 @@ async function NotificationListLoader() {
               href={n.href}
               className={cn("row", !n.read && "unread")}
               style={{ textDecoration: "none", color: "inherit" }}
+              prefetch={false}
             >
               {avatar}
               <div className="grow">

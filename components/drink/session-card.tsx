@@ -11,6 +11,7 @@ import { avatarSrc, drinkPhotoSrc } from "@/lib/utils";
 import { Minimap } from "@/components/drink/minimap";
 import { SocialActs } from "@/components/drink/social-row";
 import { CheckinExpander } from "@/components/drink/checkin-expander";
+import { LocalLegendCallout } from "@/components/drink/local-legend-callout";
 
 function initials(name: string): string {
   return name.slice(0, 2).toUpperCase();
@@ -22,7 +23,7 @@ function duration(minutes: number): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-function DurationNum({ minutes }: { minutes: number }) {
+export function DurationNum({ minutes }: { minutes: number }) {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return (
@@ -120,7 +121,11 @@ export function SessionCard({
 
   return (
     <div className="section flush">
-      <Link className="who" href={`/profile/${session.username}`}>
+      {/* prefetch={false} on both links below: the feed can render many of
+          these cards at once, and staleTimes.dynamic is 0 (next.config.ts),
+          so prefetching every visible card's profile/session link on scroll
+          is pure waste. */}
+      <Link className="who" href={`/profile/${session.username}`} prefetch={false}>
         <div className="avatar">
           {session.avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -135,7 +140,7 @@ export function SessionCard({
         </div>
       </Link>
 
-      <Link className="act-title-link" href={`/sessions/${session.id}`}>
+      <Link className="act-title-link" href={`/sessions/${session.id}`} prefetch={false}>
         <div className="act-title">
           {title}
           <span className="chev-in">›</span>
@@ -206,12 +211,8 @@ export function SessionCard({
           </span>
         </div>
       )}
-      {lone && checkins[0].notes?.trim() && (
-        <p className="checkin-note">{checkins[0].notes}</p>
-      )}
-
       {!lone && routePoints.length >= 2 && multiVenue && (
-        <Link className="routechip" href={`/sessions/${session.id}`}>
+        <Link className="routechip" href={`/sessions/${session.id}`} prefetch={false}>
           <Minimap points={routePoints} />
           <div className="grow">
             <b>
@@ -225,28 +226,7 @@ export function SessionCard({
         </Link>
       )}
 
-      {showLegend && (
-        <div className="callout">
-          <div className="mark">
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 3l2.2 4.6 5 .7-3.6 3.6.9 5.1L12 14.6 7.5 17l.9-5.1L4.8 8.3l5-.7z"></path>
-            </svg>
-          </div>
-          <div>
-            <b>Local Legend — {legendVenue}</b>
-            <p>You have the most check-ins here in the last 90 days.</p>
-          </div>
-        </div>
-      )}
+      {showLegend && legendVenue && <LocalLegendCallout venue={legendVenue} />}
 
       {!lone && (
         <CheckinExpander count={checkins.length}>

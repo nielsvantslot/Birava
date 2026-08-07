@@ -3,6 +3,8 @@ import { Archivo, Source_Serif_4 } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
+import { SwRevalidateListener } from "@/components/sw-revalidate-listener";
+import { ClientErrorReporter } from "@/components/client-error-reporter";
 
 const archivo = Archivo({
   subsets: ["latin"],
@@ -13,7 +15,6 @@ const archivo = Archivo({
 const sourceSerif = Source_Serif_4({
   subsets: ["latin"],
   variable: "--font-source-serif",
-  style: ["normal", "italic"],
 });
 
 const isStaging = process.env.VERCEL_ENV === "preview";
@@ -63,6 +64,8 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col font-sans">
         <ServiceWorkerRegistration />
+        <SwRevalidateListener />
+        <ClientErrorReporter />
         {children}
         <SpeedInsights />
       </body>

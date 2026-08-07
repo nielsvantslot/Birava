@@ -7,11 +7,10 @@ const fixtures = new DrinkEntryFixtureFactory(db);
 
 const emptyPayload = {
   drinkName: null,
-  drinkType: "Beer",
+  drinkType: "Beer" as const,
   venue: null,
   lat: null,
   lng: null,
-  notes: null,
   photoUrl: null,
   photoLqip: null,
 };
@@ -29,10 +28,13 @@ describe("createDrinkEntry", () => {
     expect(result.error).toBeUndefined();
     expect(result.id).toBeTruthy();
 
-    const stored = await db.drinkEntry.findUniqueOrThrow({ where: { id: result.id! } });
+    const stored = await db.drinkEntry.findUniqueOrThrow({
+      where: { id: result.id! },
+      include: { venue: true },
+    });
     expect(stored.userId).toBe(user.id);
     expect(stored.drinkName).toBe("Westmalle Tripel");
-    expect(stored.venue).toBe("Café Gollem");
+    expect(stored.venue?.name).toBe("Café Gollem");
   });
 
   it("never attributes a new entry to a different user", async () => {
@@ -47,6 +49,103 @@ describe("createDrinkEntry", () => {
     const entry = await db.drinkEntry.findUniqueOrThrow({ where: { id: result.id! } });
     expect(entry.userId).toBe(userA.id);
     expect(entry.userId).not.toBe(userB.id);
+  });
+
+  it("unlocks an achievement the new check-in's own venue newly qualifies for", async () => {
+    const user = await fixtures.createUser();
+    // Local Legend needs 3+ check-ins at the same venue within 90 days —
+    // seed 2 so the 3rd (created via createDrinkEntry itself) is the one
+    // that crosses the threshold.
+    await fixtures.createDrinkEntry(user.id, { venue: "The Local" });
+    await fixtures.createDrinkEntry(user.id, { venue: "The Local" });
+
+    const result = await createDrinkEntry(
+      user.id,
+      { ...emptyPayload, venue: "The Local" },
+      { username: user.username, avatarUrl: user.avatarUrl }
+    );
+
+    expect(result.error).toBeUndefined();
+    expect(result.achievementUnlocked).toBe(true);
+  });
+});
+
+describe("createDrinkEntry venue resolution", () => {
+  it("reuses the same Venue for a repeat visit with matching name and coordinates", async () => {
+    const user = await fixtures.createUser();
+    const base = { ...emptyPayload, venue: "Café Gollem", lat: 52.3648, lng: 4.889 };
+
+    const first = await createDrinkEntry(user.id, base, { username: user.username, avatarUrl: user.avatarUrl });
+    const second = await createDrinkEntry(user.id, base, { username: user.username, avatarUrl: user.avatarUrl });
+
+    const [entry1, entry2] = await Promise.all([
+      db.drinkEntry.findUniqueOrThrow({ where: { id: first.id! } }),
+      db.drinkEntry.findUniqueOrThrow({ where: { id: second.id! } }),
+    ]);
+    expect(entry1.venueId).not.toBeNull();
+    expect(entry2.venueId).toBe(entry1.venueId);
+
+    const venueCount = await db.venue.count({ where: { name: "Café Gollem" } });
+    expect(venueCount).toBe(1);
+  });
+
+  it("creates separate Venues for the same name at very different coordinates", async () => {
+    const user = await fixtures.createUser();
+
+    const first = await createDrinkEntry(
+      user.id,
+      { ...emptyPayload, venue: "Café Gollem", lat: 52.3648, lng: 4.889 },
+      { username: user.username, avatarUrl: user.avatarUrl }
+    );
+    const second = await createDrinkEntry(
+      user.id,
+      { ...emptyPayload, venue: "Café Gollem", lat: 40.7128, lng: -74.006 }, // a different city entirely
+      { username: user.username, avatarUrl: user.avatarUrl }
+    );
+
+    const [entry1, entry2] = await Promise.all([
+      db.drinkEntry.findUniqueOrThrow({ where: { id: first.id! } }),
+      db.drinkEntry.findUniqueOrThrow({ where: { id: second.id! } }),
+    ]);
+    expect(entry1.venueId).not.toBe(entry2.venueId);
+  });
+
+  it("matches an existing Venue by name alone when the new check-in has no coordinates, and backfills its coordinates", async () => {
+    const user = await fixtures.createUser();
+
+    const first = await createDrinkEntry(
+      user.id,
+      { ...emptyPayload, venue: "Café Gollem", lat: 52.3648, lng: 4.889 },
+      { username: user.username, avatarUrl: user.avatarUrl }
+    );
+    const second = await createDrinkEntry(
+      user.id,
+      { ...emptyPayload, venue: "café gollem" }, // no GPS this time, different casing
+      { username: user.username, avatarUrl: user.avatarUrl }
+    );
+
+    const entry1 = await db.drinkEntry.findUniqueOrThrow({ where: { id: first.id! } });
+    const entry2 = await db.drinkEntry.findUniqueOrThrow({ where: { id: second.id! } });
+    expect(entry2.venueId).toBe(entry1.venueId);
+  });
+
+  it("backfills a name-only Venue's coordinates once a later check-in provides them", async () => {
+    const user = await fixtures.createUser();
+
+    const first = await createDrinkEntry(
+      user.id,
+      { ...emptyPayload, venue: "New Spot" }, // no GPS
+      { username: user.username, avatarUrl: user.avatarUrl }
+    );
+    await createDrinkEntry(
+      user.id,
+      { ...emptyPayload, venue: "New Spot", lat: 52.37, lng: 4.9 },
+      { username: user.username, avatarUrl: user.avatarUrl }
+    );
+
+    const entry1 = await db.drinkEntry.findUniqueOrThrow({ where: { id: first.id! } });
+    const venue = await db.venue.findUniqueOrThrow({ where: { id: entry1.venueId! } });
+    expect(venue.lat).not.toBeNull();
   });
 });
 

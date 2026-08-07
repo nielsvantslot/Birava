@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { db } from "@/lib/db";
-import { NotificationMapper } from "@/lib/mappers";
+import { NotificationMapper, NotificationPreferencesMapper } from "@/lib/mappers";
 import type { NotificationDTO, NotificationPreferencesDTO } from "@/lib/dtos";
 
 export async function getNotifications(
@@ -30,15 +30,9 @@ export async function hasAnyPushSubscription(userId: string): Promise<boolean> {
 }
 
 export async function getNotificationPreferences(userId: string): Promise<NotificationPreferencesDTO> {
-  return db.user.findUniqueOrThrow({
-    where: { id: userId },
-    select: {
-      notifyCrewCheckin: true,
-      notifyCheer: true,
-      notifyCrewActivity: true,
-      notifyAchievement: true,
-      notifyFollowing: true,
-      notifySessionReminder: true,
-    },
+  const overrides = await db.notificationPreference.findMany({
+    where: { userId },
+    select: { key: true, enabled: true },
   });
+  return NotificationPreferencesMapper.toDTO(overrides);
 }

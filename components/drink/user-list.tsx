@@ -24,6 +24,9 @@ export function UserList({ users, currentUserId, followingIds, emptyMessage }: U
     <>
       {users.map((u) => (
         <div className="row" key={u.id}>
+          {/* prefetch={false}: staleTimes.dynamic is 0 (next.config.ts), so
+              prefetching every listed user's profile on render is pure
+              waste. */}
           <Link
             href={`/profile/${u.username}`}
             style={{
@@ -35,11 +38,12 @@ export function UserList({ users, currentUserId, followingIds, emptyMessage }: U
               textDecoration: "none",
               color: "inherit",
             }}
+            prefetch={false}
           >
             <div className="avatar">
               {u.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarSrc(u.id)} alt={u.username} />
+                <img src={avatarSrc(u.id)} alt={u.username} loading="lazy" decoding="async" />
               ) : (
                 u.username.slice(0, 2).toUpperCase()
               )}

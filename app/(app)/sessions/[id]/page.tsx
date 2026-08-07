@@ -23,6 +23,8 @@ import { SessionTitle } from "@/components/drink/session-title";
 import { SocialActs } from "@/components/drink/social-row";
 import { CheckinGrid } from "@/components/drink/checkin-grid";
 import { CommentsSection } from "@/components/drink/comments-section";
+import { DurationNum } from "@/components/drink/session-card";
+import { LocalLegendCallout } from "@/components/drink/local-legend-callout";
 import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 
 type VenueGroup = { venue: string | null; checkins: DrinkEntry[] };
@@ -85,7 +87,7 @@ export default async function SessionDetailPage({
     <>
       {/* who + serif title + full stat row */}
       <div className="section flush">
-        <Link className="who" href={`/profile/${session.username}`}>
+        <Link className="who" href={`/profile/${session.username}`} prefetch={false}>
           <div className="avatar">
             {session.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -122,20 +124,7 @@ export default async function SessionDetailPage({
               </div>
               <div className="stat">
                 <div className="label">Out for</div>
-                <div className="num">
-                  {minutes >= 60 ? (
-                    <>
-                      {Math.floor(minutes / 60)}
-                      <small>h</small> {minutes % 60}
-                      <small>m</small>
-                    </>
-                  ) : (
-                    <>
-                      {minutes}
-                      <small>m</small>
-                    </>
-                  )}
-                </div>
+                <DurationNum minutes={minutes} />
               </div>
             </div>
           </div>
@@ -251,29 +240,7 @@ async function MapAndLegendLoader({
 
       {legendVenue && (
         <div className="section flush" style={{ padding: "16px 0" }}>
-          <div className="callout">
-            <div className="mark">
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 3l2.2 4.6 5 .7-3.6 3.6.9 5.1L12 14.6 7.5 17l.9-5.1L4.8 8.3l5-.7z"></path>
-              </svg>
-            </div>
-            <div>
-              <b>Local Legend — {legendVenue}</b>
-              <p>
-                You have more check-ins here than anyone else in the last 90
-                days. Hold the lead to keep the crown.
-              </p>
-            </div>
-          </div>
+          <LocalLegendCallout venue={legendVenue} detailed />
         </div>
       )}
     </>

@@ -1,6 +1,12 @@
 import { DrinkEntry, DRINK_TYPES } from "@/lib/types";
-import { groupIntoSessions, getLocalLegendVenue } from "@/lib/sessions";
+import { countSessions, getLocalLegendVenue } from "@/lib/sessions";
 import { weekIndex } from "@/lib/dates";
+
+/** Every field computeAchievements/earnedIds actually read — callers with the full DrinkEntry shape still satisfy this. */
+type AchievementEntry = Pick<
+  DrinkEntry,
+  "user_id" | "created_at" | "drink_type" | "venue"
+>;
 
 /**
  * Every badge rewards variety — new types, venues, places — never how
@@ -11,7 +17,6 @@ export type AchievementIcon =
   | "pin"
   | "badge"
   | "glass"
-  | "pen"
   | "repeat";
 
 export type VarietyAchievement = {
@@ -27,16 +32,15 @@ export type VarietyAchievement = {
 };
 
 export function computeAchievements(
-  entries: DrinkEntry[],
+  entries: AchievementEntry[],
   tz: string
 ): VarietyAchievement[] {
-  const sessions = groupIntoSessions(entries);
+  const sessionCount = countSessions(entries);
 
   const types = new Set(entries.map((e) => e.drink_type).filter(Boolean));
   const venues = new Set(
     entries.map((e) => e.venue?.trim()).filter((v): v is string => !!v)
   );
-  const notes = entries.filter((e) => e.notes?.trim()).length;
   const legendVenue = getLocalLegendVenue(entries);
 
   // Regular: distinct calendar weeks per venue, best venue counts
@@ -59,7 +63,6 @@ export function computeAchievements(
 
   const range = Math.min(types.size, DRINK_TYPES.length);
   const cartographer = Math.min(venues.size, 25);
-  const chronicler = Math.min(notes, 20);
   const regular = Math.min(regularWeeks, 5);
 
   return [
@@ -68,10 +71,10 @@ export function computeAchievements(
       label: "First Round",
       description: "Log your very first session.",
       icon: "glass",
-      progress: Math.min(sessions.length, 1),
+      progress: Math.min(sessionCount, 1),
       goal: 1,
-      earned: sessions.length >= 1,
-      progressText: sessions.length >= 1 ? "Earned" : "0 of 1 sessions",
+      earned: sessionCount >= 1,
+      progressText: sessionCount >= 1 ? "Earned" : "0 of 1 sessions",
     },
     {
       id: "range",
@@ -111,17 +114,6 @@ export function computeAchievements(
       progressText: legendVenue ? `Earned · ${legendVenue}` : "Not yet earned",
     },
     {
-      id: "chronicler",
-      label: "Chronicler",
-      description: "Add a written note to 20 check-ins.",
-      icon: "pen",
-      progress: chronicler,
-      goal: 20,
-      earned: notes >= 20,
-      progressText:
-        notes >= 20 ? `Earned · ${notes} notes` : `${notes} of 20 notes`,
-    },
-    {
       id: "regular",
       label: "Regular",
       description: "Return to the same venue in 5 different weeks.",
@@ -137,7 +129,7 @@ export function computeAchievements(
   ];
 }
 
-export function earnedIds(entries: DrinkEntry[], tz: string): Set<string> {
+export function earnedIds(entries: AchievementEntry[], tz: string): Set<string> {
   return new Set(
     computeAchievements(entries, tz)
       .filter((a) => a.earned)

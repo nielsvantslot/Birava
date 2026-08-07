@@ -69,7 +69,7 @@ async function FeedLoader({ userId, showOnlyOwn }: { userId: string; showOnlyOwn
         <p style={{ fontSize: 14, color: "var(--ink-dim)", marginBottom: 20 }}>
           Log a drink and your first session starts here.
         </p>
-        <Link className="btn btn-primary" href="/log">
+        <Link className="btn btn-primary" href="/log" prefetch={false}>
           Log a drink
         </Link>
       </div>

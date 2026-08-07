@@ -7,11 +7,10 @@ const fixtures = new DrinkEntryFixtureFactory(db);
 
 const emptyPayload = {
   drinkName: null,
-  drinkType: "Beer",
+  drinkType: "Beer" as const,
   venue: null,
   lat: null,
   lng: null,
-  notes: null,
   photoUrl: null,
   photoLqip: null,
 };

@@ -4,11 +4,11 @@ import { db } from "@/lib/db";
 import { computeAchievements } from "@/lib/achievements";
 import { SESSION_GAP_MS, MAX_BACKDATE_MS } from "@/lib/sessions";
 import { getUserTimeZone } from "@/lib/timezone";
-import { toDrinkEntry } from "@/lib/mappers";
 import { drinkPhotoService } from "@/lib/photoUpload";
 import { shareImageCache } from "@/lib/shareImageCache";
 import { getFollowerIds } from "@/lib/queries/followQueries";
 import { queueNotifications, type NotificationEvent } from "@/lib/notify";
+import { resolveVenueId } from "@/lib/commands/venueCommands";
 import {
   ActionResultDTO,
   AddDrinkResultDTO,
@@ -172,8 +172,20 @@ export async function createDrinkEntry(
 ): Promise<AddDrinkResultDTO> {
   const tz = await getUserTimeZone();
   // Read history once; the "after" set is provably "before + the new row",
-  // so there's no need for a second full-table scan.
-  const before = await db.drinkEntry.findMany({ where: { userId } });
+  // so there's no need for a second full-table scan. This runs on every
+  // check-in write and can't use getDrinkHistory's 60s cache (it needs
+  // fresh pre-write state), so unlike the cached read paths it pays this
+  // cost in full every time — select only what computeAchievements/
+  // countSessions actually read (lib/achievements.ts), not every column.
+  const before = await db.drinkEntry.findMany({
+    where: { userId },
+    select: {
+      userId: true,
+      createdAt: true,
+      drinkType: true,
+      venue: { select: { name: true } },
+    },
+  });
 
   const createdAt = resolveCreatedAt(input.createdAt);
   const entryId = randomUUID();
@@ -191,6 +203,7 @@ export async function createDrinkEntry(
       // (auto-released at commit/rollback) without blocking other users.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
       const assignment = await assignSessionForNewEntry(tx, userId, entryId, createdAt);
+      const venueId = await resolveVenueId(tx, input.venue, input.lat, input.lng);
       const entry = await tx.drinkEntry.create({
         data: {
           id: entryId,
@@ -198,10 +211,7 @@ export async function createDrinkEntry(
           sessionId: assignment.sessionId,
           drinkName: input.drinkName,
           drinkType: input.drinkType,
-          venue: input.venue,
-          lat: input.lat,
-          lng: input.lng,
-          notes: input.notes,
+          venueId,
           photoUrl: input.photoUrl,
           photoLqip: input.photoLqip,
           createdAt,
@@ -222,13 +232,29 @@ export async function createDrinkEntry(
     return { error: "Failed to save check-in." };
   }
 
-  const beforeEntries = before.map(toDrinkEntry);
+  const beforeEntries = before.map((e) => ({
+    user_id: e.userId,
+    created_at: e.createdAt.toISOString(),
+    drink_type: e.drinkType,
+    venue: e.venue?.name ?? null,
+  }));
   const earnedBefore = new Set(
     computeAchievements(beforeEntries, tz)
       .filter((a) => a.earned)
       .map((a) => a.id)
   );
-  const newlyEarned = computeAchievements([...beforeEntries, toDrinkEntry(created)], tz).filter(
+  // Built from `input.venue` (the name string, not `created`) since `created`
+  // comes back from `tx.drinkEntry.create` with no venue include — Prisma
+  // silently returns `undefined` for a relation that isn't included, which
+  // would otherwise make a check-in's own new venue invisible to the
+  // achievement diff that's supposed to just-unlock on it.
+  const afterEntry = {
+    user_id: created.userId,
+    created_at: created.createdAt.toISOString(),
+    drink_type: created.drinkType,
+    venue: input.venue,
+  };
+  const newlyEarned = computeAchievements([...beforeEntries, afterEntry], tz).filter(
     (a) => a.earned && !earnedBefore.has(a.id)
   );
   const achievementUnlocked = newlyEarned.length > 0;
@@ -303,15 +329,13 @@ export async function updateDrinkEntry(
 
   try {
     await db.$transaction(async (tx) => {
+      const venueId = await resolveVenueId(tx, input.venue, input.lat, input.lng);
       await tx.drinkEntry.updateMany({
         where: { id: input.id, userId },
         data: {
           drinkName: input.drinkName,
           drinkType: input.drinkType,
-          venue: input.venue,
-          lat: input.lat,
-          lng: input.lng,
-          notes: input.notes,
+          venueId,
           photoUrl: input.photoUrl,
           photoLqip: input.photoLqip,
         },

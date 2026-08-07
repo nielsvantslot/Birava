@@ -1,4 +1,5 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import type { Json } from "../Models";
 import type { HandleTokenRequestInput, IDirectUploadCoordinator } from "./IDirectUploadCoordinator";
 import type { VercelBlobDirectUploadCoordinatorConfig } from "./VercelBlobDirectUploadCoordinatorConfig";
 
@@ -17,10 +18,19 @@ import type { VercelBlobDirectUploadCoordinatorConfig } from "./VercelBlobDirect
 export class VercelBlobDirectUploadCoordinator implements IDirectUploadCoordinator {
   constructor(private readonly config: VercelBlobDirectUploadCoordinatorConfig = {}) {}
 
-  async handleTokenRequest(input: HandleTokenRequestInput): Promise<unknown> {
+  async handleTokenRequest(input: HandleTokenRequestInput): Promise<Json> {
     const { requestBody, request, validatePathname, maxUploadBytes, allowedContentTypes } = input;
+    // requestBody arrives as the interface's honest `Json` — its real shape
+    // is Vercel's own GenerateClientTokenEvent | UploadCompletedEvent wire
+    // protocol (@vercel/blob/client's HandleUploadBody), which this class
+    // (unlike the provider-agnostic interface it implements) is allowed to
+    // know about. handleUpload validates/verifies it internally (including
+    // upload-completed's signature check) and throws on a malformed body —
+    // hand-rolling that same validation here would just duplicate Vercel's
+    // private wire format with no real safety gain, and drift the moment
+    // their SDK's shape changes.
     return handleUpload({
-      body: requestBody as HandleUploadBody,
+      body: requestBody as unknown as HandleUploadBody,
       request,
       token: this.config.token,
       onBeforeGenerateToken: async (pathname) => {

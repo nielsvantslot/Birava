@@ -8,6 +8,8 @@ import {
   joinGroup,
   leaveGroup as leaveGroupCommand,
   setCrewVisibility as setCrewVisibilityCommand,
+  renameGroup as renameGroupCommand,
+  regenerateInviteCode as regenerateInviteCodeCommand,
   setMemberRole as setMemberRoleCommand,
   kickMember as kickMemberCommand,
   unbanMember as unbanMemberCommand,
@@ -34,6 +36,9 @@ import {
   JoinGroupResultDTO,
   LeaveGroupDTO,
   SetCrewVisibilityDTO,
+  RenameGroupDTO,
+  RegenerateInviteCodeDTO,
+  RegenerateInviteCodeResultDTO,
   SetMemberRoleDTO,
   KickMemberDTO,
   UnbanMemberDTO,
@@ -84,6 +89,24 @@ export async function setCrewVisibility(input: SetCrewVisibilityDTO): Promise<Ac
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await setCrewVisibilityCommand(user.id, input);
+  if (!result.error) revalidateGroupPaths();
+  return result;
+}
+
+export async function renameGroup(input: RenameGroupDTO): Promise<ActionResultDTO> {
+  const user = await getCurrentUser();
+  if (!user) return NOT_AUTHENTICATED;
+
+  const result = await renameGroupCommand(user.id, input);
+  if (!result.error) revalidateGroupPaths();
+  return result;
+}
+
+export async function regenerateInviteCode(input: RegenerateInviteCodeDTO): Promise<RegenerateInviteCodeResultDTO> {
+  const user = await getCurrentUser();
+  if (!user) return NOT_AUTHENTICATED;
+
+  const result = await regenerateInviteCodeCommand(user.id, input);
   if (!result.error) revalidateGroupPaths();
   return result;
 }
@@ -145,7 +168,10 @@ export async function getCrewInviteCandidates(input: GetCrewInviteCandidatesDTO)
   const user = await getCurrentUser();
   if (!user) return null;
 
-  return getCrewInviteCandidatesQuery(user.id, input.groupId);
+  return getCrewInviteCandidatesQuery(user.id, input.groupId, {
+    search: input.search,
+    offset: input.offset,
+  });
 }
 
 export async function closeGroup(input: CloseGroupDTO): Promise<ActionResultDTO> {

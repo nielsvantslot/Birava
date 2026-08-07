@@ -1,53 +1,19 @@
-import Link from "next/link";
+import { Suspense } from "react";
 import { getMyCrews } from "@/lib/controllers/groupController";
 import { CreateCrewForm, JoinCrewForm } from "@/components/drink/crews-forms";
+import { CrewsList } from "@/components/drink/crews-list";
+import { CrewsListSkeleton } from "@/components/ui/skeleton";
 
-function ordinal(n: number): string {
-  const rem10 = n % 10;
-  const rem100 = n % 100;
-  if (rem10 === 1 && rem100 !== 11) return `${n}st`;
-  if (rem10 === 2 && rem100 !== 12) return `${n}nd`;
-  if (rem10 === 3 && rem100 !== 13) return `${n}rd`;
-  return `${n}th`;
-}
-
-export default async function CrewsPage() {
-  const crews = await getMyCrews();
-
+// Not async: the two forms below have no server data dependency (plain
+// client components), so they'd otherwise wait behind — and get
+// skeleton-mimicked ahead of — a query they don't need. Only the crew list
+// itself is Suspense-gated.
+export default function CrewsPage() {
   return (
     <>
-      <div className="section">
-        <div className="h-row">
-          <h3>Your crews</h3>
-        </div>
-        {crews.length === 0 ? (
-          <p style={{ fontSize: 14, color: "var(--ink-dim)" }}>
-            No crews yet — start one below or join with a code.
-          </p>
-        ) : (
-          crews.map((crew) => (
-            <Link
-              key={crew.id}
-              href={`/crews/${crew.id}`}
-              className="row"
-              style={{ textDecoration: "none", color: "inherit" }}
-            >
-              <div className="avatar">{crew.name.slice(0, 2).toUpperCase()}</div>
-              <div className="grow">
-                <b>{crew.name}</b>
-                <span>
-                  {crew.memberCount} member{crew.memberCount === 1 ? "" : "s"}
-                  {crew.closed ? " · Closed" : ""}
-                  {crew.rank
-                    ? ` · you're ${ordinal(crew.rank)} since you joined`
-                    : ""}
-                </span>
-              </div>
-              <span className="code">{crew.inviteCode}</span>
-            </Link>
-          ))
-        )}
-      </div>
+      <Suspense fallback={<CrewsListSkeleton />}>
+        <CrewsListLoader />
+      </Suspense>
 
       <div className="section">
         <div className="h-row" style={{ marginBottom: 6 }}>
@@ -67,5 +33,18 @@ export default async function CrewsPage() {
         <JoinCrewForm />
       </div>
     </>
+  );
+}
+
+async function CrewsListLoader() {
+  const crews = await getMyCrews();
+
+  return (
+    <div className="section">
+      <div className="h-row">
+        <h3>Your crews</h3>
+      </div>
+      <CrewsList crews={crews} />
+    </div>
   );
 }

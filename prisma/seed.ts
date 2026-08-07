@@ -22,7 +22,8 @@ import path from "path";
 import { hashPassword } from "../lib/auth/password";
 import { drinkPhotoService } from "../lib/photoUpload";
 import { groupIntoSessions } from "../lib/sessions";
-import type { DrinkEntry as DrinkEntryDTO } from "../lib/types";
+import { resolveVenueId } from "../lib/commands/venueCommands";
+import type { DrinkEntry as DrinkEntryDTO, DrinkType } from "../lib/types";
 
 const db = new PrismaClient();
 
@@ -52,12 +53,11 @@ type Seeded = {
   daysAgo: number;
   hour: number;
   minute: number;
-  drinkType: string;
+  drinkType: DrinkType;
   beerName: string;
   venue: string;
   lat?: number;
   lng?: number;
-  notes?: string;
   /** Which committed image to attach, if any. */
   photo?: "grass" | "pint" | "party";
 };
@@ -65,25 +65,25 @@ type Seeded = {
 // Demobeer's own history. The first cluster (daysAgo 1) is one evening
 // session — three venues, five check-ins, three photos, a route.
 const DEMO_CHECKINS: Seeded[] = [
-  { daysAgo: 1, hour: 18, minute: 27, drinkType: "Beer", beerName: "Zwart Water", venue: V.taphouse.name, lat: V.taphouse.lat, lng: V.taphouse.lng, notes: "Imperial stout — molasses, dark chocolate, a slow burn.", photo: "grass" },
+  { daysAgo: 1, hour: 18, minute: 27, drinkType: "Beer", beerName: "Zwart Water", venue: V.taphouse.name, lat: V.taphouse.lat, lng: V.taphouse.lng, photo: "grass" },
   { daysAgo: 1, hour: 18, minute: 52, drinkType: "Beer", beerName: "Taphouse Pils", venue: V.taphouse.name, lat: V.taphouse.lat, lng: V.taphouse.lng },
-  { daysAgo: 1, hour: 20, minute: 10, drinkType: "Beer", beerName: "IJwit", venue: V.ij.name, lat: V.ij.lat, lng: V.ij.lng, notes: "Cloudy wheat, coriander and a squeeze of orange.", photo: "pint" },
+  { daysAgo: 1, hour: 20, minute: 10, drinkType: "Beer", beerName: "IJwit", venue: V.ij.name, lat: V.ij.lat, lng: V.ij.lng, photo: "pint" },
   { daysAgo: 1, hour: 20, minute: 48, drinkType: "Cocktail", beerName: "Negroni", venue: V.ij.name, lat: V.ij.lat, lng: V.ij.lng },
-  { daysAgo: 1, hour: 21, minute: 40, drinkType: "Beer", beerName: "Struise Pannepot", venue: V.gollem.name, lat: V.gollem.lat, lng: V.gollem.lng, notes: "Quadrupel. Figs and Christmas cake in a glass.", photo: "party" },
+  { daysAgo: 1, hour: 21, minute: 40, drinkType: "Beer", beerName: "Struise Pannepot", venue: V.gollem.name, lat: V.gollem.lat, lng: V.gollem.lng, photo: "party" },
 
   // Today — a lone check-in (renders as the slim card)
-  { daysAgo: 0, hour: 13, minute: 5, drinkType: "Wine", beerName: "Barolo 2018", venue: "Da Vinci", notes: "Nebbiolo — tar and roses. Worth the wait.", photo: "grass" },
+  { daysAgo: 0, hour: 13, minute: 5, drinkType: "Wine", beerName: "Barolo 2018", venue: "Da Vinci", photo: "grass" },
 
   // A single-venue session a few days back (feeds the Local Legend crown)
-  { daysAgo: 5, hour: 19, minute: 0, drinkType: "Beer", beerName: "Cascade Fog", venue: V.taphouse.name, notes: "Hazy IPA, all juice, zero burn." },
+  { daysAgo: 5, hour: 19, minute: 0, drinkType: "Beer", beerName: "Cascade Fog", venue: V.taphouse.name },
   { daysAgo: 5, hour: 19, minute: 45, drinkType: "Beer", beerName: "Sunburst", venue: V.taphouse.name },
 
   // Earlier weeks — spread out with gaps so the streak shows rest weeks,
   // and enough venues/types for the discovery badges
   { daysAgo: 9, hour: 20, minute: 0, drinkType: "Beer", beerName: "Mannenliefde", venue: "Oedipus Taproom" },
-  { daysAgo: 13, hour: 18, minute: 30, drinkType: "Cocktail", beerName: "Old Fashioned", venue: "Bar Oldenhof", notes: "Rye, bitters, one big cube." },
+  { daysAgo: 13, hour: 18, minute: 30, drinkType: "Cocktail", beerName: "Old Fashioned", venue: "Bar Oldenhof" },
   { daysAgo: 13, hour: 19, minute: 15, drinkType: "Beer", beerName: "La Chouffe", venue: "Bar Oldenhof" },
-  { daysAgo: 19, hour: 17, minute: 0, drinkType: "Other", beerName: "Jopen Cider", venue: "Jopenkerk", notes: "Dry farmhouse cider — proper apple bite." },
+  { daysAgo: 19, hour: 17, minute: 0, drinkType: "Other", beerName: "Jopen Cider", venue: "Jopenkerk" },
   { daysAgo: 27, hour: 20, minute: 0, drinkType: "Beer", beerName: "Weizen Wolke", venue: V.taphouse.name },
   { daysAgo: 34, hour: 19, minute: 0, drinkType: "Wine", beerName: "Chianti Classico", venue: "Da Vinci" },
   { daysAgo: 34, hour: 19, minute: 40, drinkType: "Beer", beerName: "Tripel Trouble", venue: V.gollem.name },
@@ -154,42 +154,46 @@ async function insertCheckins(
   checkins: Seeded[],
   photoUrls: Record<string, string> = {}
 ) {
-  const prepared = checkins.map((c) => ({
-    id: randomUUID(),
-    userId,
-    drinkName: c.beerName,
-    drinkType: c.drinkType,
-    venue: c.venue,
-    lat: c.lat ?? null,
-    lng: c.lng ?? null,
-    notes: c.notes ?? null,
-    photoUrl: c.photo ? (photoUrls[c.photo] ?? null) : null,
-    createdAt: at(c.daysAgo, c.hour, c.minute),
-  }));
+  // Resolved sequentially, not in parallel — resolveVenueId is a
+  // find-or-create; concurrent calls for the same not-yet-created venue
+  // name could race and create duplicates (fine to avoid, cheap here since
+  // this only ever runs a couple dozen times per seed run).
+  const prepared: Array<{
+    id: string;
+    userId: string;
+    drinkName: string;
+    drinkType: DrinkType;
+    venueId: string | null;
+    photoUrl: string | null;
+    createdAt: Date;
+  }> = [];
+  const asDto: DrinkEntryDTO[] = [];
 
-  const asDto: DrinkEntryDTO[] = prepared.map((p) => ({
-    id: p.id,
-    user_id: p.userId,
-    // Not yet known — groupIntoSessions is what computes session
-    // membership from these entries in the first place, and doesn't read
-    // this field itself. The real id (sessionIdByEntryId) is what actually
-    // gets written below.
-    session_id: p.id,
-    group_id: null,
-    drink_name: p.drinkName,
-    brewery: null,
-    style: null,
-    drink_type: p.drinkType,
-    amount: 1,
-    rating: null,
-    venue: p.venue,
-    lat: p.lat,
-    lng: p.lng,
-    notes: p.notes,
-    photo_url: p.photoUrl,
-    photo_lqip: null,
-    created_at: p.createdAt.toISOString(),
-  }));
+  for (const c of checkins) {
+    const id = randomUUID();
+    const createdAt = at(c.daysAgo, c.hour, c.minute);
+    const photoUrl = c.photo ? (photoUrls[c.photo] ?? null) : null;
+    const venueId = await resolveVenueId(db, c.venue, c.lat ?? null, c.lng ?? null);
+
+    prepared.push({ id, userId, drinkName: c.beerName, drinkType: c.drinkType, venueId, photoUrl, createdAt });
+    asDto.push({
+      id,
+      user_id: userId,
+      // Not yet known — groupIntoSessions is what computes session
+      // membership from these entries in the first place, and doesn't read
+      // this field itself. The real id (sessionIdByEntryId) is what actually
+      // gets written below.
+      session_id: id,
+      drink_name: c.beerName,
+      drink_type: c.drinkType,
+      venue: c.venue,
+      lat: c.lat ?? null,
+      lng: c.lng ?? null,
+      photo_url: photoUrl,
+      photo_lqip: null,
+      created_at: createdAt.toISOString(),
+    });
+  }
 
   const sessions = groupIntoSessions(asDto);
   const sessionIdByEntryId = new Map(

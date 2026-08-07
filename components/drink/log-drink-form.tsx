@@ -7,7 +7,7 @@ import type { PhotoUploadResultDto } from "@/modules/photo-upload/client";
 import { editDrink, deleteDrink } from "@/lib/controllers/drinkController";
 import { showToast } from "@/components/ui/toast-pill";
 import { confirmModal } from "@/components/ui/confirm-modal";
-import { DrinkEntry, DRINK_TYPES } from "@/lib/types";
+import { DrinkEntry, DrinkType, DRINK_TYPES } from "@/lib/types";
 import { drinkPhotoSrc, cn } from "@/lib/utils";
 import { DRINK_PHOTO_MAX_DIMENSION, DRINK_PHOTO_MAX_UPLOAD_BYTES, drinkPhotoUploadEndpoints } from "@/lib/photoUploadConfig";
 import { addPendingCheckin } from "@/lib/offline/pendingCheckins";
@@ -83,7 +83,7 @@ export function CheckinForm({
   const editing = !!editEntry;
   const [isPending, startTransition] = useTransition();
   const [name, setName] = useState(editEntry?.drink_name ?? "");
-  const [type, setType] = useState<string>(
+  const [type, setType] = useState<DrinkType>(
     editEntry?.drink_type ?? DRINK_TYPES[0]
   );
   const [venue, setVenue] = useState(editEntry?.venue ?? "");
@@ -93,6 +93,16 @@ export function CheckinForm({
   const [photoPreview, setPhotoPreview] = useState<string | null>(
     editEntry?.photo_url ? drinkPhotoSrc(editEntry.id) : null
   );
+  // Revokes the outgoing blob URL whenever a new photo replaces it and on
+  // unmount — createObjectURL memory is otherwise held until the tab closes.
+  // A no-op for the initial edit-mode value (drinkPhotoSrc(...) isn't a blob:
+  // URL).
+  useEffect(() => {
+    return () => {
+      if (photoPreview?.startsWith("blob:")) URL.revokeObjectURL(photoPreview);
+    };
+  }, [photoPreview]);
+
   const [error, setError] = useState<string | null>(null);
   const [coords, setCoords] = useState<Coords | null>(
     editEntry?.lat != null && editEntry?.lng != null
@@ -100,6 +110,9 @@ export function CheckinForm({
       : null
   );
   const [locating, setLocating] = useState(false);
+  // Distinguishes "just started" from "still going" so the button never
+  // just sits on a static "Locating…" for the whole worst-case wait.
+  const [locatingSlow, setLocatingSlow] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Tracks a photo upload kicked off the moment it was picked (see
   // handlePhotoChange), so handleSubmit can reuse it instead of starting a
@@ -116,15 +129,19 @@ export function CheckinForm({
 
   const captureLocation = async (announce: boolean) => {
     setLocating(true);
+    setLocatingSlow(false);
+    const slowTimer = setTimeout(() => setLocatingSlow(true), 4000);
     try {
       let position: Coords;
       try {
-        position = await getPosition({ enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 });
+        position = await getPosition({ enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 });
       } catch (err) {
         // Permission denial won't change on a retry; a weak/slow high-accuracy
-        // fix (timeout or position-unavailable) might succeed with a coarser one.
-        if ((err as GeolocationPositionError)?.code === 1) throw err;
-        position = await getPosition({ enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 });
+        // fix (timeout or position-unavailable) might succeed with a coarser
+        // one — worth the extra wait only when the user is actively watching
+        // for it, not for the silent page-load enrichment attempt.
+        if ((err as GeolocationPositionError)?.code === 1 || !announce) throw err;
+        position = await getPosition({ enableHighAccuracy: false, timeout: 6000, maximumAge: 60000 });
       }
       setCoords(position);
       if (announce) showToast("Location attached");
@@ -138,7 +155,9 @@ export function CheckinForm({
     } catch {
       if (announce) showToast("Couldn't get your location");
     } finally {
+      clearTimeout(slowTimer);
       setLocating(false);
+      setLocatingSlow(false);
     }
   };
 
@@ -169,14 +188,44 @@ export function CheckinForm({
     if (!deleteIfAlreadyUploaded) return;
     previous.promise.then((result) => {
       if ("url" in result) {
+        // keepalive lets this survive a tab close/navigation that would
+        // otherwise cancel a plain fetch mid-flight — still no guarantee (the
+        // browser can drop it regardless), which is why
+        // photoCleanupCommands.ts's scheduled sweep exists as the real
+        // backstop; this just makes the fast path more often unnecessary.
         fetch("/api/uploads/drink-photo", {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url: result.url }),
+          keepalive: true,
         }).catch(() => {});
       }
     });
   };
+
+  // Two layered "the user is leaving" signals, covering what
+  // discardPendingUpload's other call sites don't:
+  // - unmount: in-app navigation away from this form (back button, a nav
+  //   link, closing an edit modal) while the tab stays open.
+  // - pagehide, when not `persisted`: the tab/app is actually closing, not
+  //   just being frozen into the back/forward cache — a `persisted` pagehide
+  //   can still come back verbatim via bfcache restore, and deleting the
+  //   blob there would leave pendingUploadRef pointing at a URL the server
+  //   just 404s, so it's deliberately skipped.
+  // Neither runs if the OS kills a backgrounded mobile app outright — no JS
+  // executes at all when that happens, so nothing client-side can catch it.
+  // photoCleanupCommands.ts's daily sweep is the real backstop for that case
+  // (and for any of these best-effort sends that just don't land).
+  useEffect(() => {
+    const onPageHide = (e: PageTransitionEvent) => {
+      if (!e.persisted) discardPendingUpload(true);
+    };
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      discardPendingUpload(true);
+    };
+  }, []);
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -269,10 +318,12 @@ export function CheckinForm({
         return;
       }
 
-      const uploadResult =
-        pendingUploadRef.current?.file === photoFile
-          ? await pendingUploadRef.current.promise
-          : await PhotoUploader.upload(photoFile, drinkPhotoUploadEndpoints(userId, supportsDirectUpload));
+      const pending = pendingUploadRef.current;
+      const usingPending = pending !== null && pending.file === photoFile;
+      const uploadResult = pending && usingPending
+        ? await pending.promise
+        : await PhotoUploader.upload(photoFile, drinkPhotoUploadEndpoints(userId, supportsDirectUpload));
+      if (usingPending) discardPendingUpload(false); // consumed — don't delete it
 
       if ("error" in uploadResult) {
         setError(uploadResult.error);
@@ -289,7 +340,6 @@ export function CheckinForm({
       venue: venue.trim() || null,
       lat: coords?.lat ?? null,
       lng: coords?.lng ?? null,
-      notes: entry.notes ?? null,
       photoUrl,
       photoLqip,
     });
@@ -351,7 +401,6 @@ export function CheckinForm({
         venue: venue.trim() || null,
         lat: coords?.lat ?? null,
         lng: coords?.lng ?? null,
-        notes: null,
       },
       photo: photoForQueue,
     });
@@ -502,7 +551,9 @@ export function CheckinForm({
               <circle cx="12" cy="11" r="2.5"></circle>
             </svg>
             {locating
-              ? "Locating…"
+              ? locatingSlow
+                ? "Still trying…"
+                : "Locating…"
               : coords
                 ? "Location attached"
                 : "Use my location"}

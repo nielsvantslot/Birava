@@ -35,6 +35,8 @@ export async function getSessionComments(
   const map = new Map<string, CommentDTO[]>();
   for (const id of sessionIds) map.set(id, []);
   for (const row of rows) {
+    // Every row.sessionId is guaranteed present — `rows` is filtered to
+    // sessionIds, and every id in sessionIds is pre-seeded above.
     map.get(row.sessionId)!.push(CommentMapper.toDTO(row));
   }
   return map;

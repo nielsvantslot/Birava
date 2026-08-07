@@ -8,6 +8,7 @@ import { computeAchievements } from "@/lib/achievements";
 import { weekIndex } from "@/lib/dates";
 import { DRINK_TYPES } from "@/lib/types";
 import { AchievementGlyph } from "@/components/drink/achievement-icon";
+import { ActiveWeeksStreak } from "@/components/drink/active-weeks-streak";
 import { StatsBodySkeleton } from "@/components/ui/skeleton";
 
 function SessionsPerWeekChart({
@@ -153,7 +154,6 @@ async function StatsBody() {
     count: entries.filter((e) => e.drink_type === t).length,
   }));
   const maxType = Math.max(...typeCounts.map((t) => t.count), 1);
-  const notesCount = entries.filter((e) => e.notes?.trim()).length;
   const legend = achievements.find((a) => a.id === "local_legend");
 
   return (
@@ -184,38 +184,7 @@ async function StatsBody() {
         <div className="h-row" style={{ marginBottom: 2 }}>
           <h3>Active-weeks streak</h3>
         </div>
-        <div className="stats" style={{ marginTop: 12 }}>
-          <div className="stat">
-            <div className="label">Current</div>
-            <div className="num">
-              {weeks.current}
-              <small>wk</small>
-            </div>
-            <div className="sub">weeks with at least one session</div>
-          </div>
-          <div className="stat">
-            <div className="label">Best</div>
-            <div className="num">
-              {weeks.best}
-              <small>wk</small>
-            </div>
-            <div className="sub">your longest run so far</div>
-          </div>
-        </div>
-        <div className="weeks">
-          {weeks.strip.map((on, i) => (
-            <div key={i} className={on ? "cell on" : "cell rest"}></div>
-          ))}
-        </div>
-        <div className="weeks-legend">
-          <span>
-            <i className="on"></i> active week
-          </span>
-          <span>
-            <i className="rest"></i> rest week — recovery counts, the streak
-            survives it
-          </span>
-        </div>
+        <ActiveWeeksStreak weeks={weeks} />
       </div>
 
       {/* sessions per week */}
@@ -251,10 +220,6 @@ async function StatsBody() {
             </div>
           </div>
           <div className="stat">
-            <div className="label">Notes written</div>
-            <div className="num">{notesCount}</div>
-          </div>
-          <div className="stat">
             <div className="label">Local Legend</div>
             <div className="num">{legend?.earned ? 1 : 0}</div>
           </div>
@@ -265,7 +230,7 @@ async function StatsBody() {
       <div className="section">
         <div className="h-row">
           <h3>Achievements</h3>
-          <Link href="/achievements">See all</Link>
+          <Link href="/achievements" prefetch={false}>See all</Link>
         </div>
         {teaser.map((a) => (
           <Link
@@ -273,6 +238,7 @@ async function StatsBody() {
             href="/achievements"
             className="row"
             style={{ textDecoration: "none", color: "inherit" }}
+            prefetch={false}
           >
             <div className="rowmark ach">
               <AchievementGlyph icon={a.icon} />
