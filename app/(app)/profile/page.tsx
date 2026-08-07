@@ -35,7 +35,7 @@ export default async function ProfilePage() {
       </Suspense>
 
       <Suspense fallback={<AchievementBadgesSkeleton />}>
-        <AchievementBadgesLoader userId={user.id} />
+        <AchievementBadgesLoader />
       </Suspense>
 
       <div className="section">
@@ -128,7 +128,7 @@ async function RecentSessionsLoader({ userId }: { userId: string }) {
  * /achievements) — a glanceable secondary summary now that sessions own the
  * spotlight position above.
  */
-async function AchievementBadgesLoader({ userId }: { userId: string }) {
+async function AchievementBadgesLoader() {
   const [tz, entries] = await Promise.all([
     getUserTimeZone(),
     getMyDrinkHistory(),

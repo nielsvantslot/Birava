@@ -4,7 +4,6 @@ import { db } from "@/lib/db";
 import { computeAchievements } from "@/lib/achievements";
 import { SESSION_GAP_MS, MAX_BACKDATE_MS } from "@/lib/sessions";
 import { getUserTimeZone } from "@/lib/timezone";
-import { toDrinkEntry } from "@/lib/mappers";
 import { drinkPhotoService } from "@/lib/photoUpload";
 import { shareImageCache } from "@/lib/shareImageCache";
 import { getFollowerIds } from "@/lib/queries/followQueries";
@@ -244,7 +243,18 @@ export async function createDrinkEntry(
       .filter((a) => a.earned)
       .map((a) => a.id)
   );
-  const newlyEarned = computeAchievements([...beforeEntries, toDrinkEntry(created)], tz).filter(
+  // Built from `input.venue` (the name string, not `created`) since `created`
+  // comes back from `tx.drinkEntry.create` with no venue include — Prisma
+  // silently returns `undefined` for a relation that isn't included, which
+  // would otherwise make a check-in's own new venue invisible to the
+  // achievement diff that's supposed to just-unlock on it.
+  const afterEntry = {
+    user_id: created.userId,
+    created_at: created.createdAt.toISOString(),
+    drink_type: created.drinkType,
+    venue: input.venue,
+  };
+  const newlyEarned = computeAchievements([...beforeEntries, afterEntry], tz).filter(
     (a) => a.earned && !earnedBefore.has(a.id)
   );
   const achievementUnlocked = newlyEarned.length > 0;
