@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { respondToCrewInvite } from "@/lib/controllers/groupController";
 import { showToast } from "@/components/ui/toast-pill";
+import { invalidateCachedPages } from "@/lib/swCache";
 
 type Status = "pending" | "accepted" | "declined";
 
@@ -19,6 +20,7 @@ export function CrewInviteActions({ inviteId }: { inviteId: string }) {
         showToast(result.error);
       } else {
         setStatus(accept ? "accepted" : "declined");
+        invalidateCachedPages(result.revalidatedPaths ?? []);
       }
       setBusy(null);
     });

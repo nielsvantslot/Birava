@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Check, Pencil, X } from "lucide-react";
 import { renameSession } from "@/lib/controllers/drinkController";
 import { showToast } from "@/components/ui/toast-pill";
+import { invalidateCachedPages } from "@/lib/swCache";
 
 const MAX_SESSION_NAME_LENGTH = 40;
 
@@ -49,7 +50,9 @@ export function SessionTitle({
         if (result.error) {
           showToast(result.error);
           setDisplayed(prev);
+          return;
         }
+        invalidateCachedPages(result.revalidatedPaths ?? []);
       });
     };
 

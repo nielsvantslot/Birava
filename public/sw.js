@@ -73,6 +73,25 @@ self.addEventListener("unhandledrejection", (event) => {
   });
 });
 
+// One-shot cache eviction, requested by the client right before navigating
+// to (or refreshing) a page whose data a mutation just changed
+// (lib/swCache.ts's invalidateCachedPages) — driven by the same path list
+// Next's own revalidatePath calls use server-side, not a reactive
+// "something changed, go refresh" signal like the removed postMessage below
+// reacts to, so it can't recreate that loop: nothing responds to this by
+// fetching or messaging again, it just deletes some keys.
+self.addEventListener("message", (event) => {
+  const data = event.data;
+  if (!data || data.type !== "INVALIDATE_PAGES" || !Array.isArray(data.urls)) return;
+  const keys = data.urls.map(pageCacheKey);
+  event.waitUntil(
+    Promise.all([
+      caches.open(RSC_CACHE_NAME).then((cache) => Promise.all(keys.map((key) => cache.delete(key)))),
+      caches.open(NAV_CACHE_NAME).then((cache) => Promise.all(keys.map((key) => cache.delete(key)))),
+    ])
+  );
+});
+
 self.addEventListener("push", (event) => {
   const data = event.data ? event.data.json() : {};
   event.waitUntil(
