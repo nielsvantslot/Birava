@@ -9,7 +9,11 @@ import {
   hasAnyPushSubscription,
   getNotificationPreferences,
 } from "@/lib/queries/notificationQueries";
-import { markAllRead, updateNotificationPreference as updateNotificationPreferenceCommand } from "@/lib/commands/notificationCommands";
+import {
+  markAllRead,
+  markNotificationOpened,
+  updateNotificationPreference as updateNotificationPreferenceCommand,
+} from "@/lib/commands/notificationCommands";
 import {
   savePushSubscription as savePushSubscriptionCommand,
   removePushSubscription as removePushSubscriptionCommand,
@@ -54,6 +58,14 @@ export async function markNotificationsRead(): Promise<void> {
   await markAllRead(user.id);
   revalidatePath("/notifications");
   revalidatePath("/dashboard");
+}
+
+/** Fired on click-through of a single notification row (see notification-row-link.tsx) — not blocking navigation. */
+export async function markNotificationOpenedAction(notificationId: string): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) throwNotAuthenticated();
+
+  await markNotificationOpened(notificationId, user.id);
 }
 
 export async function subscribeToPush(input: SavePushSubscriptionDTO): Promise<void> {

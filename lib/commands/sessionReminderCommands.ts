@@ -2,59 +2,101 @@ import { db } from "@/lib/db";
 import { queueNotifications, type NotificationEvent } from "@/lib/notify";
 import { SESSION_GAP_MS } from "@/lib/sessions";
 import { RateLimiterFactory } from "@/lib/rateLimit/RateLimiterFactory";
+import { getIntraSessionGapsForUser, getReminderEngagementForUser } from "@/lib/queries/reminderAlgorithmQueries";
+import {
+  dueTierForElapsed,
+  maxRemindersForEngagement,
+  medianGapMs,
+  personalizedQuietThresholdMs,
+  tierBoundariesMs,
+} from "@/lib/sessionReminderAlgorithm";
 
 const REMINDER_TICK_KEY = "session-reminders-tick";
 const REMINDER_TICK_INTERVAL_MS = 15 * 60 * 1000;
-
-// A session counts as "gone quiet" once this long has passed since its last
-// check-in — long enough that a fresh check-in is unlikely to be seconds
-// away, short enough that the reminder still lands well before SESSION_GAP_MS
-// closes the session for good.
-const QUIET_THRESHOLD_MS = 60 * 60 * 1000; // 1 hour
 
 /**
  * Reminds the owner of each still-open-but-quiet session to log their next
  * drink — a logging-completeness nudge, not a "keep drinking" prompt (see
  * lib/notifications.ts's SESSION_REMINDER copy). Meant to be called
- * periodically (app/api/cron/session-reminders/route.ts); dedupes against
- * Notification rows already sent for a session so a still-quiet session
- * doesn't get re-reminded on every tick.
+ * periodically (app/api/cron/session-reminders/route.ts).
+ *
+ * Three things make this per-user rather than one global rule
+ * (lib/sessionReminderAlgorithm.ts has the pure math):
+ *  - Personalized timing: "gone quiet" is measured against the user's own
+ *    median intra-session check-in gap, not a fixed 1h for everyone.
+ *  - Escalation: up to 3 reminders per session, at increasing tiers off that
+ *    personalized threshold, instead of a single one-shot nudge.
+ *  - Engagement cap: how many tiers a user is eligible for is capped by how
+ *    often they've actually opened past reminders (Notification.openedAt) —
+ *    a consistently-unresponsive user stays at exactly today's single
+ *    reminder; only a responsive user gets the extra escalation tiers.
+ *
+ * Dedupes by counting existing SESSION_REMINDER rows per session (generalized
+ * from the old boolean exists-check) and only ever sends the *next* tier due,
+ * one at a time — even after a long gap in ticks, a session catches up one
+ * reminder per call rather than bursting several tiers at once.
  */
 export async function sendSessionReminders(): Promise<{ sent: number }> {
   const now = Date.now();
   const quietSessions = await db.drinkSession.findMany({
     where: {
-      endedAt: {
-        lt: new Date(now - QUIET_THRESHOLD_MS),
-        gt: new Date(now - SESSION_GAP_MS),
-      },
+      // A session's endedAt is its last check-in's timestamp, so it's never
+      // in the future — the only bound needed is the SESSION_GAP_MS floor
+      // past which it's permanently closed and no reminder could ever land.
+      endedAt: { gt: new Date(now - SESSION_GAP_MS) },
     },
-    select: { id: true, userId: true },
+    select: { id: true, userId: true, endedAt: true },
   });
   if (quietSessions.length === 0) return { sent: 0 };
 
-  const alreadyReminded = await db.notification.findMany({
-    where: {
-      type: "SESSION_REMINDER",
-      entryId: { in: quietSessions.map((s) => s.id) },
-    },
+  const existingReminders = await db.notification.findMany({
+    where: { type: "SESSION_REMINDER", entryId: { in: quietSessions.map((s) => s.id) } },
     select: { entryId: true },
   });
-  const remindedIds = new Set(alreadyReminded.map((n) => n.entryId));
-  const toRemind = quietSessions.filter((s) => !remindedIds.has(s.id));
-  if (toRemind.length === 0) return { sent: 0 };
+  const existingCountBySessionId = new Map<string, number>();
+  for (const r of existingReminders) {
+    if (!r.entryId) continue;
+    existingCountBySessionId.set(r.entryId, (existingCountBySessionId.get(r.entryId) ?? 0) + 1);
+  }
 
-  const events: NotificationEvent[] = toRemind.map((s) => ({
-    // Generated here, not left to the DB default, so describeNotification
-    // can seed the same message variant at push-send time (below) and again
-    // whenever the in-app notification list re-derives it from the row.
-    id: crypto.randomUUID(),
-    userId: s.userId,
-    type: "SESSION_REMINDER" as const,
-    entryId: s.id,
-  }));
+  const sessionsByUserId = new Map<string, typeof quietSessions>();
+  for (const session of quietSessions) {
+    const bucket = sessionsByUserId.get(session.userId);
+    if (bucket) bucket.push(session);
+    else sessionsByUserId.set(session.userId, [session]);
+  }
+
+  const events: NotificationEvent[] = [];
+  for (const [userId, sessions] of sessionsByUserId) {
+    const [gaps, engagement] = await Promise.all([
+      getIntraSessionGapsForUser(userId),
+      getReminderEngagementForUser(userId),
+    ]);
+    const threshold = personalizedQuietThresholdMs(medianGapMs(gaps));
+    const tiers = tierBoundariesMs(threshold);
+    const maxReminders = maxRemindersForEngagement(engagement.openedCount, engagement.resolvedCount);
+
+    for (const session of sessions) {
+      const existingCount = existingCountBySessionId.get(session.id) ?? 0;
+      const dueTier = dueTierForElapsed(now - session.endedAt.getTime(), tiers);
+      const targetCount = Math.min(dueTier, maxReminders);
+      if (existingCount >= targetCount) continue;
+
+      events.push({
+        // Generated here, not left to the DB default, so describeNotification
+        // can seed the same message variant at push-send time (below) and
+        // again whenever the in-app notification list re-derives it from the
+        // row.
+        id: crypto.randomUUID(),
+        userId,
+        type: "SESSION_REMINDER" as const,
+        entryId: session.id,
+      });
+    }
+  }
+  if (events.length === 0) return { sent: 0 };
+
   queueNotifications(events);
-
   return { sent: events.length };
 }
 
