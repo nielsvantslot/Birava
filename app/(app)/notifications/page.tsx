@@ -11,6 +11,7 @@ import { timeAgo } from "@/lib/dates";
 import { avatarSrc, cn } from "@/lib/utils";
 import { MarkReadOnView } from "@/components/notifications/mark-read-on-view";
 import { CrewInviteActions } from "@/components/notifications/crew-invite-actions";
+import { NotificationRowLink } from "@/components/notifications/notification-row-link";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default async function NotificationsPage() {
@@ -118,12 +119,12 @@ async function NotificationListLoader() {
           }
 
           return (
-            <Link
+            <NotificationRowLink
               key={n.id}
+              id={n.id}
               href={n.href}
               className={cn("row", !n.read && "unread")}
               style={{ textDecoration: "none", color: "inherit" }}
-              prefetch={false}
             >
               {avatar}
               <div className="grow">
@@ -131,7 +132,7 @@ async function NotificationListLoader() {
                 <span>{timeAgo(new Date(n.createdAt), tz)}</span>
               </div>
               <span className="chev">›</span>
-            </Link>
+            </NotificationRowLink>
           );
         })
       )}

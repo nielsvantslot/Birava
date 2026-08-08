@@ -9,6 +9,19 @@ export async function markAllRead(userId: string): Promise<void> {
 }
 
 /**
+ * Records that a user actually clicked through this specific notification —
+ * independent of markAllRead's bulk readAt. The `openedAt: null` guard makes
+ * this a one-time "first opened" timestamp rather than a last-clicked one,
+ * and the `userId` filter keeps a user from ever marking someone else's row.
+ */
+export async function markNotificationOpened(notificationId: string, userId: string): Promise<void> {
+  await db.notification.updateMany({
+    where: { id: notificationId, userId, openedAt: null },
+    data: { openedAt: new Date() },
+  });
+}
+
+/**
  * Upserts unconditionally, including when `enabled` matches the default
  * (`true`) — not deleting the row on a revert-to-default. Simpler than
  * chasing perfect sparseness (no separate delete path to reason about),
