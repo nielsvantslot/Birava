@@ -30,6 +30,20 @@ export function ServiceWorkerRegistration() {
 
     navigator.serviceWorker
       .register("/sw.js")
+      .then((registration) => {
+        // The browser's own update check is real but passively scheduled
+        // (throttled, roughly once/day) — a user who opens the app daily
+        // could otherwise sit on a stale SW/cache for a long time even after
+        // a fix ships (see sw.js's CACHE_VERSION comment for the incident
+        // this traces back to). Forcing a check on every foreground/visit
+        // doesn't itself change what's on screen (an update install still
+        // only takes over on the next navigation), it just collapses how
+        // long "stale" can last from up to a day to effectively one visit.
+        registration.update().catch(() => {});
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") registration.update().catch(() => {});
+        });
+      })
       .catch((err) => console.error("SW registration failed:", err));
   }, []);
 
