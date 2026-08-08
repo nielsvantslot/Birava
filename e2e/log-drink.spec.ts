@@ -25,6 +25,39 @@ test("logs a drink without a photo", async ({ page }) => {
   await expect(logPage.toast()).toHaveText(/Logged/);
 });
 
+test("logs a drink with no name — the type chip alone is a valid check-in", async ({ page }) => {
+  const logPage = new LogDrinkPage(page);
+  await logPage.goto();
+
+  await logPage.submit();
+
+  await expect(logPage.toast()).toHaveText(/Logged/);
+});
+
+test("logs a drink again from Recent with one tap, no retyping", async ({ page }) => {
+  const logPage = new LogDrinkPage(page);
+  await logPage.goto();
+
+  const drinkName = `E2E Log-Again ${Date.now()}`;
+  await logPage.fillDrinkName(drinkName);
+  await logPage.submit();
+  await expect(logPage.toast()).toHaveText(/Logged/);
+  // Wait for the background sync so this check-in is in the DB-backed Recent
+  // list, then reload to fetch it (Recent doesn't live-update after a
+  // queue-only submit). Retried like SessionDetailPage.openMostRecent() below
+  // — an occasional single reload can still race the sync by a beat even
+  // after the pending panel clears, so poll rather than trust one snapshot.
+  await expect(logPage.pendingPanel()).toBeHidden({ timeout: 60_000 });
+  await expect(async () => {
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(page.locator(".row", { hasText: drinkName })).toBeVisible({ timeout: 5_000 });
+  }).toPass({ timeout: 60_000 });
+
+  await logPage.logAgainFromRecent(drinkName);
+
+  await expect(logPage.toast()).toHaveText(/Logged again/);
+});
+
 test("logs a drink with a photo, and it renders once synced", async ({ page }) => {
   const logPage = new LogDrinkPage(page);
   await logPage.goto();

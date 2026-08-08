@@ -202,3 +202,32 @@ export async function getMyRecentDrinks(
 
   return getRecentDrinkHistory(user.id, input.limit);
 }
+
+export type DrinkSuggestionsDTO = { names: string[]; venues: string[] };
+
+const SUGGESTION_SAMPLE_SIZE = 30;
+const MAX_SUGGESTIONS = 8;
+
+function distinctRecentValues(values: (string | null)[]): string[] {
+  // `values` comes in most-recent-first, so a plain Set (insertion order)
+  // keeps each value's most recent occurrence without a separate sort.
+  return [...new Set(values.map((v) => v?.trim()).filter((v): v is string => !!v))].slice(0, MAX_SUGGESTIONS);
+}
+
+/**
+ * Distinct recent drink names/venues for the log form's autocomplete
+ * (datalist) — lets a habitual drink/venue be picked instead of retyped.
+ * Fetched client-side after the form itself has already rendered (see
+ * log-drink-form.tsx), same "silent enrichment, never blocks" pattern as
+ * geolocation.
+ */
+export async function getMyDrinkSuggestions(): Promise<DrinkSuggestionsDTO> {
+  const user = await getCurrentUser();
+  if (!user) return { names: [], venues: [] };
+
+  const recent = await getRecentDrinkHistory(user.id, SUGGESTION_SAMPLE_SIZE);
+  return {
+    names: distinctRecentValues(recent.map((e) => e.drink_name)),
+    venues: distinctRecentValues(recent.map((e) => e.venue)),
+  };
+}

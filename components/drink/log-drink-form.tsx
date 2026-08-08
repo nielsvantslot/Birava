@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { PhotoUploadPreparer, PhotoUploader } from "@/modules/photo-upload/client";
 import type { PhotoUploadResultDto } from "@/modules/photo-upload/client";
-import { editDrink, deleteDrink } from "@/lib/controllers/drinkController";
+import { editDrink, deleteDrink, getMyDrinkSuggestions } from "@/lib/controllers/drinkController";
 import { showToast } from "@/components/ui/toast-pill";
 import { confirmModal } from "@/components/ui/confirm-modal";
 import { DrinkEntry, DrinkType, DRINK_TYPES } from "@/lib/types";
@@ -68,8 +68,11 @@ async function reverseGeocode(coords: Coords): Promise<string | null> {
 
 /**
  * The one log form — used for both creating and editing a check-in.
- * Deliberately small: name, type, optional photo, venue. Geolocation
- * prefills the venue silently and never blocks logging.
+ * Deliberately small: type is the only required field, name/photo/venue are
+ * all optional. Geolocation prefills the venue silently and never blocks
+ * logging; name/venue get autocomplete suggestions from the user's own
+ * recent check-ins (see getMyDrinkSuggestions) so a habitual drink/spot
+ * doesn't need retyping.
  */
 export function CheckinForm({
   editEntry,
@@ -88,6 +91,8 @@ export function CheckinForm({
     editEntry?.drink_type ?? DRINK_TYPES[0]
   );
   const [venue, setVenue] = useState(editEntry?.venue ?? "");
+  const [nameSuggestions, setNameSuggestions] = useState<string[]>([]);
+  const [venueSuggestions, setVenueSuggestions] = useState<string[]>([]);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   // Photos are displayed through /api/photos/[entryId]; the raw
   // photo_url is a storage handle, never an <img> src.
@@ -174,6 +179,18 @@ export function CheckinForm({
       .catch(() => {});
   }, [editing]);
 
+  // Fetched after the form has already rendered, same "silent enrichment,
+  // never blocks" pattern as geolocation above — a fresh check-in benefits
+  // from a habitual drink/venue being one tap away instead of retyped, but
+  // nothing here should hold up the form's own initial paint.
+  useEffect(() => {
+    if (editing) return;
+    getMyDrinkSuggestions().then(({ names, venues }) => {
+      setNameSuggestions(names);
+      setVenueSuggestions(venues);
+    });
+  }, [editing]);
+
   // Aborts whatever pre-upload is in flight (see handlePhotoChange).
   // `deleteIfAlreadyUploaded` controls what happens if the abort lost the
   // race and the upload had already finished: true cleans up the now-orphaned
@@ -235,6 +252,15 @@ export function CheckinForm({
     discardPendingUpload(true);
 
     const { file: prepared, previewUrl } = await PhotoUploadPreparer.prepare(file, PHOTO_COMPRESS_CONFIG, supportsDirectUpload);
+    // Checked here, the moment the photo is picked, rather than at submit —
+    // client-side compression usually keeps this from ever firing, but when
+    // it does, the user should hear about it before filling in the rest of
+    // the form, not after.
+    if (prepared.size > DRINK_PHOTO_MAX_UPLOAD_BYTES) {
+      showToast("Photo is too large. Please use a smaller photo.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     setPhotoFile(prepared);
     setPhotoPreview(previewUrl);
 
@@ -289,11 +315,6 @@ export function CheckinForm({
     e.preventDefault();
     setError(null);
 
-    if (!name.trim()) {
-      setError("Give it a name.");
-      return;
-    }
-
     startTransition(async () => {
       try {
         if (editEntry) {
@@ -315,11 +336,6 @@ export function CheckinForm({
     let photoLqip: string | null = !photoFile && photoPreview ? (entry.photo_lqip ?? null) : null;
 
     if (photoFile) {
-      if (photoFile.size > DRINK_PHOTO_MAX_UPLOAD_BYTES) {
-        setError("Photo is too large. Please use a smaller photo.");
-        return;
-      }
-
       const pending = pendingUploadRef.current;
       const usingPending = pending !== null && pending.file === photoFile;
       const uploadResult = pending && usingPending
@@ -369,9 +385,6 @@ export function CheckinForm({
     let photoForQueue: PendingCheckinPhoto;
     if (!photoFile) {
       photoForQueue = { kind: "none" };
-    } else if (photoFile.size > DRINK_PHOTO_MAX_UPLOAD_BYTES) {
-      setError("Photo is too large. Please use a smaller photo.");
-      return;
     } else {
       // Use the pre-upload only if it actually already resolved successfully
       // — checked synchronously (no awaiting) so a slow/incomplete pre-upload
@@ -418,14 +431,28 @@ export function CheckinForm({
   return (
     <form onSubmit={handleSubmit}>
       <div className="field">
-        <label htmlFor="drink-name">Drink</label>
+        <label htmlFor="drink-name">
+          Drink{" "}
+          <span style={{ color: "var(--ink-dim)", fontWeight: 500 }}>
+            · optional
+          </span>
+        </label>
         <input
           id="drink-name"
           type="text"
           placeholder="Name or search…"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          list={nameSuggestions.length > 0 ? "drink-name-suggestions" : undefined}
+          autoComplete="off"
         />
+        {nameSuggestions.length > 0 && (
+          <datalist id="drink-name-suggestions">
+            {nameSuggestions.map((s) => (
+              <option key={s} value={s} />
+            ))}
+          </datalist>
+        )}
       </div>
 
       <div className="field">
@@ -530,7 +557,16 @@ export function CheckinForm({
           placeholder="Where are you drinking?"
           value={venue}
           onChange={(e) => setVenue(e.target.value)}
+          list={venueSuggestions.length > 0 ? "venue-suggestions" : undefined}
+          autoComplete="off"
         />
+        {venueSuggestions.length > 0 && (
+          <datalist id="venue-suggestions">
+            {venueSuggestions.map((s) => (
+              <option key={s} value={s} />
+            ))}
+          </datalist>
+        )}
         <div
           style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}
         >
@@ -576,7 +612,7 @@ export function CheckinForm({
         </p>
       )}
 
-      <button className="btn btn-primary" type="submit" disabled={isPending || !name.trim()}>
+      <button className="btn btn-primary" type="submit" disabled={isPending}>
         {isPending
           ? editing
             ? "Saving…"
