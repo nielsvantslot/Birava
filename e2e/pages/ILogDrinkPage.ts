@@ -11,4 +11,6 @@ export interface ILogDrinkPage {
   /** Locator, not a resolved boolean — callers assert with toBeVisible()/toBeHidden() for real retry-until-timeout polling. */
   pendingPanel(): Locator;
   cancelPending(drinkName: string): Promise<void>;
+  /** Taps the "Log again" chip on the Recent row matching this drink name. */
+  logAgainFromRecent(drinkName: string): Promise<void>;
 }

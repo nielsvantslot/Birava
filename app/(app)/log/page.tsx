@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
 import {
@@ -10,7 +9,7 @@ import { DrinkEntry } from "@/lib/types";
 import { relativeDay } from "@/lib/dates";
 import { CheckinForm } from "@/components/drink/log-drink-form";
 import { PendingCheckinsPanel } from "@/components/drink/pending-checkins-panel";
-import { BeerGlassIcon } from "@/components/drink/beer-glass-icon";
+import { RecentDrinkRow } from "@/components/drink/recent-drink-row";
 import { drinkPhotoService } from "@/lib/photoUpload";
 
 function recentMeta(entry: DrinkEntry, tz: string): string {
@@ -61,13 +60,19 @@ export default async function LogPage({
       <PendingCheckinsPanel userId={user.id} supportsDirectUpload={drinkPhotoService.supportsDirectUpload} />
 
       <Suspense fallback={<RecentDrinksSkeleton />}>
-        <RecentDrinksLoader />
+        <RecentDrinksLoader userId={user.id} supportsDirectUpload={drinkPhotoService.supportsDirectUpload} />
       </Suspense>
     </>
   );
 }
 
-async function RecentDrinksLoader() {
+async function RecentDrinksLoader({
+  userId,
+  supportsDirectUpload,
+}: {
+  userId: string;
+  supportsDirectUpload: boolean;
+}) {
   const [tz, recent] = await Promise.all([
     getUserTimeZone(),
     getMyRecentDrinks({ limit: 4 }),
@@ -84,22 +89,13 @@ async function RecentDrinksLoader() {
         </p>
       ) : (
         recent.map((entry) => (
-          <Link
+          <RecentDrinkRow
             key={entry.id}
-            href={`/log?edit=${entry.id}`}
-            className="row"
-            style={{ textDecoration: "none", color: "inherit" }}
-            prefetch={false}
-          >
-            <div className="rowmark">
-              <BeerGlassIcon />
-            </div>
-            <div className="grow">
-              <b>{entry.drink_name?.trim() || entry.drink_type}</b>
-              <span>{recentMeta(entry, tz)}</span>
-            </div>
-            <span className="chev">›</span>
-          </Link>
+            entry={entry}
+            meta={recentMeta(entry, tz)}
+            userId={userId}
+            supportsDirectUpload={supportsDirectUpload}
+          />
         ))
       )}
     </div>
