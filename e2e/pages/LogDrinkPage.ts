@@ -38,4 +38,11 @@ export class LogDrinkPage implements ILogDrinkPage {
       .locator('button:has-text("Cancel")')
       .click();
   }
+
+  async logAgainFromRecent(drinkName: string): Promise<void> {
+    await this.page
+      .locator(".row", { hasText: drinkName })
+      .getByRole("button", { name: "Log again" })
+      .click();
+  }
 }
