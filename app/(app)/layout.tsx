@@ -1,7 +1,9 @@
 import { Suspense } from "react";
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getMyUnreadNotificationCount } from "@/lib/controllers/notificationController";
+import { maybeSendSessionReminders } from "@/lib/commands/sessionReminderCommands";
 import { AppHeader } from "@/components/layout/app-header";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
@@ -70,6 +72,11 @@ async function PendingCheckinsSyncLoader() {
 async function AppHeaderLoader() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+
+  // Opportunistic session-reminders tick — see maybeSendSessionReminders's
+  // doc comment. One loader, not all four in this layout, so a single page
+  // render only ever attempts the debounce once.
+  after(() => maybeSendSessionReminders());
 
   const unreadCount = await getMyUnreadNotificationCount();
   return <AppHeader userId={user.id} username={user.username} avatarUrl={user.avatarUrl} unreadCount={unreadCount} />;

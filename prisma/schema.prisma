@@ -288,10 +288,18 @@ model Notification {
   groupName        String?
   achievementLabel String?
   readAt           DateTime?
+  /// Set the first time the user clicks through this *specific* notification
+  /// (components/notifications/notification-row-link.tsx), independent of the
+  /// bulk `readAt` set by markAllRead. The only per-item "did they actually
+  /// see this one" signal — used by the session-reminder algorithm
+  /// (lib/sessionReminderAlgorithm.ts) to score engagement and decide whether
+  /// a user is worth escalating reminders to.
+  openedAt         DateTime?
   createdAt        DateTime         @default(now()) @db.Timestamptz(6)
   user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@index([type, entryId])
 }
 
 /// Client-side error capture — no error-tracking service is wired up, so
@@ -337,4 +345,19 @@ model PushSubscription {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+/// Fixed-window counters backing lib/rateLimit's PostgresRateLimiter — reused
+/// instead of adding a Redis/Upstash dependency (this app stays on
+/// Neon/Vercel free tiers). Keyed by "<scope>:<identifier>" (e.g.
+/// "login:1.2.3.4", "join-crew:<userId>") so one table serves every
+/// rate-limited route. Pruned by RateLimitBucketPruner, run daily by the
+/// same cron as ClientErrorLog's prune job — a row past its window resets on
+/// its next hit anyway, so nothing past the retention cutoff has any use.
+model RateLimitBucket {
+  key         String   @id
+  count       Int      @default(1)
+  windowStart DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([windowStart])
 }

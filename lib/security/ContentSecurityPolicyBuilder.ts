@@ -1,0 +1,63 @@
+import crypto from "crypto";
+import { ContentSecurityPolicyResult } from "@/lib/security/Models";
+
+/**
+ * Nonce-based CSP, generated fresh per request. `script-src` uses
+ * 'strict-dynamic' (Next's documented pattern) so the nonce on Next's own
+ * inline hydration/RSC-streaming scripts propagates trust to whatever those
+ * scripts inject for code-split chunks, without needing 'unsafe-inline'.
+ * `style-src` keeps 'unsafe-inline' since the app renders inline `style={{}}`
+ * attributes throughout — nonces don't cover style attributes, only
+ * `<style>` elements, so there's no equivalent lockdown available there.
+ * `img-src` allowlists the CARTO tile subdomains the session map renders as
+ * direct `<image>` hrefs (lib/mapProjection.ts), plus blob:/data: for
+ * client-side photo previews and base64 LQIP placeholders. `connect-src`
+ * allowlists Nominatim, which log-drink-form.tsx calls directly from the
+ * browser for reverse geocoding, plus data:/blob: — social-row.tsx's
+ * dataUriToFile() does `fetch(dataUri)` to turn the share-image response
+ * into a File for navigator.share(), and without these two schemes listed
+ * here that fetch throws "TypeError: Failed to fetch" (confirmed live:
+ * connect-src governs fetch() targets regardless of scheme, not just
+ * network origins — data:/blob: aren't automatically exempt).
+ * `upgrade-insecure-requests` is scoped to production for the same reason
+ * as 'unsafe-eval' is scoped away from it: local dev (and CI, which runs
+ * against a plain `next dev`) serves everything over plain HTTP on
+ * localhost, and WebKit — confirmed with a real Playwright WebKit browser
+ * against this exact app — enforces the upgrade for every subresource
+ * regardless, rewriting every asset request to `https://localhost:3000/...`
+ * where nothing is listening, breaking the entire page (every script/style/
+ * font request fails with an SSL error). Chrome tolerates plain HTTP on
+ * localhost well enough that this wasn't caught there. Vercel always serves
+ * production over HTTPS anyway, so the directive is a no-op there and only
+ * needs to be present for browsers/proxies that don't already guarantee it.
+ */
+export class ContentSecurityPolicyBuilder {
+  static build(): ContentSecurityPolicyResult {
+    const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+    // Next's dev-mode Fast Refresh runtime evals code to apply hot updates —
+    // production never does this, so 'unsafe-eval' is scoped to dev only.
+    const scriptSrc =
+      process.env.NODE_ENV === "production"
+        ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`
+        : `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval'`;
+    const directives = [
+      "default-src 'self'",
+      scriptSrc,
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' blob: data: https://*.basemaps.cartocdn.com",
+      "font-src 'self'",
+      "connect-src 'self' https://nominatim.openstreetmap.org data: blob:",
+      "worker-src 'self'",
+      "manifest-src 'self'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+    ];
+    if (process.env.NODE_ENV === "production") {
+      directives.push("upgrade-insecure-requests");
+    }
+
+    return { nonce, headerValue: directives.join("; ") };
+  }
+}

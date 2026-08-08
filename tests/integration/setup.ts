@@ -80,6 +80,17 @@ vi.mock("next/cache", async (importOriginal) => ({
       fn(...args),
 }));
 
+/**
+ * Awaits any in-flight after() callbacks (see the next/server mock above) —
+ * needed by tests that call a command relying on queueNotifications'
+ * deferred write and then assert on the resulting Notification rows, since
+ * the command's own promise resolves before that deferred write completes.
+ */
+export async function flushAfterCallbacks(): Promise<void> {
+  await Promise.allSettled(afterState.pending);
+  afterState.pending.length = 0;
+}
+
 const reset = new PostgresDatabaseReset(db);
 
 beforeEach(async () => {

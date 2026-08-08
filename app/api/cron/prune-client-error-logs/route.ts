@@ -1,15 +1,21 @@
 import { pruneClientErrorLogs } from "@/lib/commands/clientErrorLogCommands";
+import { RateLimitBucketPruner } from "@/lib/rateLimit/RateLimitBucketPruner";
 
 // Invoked once daily by .github/workflows/prune-client-error-logs.yml —
 // GitHub Actions, same as session-reminders/cleanup-orphaned-blobs, rather
 // than vercel.json's native cron. Guarded by CRON_SECRET (same value already
-// used by the other cron routes).
+// used by the other cron routes). Also prunes RateLimitBucket — sharing this
+// cron's schedule rather than standing up a second one for another small,
+// unrelated table.
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const result = await pruneClientErrorLogs();
-  return Response.json(result);
+  const [clientErrorLogResult, rateLimitBucketsDeleted] = await Promise.all([
+    pruneClientErrorLogs(),
+    RateLimitBucketPruner.prune(),
+  ]);
+  return Response.json({ ...clientErrorLogResult, rateLimitBucketsDeleted });
 }
