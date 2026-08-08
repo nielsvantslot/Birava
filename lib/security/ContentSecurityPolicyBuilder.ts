@@ -18,7 +18,19 @@ import { ContentSecurityPolicyResult } from "@/lib/security/Models";
  * into a File for navigator.share(), and without these two schemes listed
  * here that fetch throws "TypeError: Failed to fetch" (confirmed live:
  * connect-src governs fetch() targets regardless of scheme, not just
- * network origins — data:/blob: aren't automatically exempt).
+ * network origins — data:/blob: aren't automatically exempt). Also
+ * allowlists `*.blob.vercel-storage.com` — on staging/production,
+ * VercelBlobDirectUploadTransport (modules/photo-upload/client) PUTs a
+ * check-in/avatar photo straight from the browser to
+ * `https://<store-id>.private.blob.vercel-storage.com` (confirmed exact
+ * hostname pattern in @vercel/blob's own SDK source) to route around
+ * Vercel's ~4.5MB serverless body limit — without this, that upload is
+ * silently CSP-blocked and the check-in never leaves "queued" (every
+ * check-in flushes through the same path, see
+ * lib/offline/syncPendingCheckins.ts). The store id is per-project and not
+ * knowable at build time, hence the wildcard; CI never caught this because
+ * it always exercises the local-disk storage path (same-origin), never the
+ * direct-to-Blob one.
  * `upgrade-insecure-requests` is scoped to production for the same reason
  * as 'unsafe-eval' is scoped away from it: local dev (and CI, which runs
  * against a plain `next dev`) serves everything over plain HTTP on
@@ -46,7 +58,7 @@ export class ContentSecurityPolicyBuilder {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' blob: data: https://*.basemaps.cartocdn.com",
       "font-src 'self'",
-      "connect-src 'self' https://nominatim.openstreetmap.org data: blob:",
+      "connect-src 'self' https://nominatim.openstreetmap.org https://*.blob.vercel-storage.com data: blob:",
       "worker-src 'self'",
       "manifest-src 'self'",
       "object-src 'none'",
