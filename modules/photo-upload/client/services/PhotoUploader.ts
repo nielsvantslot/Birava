@@ -6,6 +6,15 @@ import type { UploadResultDto } from "../../Dto/UploadResultDto";
 
 type UploadResponseBody = Partial<UploadResultDto> & Partial<ErrorResponseDto>;
 
+// A direct-to-storage upload that's genuinely hung (not rejected — a network
+// that reaches this app fine but silently can't reach the storage provider's
+// own domain) never throws on its own, so a plain try/catch around it never
+// gets a chance to fall back. Aborting it ourselves after this long is what
+// actually triggers the fallback attempt below, and is short enough to still
+// leave the fallback (routed through this app's own server instead) room to
+// run inside whatever timeout the caller itself imposes on the whole thing.
+const DIRECT_UPLOAD_TIMEOUT_MS = 15_000;
+
 export class PhotoUploader {
   static async upload(
     file: File,
@@ -30,6 +39,18 @@ export class PhotoUploader {
     signal?: AbortSignal
   ): Promise<PhotoUploadResultDto> {
     const transport = endpoints.transport ?? new VercelBlobDirectUploadTransport();
+
+    // Only worth timing out early if there's somewhere to fall back to —
+    // otherwise this would just abandon a slow-but-working upload sooner,
+    // for nothing.
+    const internalController = endpoints.fallbackUploadUrl ? new AbortController() : undefined;
+    const onCallerAbort = () => internalController?.abort();
+    signal?.addEventListener("abort", onCallerAbort);
+    const timeout = internalController
+      ? setTimeout(() => internalController.abort(), DIRECT_UPLOAD_TIMEOUT_MS)
+      : undefined;
+    const effectiveSignal = internalController?.signal ?? signal;
+
     try {
       // The finalize step reconstructs a File from the raw bytes later, with
       // only this pathname's extension to go on for filename-based HEIC
@@ -41,7 +62,7 @@ export class PhotoUploader {
         pathname,
         file,
         tokenUrl: endpoints.tokenUrl,
-        signal,
+        signal: effectiveSignal,
         access: endpoints.access,
       });
 
@@ -49,13 +70,22 @@ export class PhotoUploader {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: rawUrl }),
-        signal,
+        signal: effectiveSignal,
       });
       const result = await PhotoUploader.parseJson(res);
       if (!res.ok || !result?.url) return { error: result?.error ?? "Failed to process photo." };
       return { url: result.url, lqip: result.lqip ?? null };
     } catch {
+      // The original (uncombined) signal — the internal timeout that likely
+      // triggered this catch is over and done with, and shouldn't also
+      // cancel the fallback attempt that's about to start.
+      if (endpoints.fallbackUploadUrl) {
+        return PhotoUploader.uploadViaServer(file, { mode: "server", uploadUrl: endpoints.fallbackUploadUrl }, signal);
+      }
       return { error: "Couldn't upload photo — try a smaller photo or check your connection." };
+    } finally {
+      if (timeout) clearTimeout(timeout);
+      signal?.removeEventListener("abort", onCallerAbort);
     }
   }
 
