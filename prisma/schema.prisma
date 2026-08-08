@@ -288,10 +288,18 @@ model Notification {
   groupName        String?
   achievementLabel String?
   readAt           DateTime?
+  /// Set the first time the user clicks through this *specific* notification
+  /// (components/notifications/notification-row-link.tsx), independent of the
+  /// bulk `readAt` set by markAllRead. The only per-item "did they actually
+  /// see this one" signal — used by the session-reminder algorithm
+  /// (lib/sessionReminderAlgorithm.ts) to score engagement and decide whether
+  /// a user is worth escalating reminders to.
+  openedAt         DateTime?
   createdAt        DateTime         @default(now()) @db.Timestamptz(6)
   user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@index([type, entryId])
 }
 
 /// Client-side error capture — no error-tracking service is wired up, so
