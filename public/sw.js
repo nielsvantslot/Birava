@@ -1,4 +1,18 @@
-const STATIC_CACHE_NAME = "birava-static-v1";
+// Bump the trailing version suffix on a deploy that needs to force-evict
+// stale cached pages/bundles — every version bump changes this file's own
+// bytes, which makes the browser install it as a new SW (skipWaiting()
+// below activates it immediately) and its activate handler deletes every
+// cache name not in CURRENT_CACHES. Without this, NAV_CACHE_NAME's
+// stale-while-revalidate strategy (see the fetch handler) has no natural
+// expiry: a user can reload the exact same stale HTML+JS bundle forever,
+// since a cache hit always wins over the background revalidation update on
+// that same load, and nothing else ever tells the browser this SW's own
+// cache contents are outdated (confirmed live 2026-08-08: a shipped bugfix
+// never reached an active tab through any number of plain reloads or even
+// hard-refreshes, since neither bypasses this SW's own Cache Storage, only
+// the browser's separate HTTP cache).
+const CACHE_VERSION = "v2";
+const STATIC_CACHE_NAME = `birava-static-${CACHE_VERSION}`;
 // A hard navigation requests full HTML; a client-side RSC transition to the
 // very same URL requests a structurally different Flight-payload response —
 // these MUST live in separate caches, not just under different keys in one
@@ -6,14 +20,14 @@ const STATIC_CACHE_NAME = "birava-static-v1";
 // cache's keys apart; the Cache API ignores fragments entirely when
 // matching, so the two shapes silently collided into the same entry and
 // browsers ended up rendering raw Flight-protocol text as if it were HTML.)
-const NAV_CACHE_NAME = "birava-nav-v1";
-const RSC_CACHE_NAME = "birava-rsc-v1";
+const NAV_CACHE_NAME = `birava-nav-${CACHE_VERSION}`;
+const RSC_CACHE_NAME = `birava-rsc-${CACHE_VERSION}`;
 // Avatars and check-in photos (/api/avatars/*, /api/photos/*) are the one
 // auth-gated content that's safe to serve cache-first: each is immutable at
 // its URL (an edit swaps in a new one — CLAUDE.md's "Image pipeline"), so
 // there's no staleness risk the way there is for a page. Kept separate from
 // STATIC_CACHE_NAME so it can be cleared independently on sign-out.
-const MEDIA_CACHE_NAME = "birava-media-v1";
+const MEDIA_CACHE_NAME = `birava-media-${CACHE_VERSION}`;
 const OFFLINE_URL = "/offline";
 const STATIC_ASSETS = [
   "/manifest.webmanifest",
