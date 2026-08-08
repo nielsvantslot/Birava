@@ -30,6 +30,15 @@ export function drinkPhotoUploadEndpoints(userId: string, supportsDirectUpload: 
         finalizeUrl: "/api/uploads/drink-photo/finalize",
         keyPrefix: drinkPhotoKeyPrefix(userId),
         access: PRIVATE_BLOB_ACCESS,
+        // A browser that can reach this app's own server fine but not the
+        // storage provider's separate domain (confirmed live: a direct
+        // upload hanging indefinitely with a valid token already issued)
+        // falls back to routing the file through this server instead. Photos
+        // are already resized/compressed client-side well under Vercel's
+        // ~4.5MB request-body cap by the time this ever fires, so the whole
+        // reason direct upload exists (routing around that cap) isn't at
+        // stake for the fallback path.
+        fallbackUploadUrl: "/api/uploads/drink-photo",
       }
     : { mode: "server" as const, uploadUrl: "/api/uploads/drink-photo" };
 }

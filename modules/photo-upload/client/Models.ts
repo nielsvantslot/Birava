@@ -12,6 +12,20 @@ export interface DirectUploadEndpoints {
   readonly access?: "public" | "private";
   /** @default new VercelBlobDirectUploadTransport() — swap for a different provider's transport. */
   readonly transport?: IDirectUploadTransport;
+  /**
+   * A `PhotoUploadRouteFactory.createUploadRoute` route to fall back to if the
+   * direct upload fails — the direct path travels straight from this browser
+   * to storage, over a network the app has no control over, whereas this
+   * fallback only needs the browser to reach this app's own server (which the
+   * direct token request already just proved it can) and lets the server do
+   * the actual storage write itself. Confirmed live: a network that could
+   * reach the app fine but silently couldn't reach the storage provider's own
+   * domain left every direct upload attempt hanging indefinitely with no
+   * server-side signal at all to react to. Omit to disable the fallback (e.g.
+   * if the caller's server route can't accept the request body size a direct
+   * upload was specifically added to route around).
+   */
+  readonly fallbackUploadUrl?: string;
 }
 
 export interface ServerUploadEndpoints {
