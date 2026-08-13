@@ -4,6 +4,7 @@ import { DrinkEntryMapper, toDrinkEntry } from "@/lib/mappers";
 import { DrinkEntryWithAuthorDTO } from "@/lib/dtos";
 import { getFollowingIds } from "@/lib/queries/followQueries";
 import { VENUE_SELECT } from "@/lib/queries/venueSelect";
+import { LOCAL_LEGEND_WINDOW_MS } from "@/lib/sessions";
 import type { DrinkEntry } from "@/lib/types";
 
 const ENTRY_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -77,6 +78,34 @@ export async function getDrinkHistory(userId: string): Promise<DrinkEntry[]> {
       return entries.map(toDrinkEntry);
     },
     ["drink-history", userId],
+    { tags: [drinkHistoryTag(userId)], revalidate: 60 }
+  )();
+}
+
+/**
+ * Just the last LOCAL_LEGEND_WINDOW_MS (90 days) of check-ins, for the
+ * dashboard's Local Legend stat — getLocalLegendVenue only ever looks at
+ * that window regardless of how much history it's handed, so unlike
+ * getDrinkHistory above (genuinely needs every row, for lifetime-cumulative
+ * achievements/stats), this bounds the query itself instead of fetching a
+ * user's entire history just to filter it down to 90 days in JS. Selects
+ * only venue name + timestamp, since that's all getLocalLegendVenue reads.
+ * Cached the same way as getDrinkHistory (same invalidation tag), just with
+ * a narrower where clause and select.
+ */
+export async function getRecentDrinkHistoryForLegend(
+  userId: string
+): Promise<Array<Pick<DrinkEntry, "venue" | "created_at">>> {
+  return unstable_cache(
+    async () => {
+      const entries = await db.drinkEntry.findMany({
+        where: { userId, createdAt: { gte: new Date(Date.now() - LOCAL_LEGEND_WINDOW_MS) } },
+        select: { createdAt: true, venue: { select: { name: true } } },
+        orderBy: { createdAt: "asc" },
+      });
+      return entries.map((e) => ({ created_at: e.createdAt.toISOString(), venue: e.venue?.name ?? null }));
+    },
+    ["drink-history-legend", userId],
     { tags: [drinkHistoryTag(userId)], revalidate: 60 }
   )();
 }

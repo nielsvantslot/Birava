@@ -165,6 +165,36 @@ describe("createDrinkEntry session placement", () => {
     expect(cheers).toHaveLength(1);
     expect(cheers[0].sessionId).toBe(survivorId);
   });
+
+  it("handles a colliding cheer and a clear cheer in the same merge without either interfering with the other", async () => {
+    // Regression test for the parallelized merge (lib/commands/drinkEntryCommands.ts):
+    // the collision-delete and clear-reassign now run concurrently via
+    // Promise.all since they target disjoint user-id sets — this pins that
+    // both branches still land correctly when a single merge needs both at once.
+    const user = await fixtures.createUser();
+    const actor = { username: user.username, avatarUrl: user.avatarUrl };
+    const alice = await fixtures.createUser(); // cheered both -> collision, loser copy dropped
+    const bob = await fixtures.createUser(); // cheered only the loser -> reassigned to survivor
+    const carol = await fixtures.createUser(); // cheered only the survivor -> untouched
+    const base = Date.now() - 2 * DAY;
+
+    const a = await createAt(user.id, actor, base);
+    const c = await createAt(user.id, actor, base + 8 * HOUR);
+    const survivorId = a.sessionId;
+    const loserId = c.sessionId;
+
+    await db.cheer.create({ data: { sessionId: survivorId, userId: alice.id } });
+    await db.cheer.create({ data: { sessionId: loserId, userId: alice.id } });
+    await db.cheer.create({ data: { sessionId: loserId, userId: bob.id } });
+    await db.cheer.create({ data: { sessionId: survivorId, userId: carol.id } });
+
+    await createAt(user.id, actor, base + 4 * HOUR); // bridges a and c
+
+    const cheers = await db.cheer.findMany({ where: { sessionId: { in: [survivorId, loserId] } } });
+    expect(cheers).toHaveLength(3);
+    expect(cheers.every((cheer) => cheer.sessionId === survivorId)).toBe(true);
+    expect(cheers.map((cheer) => cheer.userId).sort()).toEqual([alice.id, bob.id, carol.id].sort());
+  });
 });
 
 describe("createDrinkEntry concurrent session assignment", () => {

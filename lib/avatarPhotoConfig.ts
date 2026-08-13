@@ -33,6 +33,14 @@ export function avatarUploadEndpoints(userId: string, supportsDirectUpload: bool
         finalizeUrl: "/api/uploads/avatar/finalize",
         keyPrefix: avatarKeyPrefix(userId),
         access: PRIVATE_BLOB_ACCESS,
+        // Mirrors drinkPhotoUploadEndpoints (lib/photoUploadConfig.ts): a
+        // direct-to-storage upload that hangs (reaches this app fine, can't
+        // reach the storage provider's own domain) needs this so
+        // PhotoUploader.uploadDirect can race it against a timeout and fall
+        // back here instead of hanging forever. Avatars are already resized
+        // to AVATAR_MAX_DIMENSION client-side, well under Vercel's request
+        // body cap, so routing through this server is cheap.
+        fallbackUploadUrl: "/api/uploads/avatar",
       }
     : { mode: "server" as const, uploadUrl: "/api/uploads/avatar" };
 }

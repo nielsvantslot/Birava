@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { computeAchievements } from "@/lib/achievements";
+import { newlyEarnedAchievements } from "@/lib/achievements";
 import { SESSION_GAP_MS, MAX_BACKDATE_MS } from "@/lib/sessions";
 import { getUserTimeZone } from "@/lib/timezone";
 import { drinkPhotoService } from "@/lib/photoUpload";
@@ -79,51 +79,61 @@ async function assignSessionForNewEntry(
     // Bridges two sessions — the earlier one survives and absorbs the later.
     const survivorId = prev.sessionId;
     const loserId = next.sessionId;
-    const loser = await tx.drinkSession.findUniqueOrThrow({ where: { id: loserId } });
-    await tx.drinkEntry.updateMany({ where: { sessionId: loserId }, data: { sessionId: survivorId } });
 
-    // The loser's Cheer/Comment/Notification links aren't gone just because
-    // its DrinkSession row is about to be deleted below — Cheer/Comment are
-    // FK'd to DrinkSession with onDelete: Cascade, so without reassigning
-    // them first they'd be silently deleted along with it, even though the
-    // check-ins they're about are still very much alive (now under the
-    // survivor's id).
-    await tx.comment.updateMany({ where: { sessionId: loserId }, data: { sessionId: survivorId } });
+    // Everything in this first wave is mutually independent — none reads a
+    // value another produces, so they run concurrently on the same tx
+    // connection (the same pattern already used above for prev/next) instead
+    // of one sequential round trip apiece. The Cheer read covers both
+    // sessions at once (partitioned in JS below) rather than two separate
+    // finds. Reassigning Comment/Notification here, ahead of the delete
+    // below, matters: Comment is FK'd to DrinkSession with onDelete: Cascade,
+    // so without reassigning it first it would be silently deleted along
+    // with the loser row, even though the check-ins it's about are still
+    // very much alive (now under the survivor's id). Notification isn't an
+    // FK (frozen-at-write-time by design) so it can't violate a constraint
+    // either way, but leaving it pointed at a session that's about to stop
+    // existing would 404 an otherwise-valid link.
+    const [loser, cheerRows] = await Promise.all([
+      tx.drinkSession.findUniqueOrThrow({ where: { id: loserId } }),
+      tx.cheer.findMany({
+        where: { sessionId: { in: [loserId, survivorId] } },
+        select: { sessionId: true, userId: true },
+      }),
+      tx.drinkEntry.updateMany({ where: { sessionId: loserId }, data: { sessionId: survivorId } }),
+      tx.comment.updateMany({ where: { sessionId: loserId }, data: { sessionId: survivorId } }),
+      tx.notification.updateMany({ where: { entryId: loserId }, data: { entryId: survivorId } }),
+    ]);
 
-    const loserCheerUserIds = (
-      await tx.cheer.findMany({ where: { sessionId: loserId }, select: { userId: true } })
-    ).map((c) => c.userId);
-    if (loserCheerUserIds.length > 0) {
-      const survivorCheerUserIds = new Set(
-        (
-          await tx.cheer.findMany({ where: { sessionId: survivorId }, select: { userId: true } })
-        ).map((c) => c.userId)
-      );
-      // If the same user cheered both sessions, reassigning would collide on
-      // the (sessionId, userId) primary key — drop the loser's copy rather
-      // than double-count what's really the same cheer.
-      const colliding = loserCheerUserIds.filter((id) => survivorCheerUserIds.has(id));
-      const clear = loserCheerUserIds.filter((id) => !survivorCheerUserIds.has(id));
-      if (colliding.length > 0) {
-        await tx.cheer.deleteMany({ where: { sessionId: loserId, userId: { in: colliding } } });
-      }
-      if (clear.length > 0) {
-        await tx.cheer.updateMany({
-          where: { sessionId: loserId, userId: { in: clear } },
-          data: { sessionId: survivorId },
-        });
-      }
-    }
+    const loserCheerUserIds = cheerRows.filter((c) => c.sessionId === loserId).map((c) => c.userId);
+    const survivorCheerUserIds = new Set(
+      cheerRows.filter((c) => c.sessionId === survivorId).map((c) => c.userId)
+    );
+    // If the same user cheered both sessions, reassigning would collide on
+    // the (sessionId, userId) primary key — drop the loser's copy rather
+    // than double-count what's really the same cheer.
+    const colliding = loserCheerUserIds.filter((id) => survivorCheerUserIds.has(id));
+    const clear = loserCheerUserIds.filter((id) => !survivorCheerUserIds.has(id));
 
-    // Not an FK (frozen-at-write-time by design), so this can't violate a
-    // constraint either way — but leaving it pointed at a session that's
-    // about to stop existing would 404 an otherwise-valid notification link.
-    await tx.notification.updateMany({ where: { entryId: loserId }, data: { entryId: survivorId } });
+    // Second wave: the two Cheer cleanup calls target disjoint user-id sets
+    // (colliding vs. clear) so they can't conflict with each other, and the
+    // survivor's endedAt bump touches a different table entirely — all three
+    // run concurrently rather than one after another.
+    await Promise.all([
+      colliding.length > 0
+        ? tx.cheer.deleteMany({ where: { sessionId: loserId, userId: { in: colliding } } })
+        : null,
+      clear.length > 0
+        ? tx.cheer.updateMany({ where: { sessionId: loserId, userId: { in: clear } }, data: { sessionId: survivorId } })
+        : null,
+      tx.drinkSession.update({
+        where: { id: survivorId },
+        data: { endedAt: loser.endedAt, ...CLEAR_SHARE_IMAGE_CACHE },
+      }),
+    ]);
 
-    await tx.drinkSession.update({
-      where: { id: survivorId },
-      data: { endedAt: loser.endedAt, ...CLEAR_SHARE_IMAGE_CACHE },
-    });
+    // Must be last: everything above that could still reference loserId
+    // (Cheer/Comment/Notification reassignment) has already landed, so the
+    // cascade this delete triggers has nothing left to sweep up.
     await tx.drinkSession.delete({ where: { id: loserId } });
     // The loser row is gone for good — its own cached render (if any) is
     // never regenerated in place, unlike ordinary invalidation, so it's
@@ -238,11 +248,6 @@ export async function createDrinkEntry(
     drink_type: e.drinkType,
     venue: e.venue?.name ?? null,
   }));
-  const earnedBefore = new Set(
-    computeAchievements(beforeEntries, tz)
-      .filter((a) => a.earned)
-      .map((a) => a.id)
-  );
   // Built from `input.venue` (the name string, not `created`) since `created`
   // comes back from `tx.drinkEntry.create` with no venue include — Prisma
   // silently returns `undefined` for a relation that isn't included, which
@@ -254,9 +259,7 @@ export async function createDrinkEntry(
     drink_type: created.drinkType,
     venue: input.venue,
   };
-  const newlyEarned = computeAchievements([...beforeEntries, afterEntry], tz).filter(
-    (a) => a.earned && !earnedBefore.has(a.id)
-  );
+  const newlyEarned = newlyEarnedAchievements(beforeEntries, afterEntry, tz);
   const achievementUnlocked = newlyEarned.length > 0;
 
   const events: NotificationEvent[] = newlyEarned.map((a) => ({
