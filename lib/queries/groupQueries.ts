@@ -8,6 +8,17 @@ import { getSessionsForUserIds } from "@/lib/queries/drinkSessionQueries";
 import { VENUE_SELECT } from "@/lib/queries/venueSelect";
 import type { DrinkSession } from "@/lib/sessions";
 
+/**
+ * Just the ids of the crews a user belongs to — for scoping revalidation to
+ * only that user's own crews (see drinkController.ts's revalidateDrinkPaths),
+ * not for display, so it skips the member/score joins getCrewSummariesForUser
+ * needs.
+ */
+export async function getGroupIdsForUser(userId: string): Promise<string[]> {
+  const memberships = await db.groupMember.findMany({ where: { userId }, select: { groupId: true } });
+  return memberships.map((m) => m.groupId);
+}
+
 const memberSelect = {
   select: {
     userId: true,
