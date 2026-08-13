@@ -8,28 +8,34 @@ datasource db {
 }
 
 model User {
-  id                String             @id @default(uuid()) @db.Uuid
-  email             String             @unique
-  username          String             @unique
-  passwordHash      String
-  avatarUrl         String?
-  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
-  drinkEntries      DrinkEntry[]
-  drinkSessions     DrinkSession[]
-  ownedGroups       Group[]            @relation("GroupOwner")
-  groupMemberships  GroupMember[]
-  groupBans         GroupBan[]
-  receivedGroupInvites GroupInvite[]   @relation("GroupInviteInvitee")
-  sentGroupInvites     GroupInvite[]   @relation("GroupInviteInviter")
-  follows           Follow[]           @relation("FollowFollower")
-  followedBy        Follow[]           @relation("FollowFollowing")
-  sessions          Session[]
-  cheers            Cheer[]
-  notifications     Notification[]
-  pushSubscriptions PushSubscription[]
-  comments          Comment[]
+  id                      String                   @id @default(uuid()) @db.Uuid
+  email                   String                   @unique
+  username                String                   @unique
+  passwordHash            String
+  avatarUrl               String?
+  /// Set once the first-run onboarding flow (app/onboarding) is finished or
+  /// skipped. Write-only for now — nothing gates on it yet, since onboarding
+  /// is reached only via signup's own redirect, not a middleware-enforced
+  /// wall. Kept as a real column (not derived) so it survives independent of
+  /// that redirect ever changing.
+  hasCompletedOnboarding  Boolean                  @default(false)
+  createdAt               DateTime                 @default(now()) @db.Timestamptz(6)
+  drinkEntries            DrinkEntry[]
+  drinkSessions           DrinkSession[]
+  ownedGroups             Group[]                  @relation("GroupOwner")
+  groupMemberships        GroupMember[]
+  groupBans               GroupBan[]
+  receivedGroupInvites    GroupInvite[]            @relation("GroupInviteInvitee")
+  sentGroupInvites        GroupInvite[]            @relation("GroupInviteInviter")
+  follows                 Follow[]                 @relation("FollowFollower")
+  followedBy              Follow[]                 @relation("FollowFollowing")
+  sessions                Session[]
+  cheers                  Cheer[]
+  notifications           Notification[]
+  pushSubscriptions       PushSubscription[]
+  comments                Comment[]
   notificationPreferences NotificationPreference[]
-  clientErrorLogs   ClientErrorLog[]
+  clientErrorLogs         ClientErrorLog[]
 }
 
 /// Per-category notification preferences — gates whether queueNotifications
@@ -72,17 +78,17 @@ enum GroupVisibility {
 }
 
 model Group {
-  id           String          @id @default(uuid()) @db.Uuid
-  name         String
-  inviteCode   String          @unique
-  ownerId      String          @db.Uuid
-  visibility   GroupVisibility @default(PUBLIC)
-  createdAt    DateTime        @default(now()) @db.Timestamptz(6)
-  closedAt     DateTime?       @db.Timestamptz(6)
-  owner        User            @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  members      GroupMember[]
-  bans         GroupBan[]
-  invites      GroupInvite[]
+  id         String          @id @default(uuid()) @db.Uuid
+  name       String
+  inviteCode String          @unique
+  ownerId    String          @db.Uuid
+  visibility GroupVisibility @default(PUBLIC)
+  createdAt  DateTime        @default(now()) @db.Timestamptz(6)
+  closedAt   DateTime?       @db.Timestamptz(6)
+  owner      User            @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members    GroupMember[]
+  bans       GroupBan[]
+  invites    GroupInvite[]
 
   @@index([ownerId])
 }
@@ -156,20 +162,20 @@ enum DrinkType {
 }
 
 model DrinkEntry {
-  id        String        @id @default(uuid()) @db.Uuid
-  userId    String        @db.Uuid
-  sessionId String        @db.Uuid
+  id        String       @id @default(uuid()) @db.Uuid
+  userId    String       @db.Uuid
+  sessionId String       @db.Uuid
   drinkName String?
-  drinkType DrinkType     @default(Beer)
-  venueId   String?       @db.Uuid
+  drinkType DrinkType    @default(Beer)
+  venueId   String?      @db.Uuid
   photoUrl  String?
   /// Tiny base64 blurred placeholder generated at upload time, rendered via
   /// next/image's placeholder="blur" while the real photo streams in.
   photoLqip String?
-  createdAt DateTime      @default(now()) @db.Timestamptz(6)
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  session   DrinkSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  venue     Venue?        @relation(fields: [venueId], references: [id])
+  createdAt DateTime     @default(now()) @db.Timestamptz(6)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session   DrinkSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  venue     Venue?       @relation(fields: [venueId], references: [id])
 
   @@index([userId, createdAt])
   @@index([sessionId])
@@ -205,11 +211,11 @@ model Venue {
 /// existing /sessions/[id] links, share images, and Cheer/Comment rows stay
 /// valid across merges/splits without a redirect table.
 model DrinkSession {
-  id        String       @id @db.Uuid
-  userId    String       @db.Uuid
-  startedAt DateTime     @db.Timestamptz(6)
-  endedAt   DateTime     @db.Timestamptz(6)
-  name      String?
+  id                       String       @id @db.Uuid
+  userId                   String       @db.Uuid
+  startedAt                DateTime     @db.Timestamptz(6)
+  endedAt                  DateTime     @db.Timestamptz(6)
+  name                     String?
   /// Cached rendered share-image variants (lib/shareImageCache.ts) — storage
   /// keys/URLs, not the bytes themselves. Null means "not cached, or stale":
   /// every command that changes this session's entries or name nulls both
@@ -217,10 +223,10 @@ model DrinkSession {
   /// re-populates them on the next request.
   shareImageOpaqueUrl      String?
   shareImageTransparentUrl String?
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  entries   DrinkEntry[]
-  cheers    Cheer[]
-  comments  Comment[]
+  user                     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries                  DrinkEntry[]
+  cheers                   Cheer[]
+  comments                 Comment[]
 
   @@index([userId, endedAt])
 }
