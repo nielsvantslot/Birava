@@ -12,6 +12,7 @@ import {
   drinkHistoryTag,
 } from "@/lib/queries/drinkEntryQueries";
 import { getSessionById, getSessionsForUserIds } from "@/lib/queries/drinkSessionQueries";
+import { getGroupIdsForUser } from "@/lib/queries/groupQueries";
 import { getCheerStates, type CheerState } from "@/lib/queries/cheerQueries";
 import { getCommentCounts } from "@/lib/queries/commentQueries";
 import { getFollowingIds } from "@/lib/queries/followQueries";
@@ -37,10 +38,27 @@ const FEED_SESSION_LIMIT = 12;
 
 const DRINK_PATHS = ["/dashboard", "/stats", "/log", "/profile", "/achievements"];
 
-function revalidateDrinkPaths(userId: string): string[] {
+/**
+ * Revalidates the fixed drink-related routes plus only the specific
+ * session(s)/crew(s) this write could actually have changed — not every
+ * `/sessions/[id]`/`/crews/[id]` for every user, which a blanket
+ * `revalidatePath("/sessions", "layout")`/`("/crews", "layout")` would do.
+ * `sessionPaths` is whatever the calling command already returned as its own
+ * `revalidatedPaths` (e.g. `/sessions/<id>`) — that's always the exact
+ * session(s) the write touched, so it doubles as the scope for the
+ * server-side Next cache too, not just the client-side SW cache-eviction
+ * list it was originally collected for. Crew scoring can shift on *any*
+ * check-in (not just ones that start a new session — the tiebreaker counts
+ * total drinks logged since joining), so crew ids are looked up fresh here
+ * rather than reusing drinkEntryCommands.ts's own new-session-only
+ * membership lookup (which exists to notify other members, a different
+ * question from "which of my own crew pages might now look different").
+ */
+async function revalidateDrinkPaths(userId: string, sessionPaths: string[]): Promise<string[]> {
   for (const path of DRINK_PATHS) revalidatePath(path);
-  revalidatePath("/sessions", "layout");
-  revalidatePath("/crews", "layout");
+  for (const path of sessionPaths) revalidatePath(path);
+  const groupIds = await getGroupIdsForUser(userId);
+  for (const groupId of groupIds) revalidatePath(`/crews/${groupId}`);
   revalidateTag(drinkHistoryTag(userId));
   return DRINK_PATHS;
 }
@@ -54,7 +72,8 @@ export async function addDrink(input: CreateDrinkEntryDTO): Promise<AddDrinkResu
     avatarUrl: user.avatarUrl,
   });
   if (!result.error) {
-    result.revalidatedPaths = [...(result.revalidatedPaths ?? []), ...revalidateDrinkPaths(user.id)];
+    const sessionPaths = result.revalidatedPaths ?? [];
+    result.revalidatedPaths = [...sessionPaths, ...(await revalidateDrinkPaths(user.id, sessionPaths))];
   }
   return result;
 }
@@ -65,7 +84,8 @@ export async function editDrink(input: UpdateDrinkEntryDTO): Promise<ActionResul
 
   const result = await updateDrinkEntry(user.id, input);
   if (!result.error) {
-    result.revalidatedPaths = [...(result.revalidatedPaths ?? []), ...revalidateDrinkPaths(user.id)];
+    const sessionPaths = result.revalidatedPaths ?? [];
+    result.revalidatedPaths = [...sessionPaths, ...(await revalidateDrinkPaths(user.id, sessionPaths))];
   }
   return result;
 }
@@ -76,7 +96,8 @@ export async function deleteDrink(input: DeleteDrinkEntryDTO): Promise<ActionRes
 
   const result = await deleteDrinkEntry(user.id, input);
   if (!result.error) {
-    result.revalidatedPaths = [...(result.revalidatedPaths ?? []), ...revalidateDrinkPaths(user.id)];
+    const sessionPaths = result.revalidatedPaths ?? [];
+    result.revalidatedPaths = [...sessionPaths, ...(await revalidateDrinkPaths(user.id, sessionPaths))];
   }
   return result;
 }
@@ -87,7 +108,8 @@ export async function renameSession(input: RenameSessionDTO): Promise<ActionResu
 
   const result = await renameSessionCommand(user.id, input);
   if (!result.error) {
-    result.revalidatedPaths = [...(result.revalidatedPaths ?? []), ...revalidateDrinkPaths(user.id)];
+    const sessionPaths = result.revalidatedPaths ?? [];
+    result.revalidatedPaths = [...sessionPaths, ...(await revalidateDrinkPaths(user.id, sessionPaths))];
   }
   return result;
 }
