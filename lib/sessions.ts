@@ -229,13 +229,21 @@ export function sessionTitle(session: DrinkSession, tz: string): string {
 }
 
 /**
+ * getLocalLegendVenue's own lookback window — exported so callers that only
+ * need this stat (the dashboard's Local Legend card) can bound their own
+ * query to the same window instead of fetching full lifetime history and
+ * filtering it down in JS.
+ */
+export const LOCAL_LEGEND_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
+
+/**
  * "Local Legend" venue: the venue with the most check-ins over the last
  * 90 days, if it has at least 3.
  */
 export function getLocalLegendVenue(
   entries: Array<Pick<DrinkEntry, "venue" | "created_at">>
 ): string | null {
-  const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+  const cutoff = Date.now() - LOCAL_LEGEND_WINDOW_MS;
   const counts = new Map<string, number>();
 
   for (const entry of entries) {
