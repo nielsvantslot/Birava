@@ -25,6 +25,39 @@ export async function getIntraSessionGapsForUser(userId: string): Promise<number
   return gaps;
 }
 
+/**
+ * Each of the given sessions' own intra-session check-in gaps, keyed by
+ * session id — the "this session's actual pace so far" input to
+ * expectedGapMs, preferred over a user's cross-session historical median
+ * the moment there's any evidence of it.
+ */
+export async function getIntraSessionGapsBySessionId(sessionIds: string[]): Promise<Map<string, number[]>> {
+  if (sessionIds.length === 0) return new Map();
+
+  const entries = await db.drinkEntry.findMany({
+    where: { sessionId: { in: sessionIds } },
+    select: { sessionId: true, createdAt: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const timestampsBySession = new Map<string, Date[]>();
+  for (const entry of entries) {
+    const list = timestampsBySession.get(entry.sessionId);
+    if (list) list.push(entry.createdAt);
+    else timestampsBySession.set(entry.sessionId, [entry.createdAt]);
+  }
+
+  const gapsBySession = new Map<string, number[]>();
+  for (const [sessionId, timestamps] of timestampsBySession) {
+    const gaps: number[] = [];
+    for (let i = 1; i < timestamps.length; i++) {
+      gaps.push(timestamps[i].getTime() - timestamps[i - 1].getTime());
+    }
+    gapsBySession.set(sessionId, gaps);
+  }
+  return gapsBySession;
+}
+
 export type ReminderEngagement = { openedCount: number; resolvedCount: number };
 
 /**

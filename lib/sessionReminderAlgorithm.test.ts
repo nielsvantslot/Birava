@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
-  DEFAULT_QUIET_THRESHOLD_MS,
-  MAX_QUIET_THRESHOLD_MS,
-  MIN_QUIET_THRESHOLD_MS,
-  dueTierForElapsed,
+  DEFAULT_EXPECTED_GAP_MS,
+  MAX_EXPECTED_GAP_MS,
+  MIN_EXPECTED_GAP_MS,
+  OVERDUE_BUFFER_MS,
+  dueSlotsForElapsed,
+  expectedGapMs,
   maxRemindersForEngagement,
   medianGapMs,
-  personalizedQuietThresholdMs,
-  tierBoundariesMs,
 } from "./sessionReminderAlgorithm";
 
 describe("medianGapMs", () => {
@@ -24,49 +24,48 @@ describe("medianGapMs", () => {
   });
 });
 
-describe("personalizedQuietThresholdMs", () => {
-  it("falls back to the default when there's no history", () => {
-    expect(personalizedQuietThresholdMs(null)).toBe(DEFAULT_QUIET_THRESHOLD_MS);
+describe("expectedGapMs", () => {
+  it("falls back to the default when there's no history at all", () => {
+    expect(expectedGapMs([], [])).toBe(DEFAULT_EXPECTED_GAP_MS);
   });
 
-  it("clamps a very fast logger's median gap to the floor", () => {
-    expect(personalizedQuietThresholdMs(5 * 60 * 1000)).toBe(MIN_QUIET_THRESHOLD_MS);
+  it("prefers this session's own gaps over historical ones", () => {
+    expect(expectedGapMs([45 * 60 * 1000], [100 * 60 * 1000])).toBe(45 * 60 * 1000);
   });
 
-  it("clamps a very sparse logger's median gap to the ceiling", () => {
-    expect(personalizedQuietThresholdMs(5 * 60 * 60 * 1000)).toBe(MAX_QUIET_THRESHOLD_MS);
+  it("falls back to historical gaps when this session has none yet", () => {
+    expect(expectedGapMs([], [45 * 60 * 1000])).toBe(45 * 60 * 1000);
   });
 
-  it("uses the median gap as-is when it's already within bounds", () => {
-    expect(personalizedQuietThresholdMs(45 * 60 * 1000)).toBe(45 * 60 * 1000);
-  });
-});
-
-describe("tierBoundariesMs", () => {
-  it("builds increasing tiers off the threshold", () => {
-    const [t1, t2, t3] = tierBoundariesMs(40 * 60 * 1000);
-    expect(t1).toBe(40 * 60 * 1000);
-    expect(t2).toBe(80 * 60 * 1000);
-    expect(t3).toBe(140 * 60 * 1000);
+  it("clamps a very fast pace to the floor", () => {
+    expect(expectedGapMs([5 * 60 * 1000], [])).toBe(MIN_EXPECTED_GAP_MS);
   });
 
-  it("caps tier 3 so it always leaves a buffer before the session's hard close", () => {
-    const [, , t3] = tierBoundariesMs(MAX_QUIET_THRESHOLD_MS);
-    expect(t3).toBeLessThan(4 * 60 * 60 * 1000);
+  it("clamps a very sparse pace to the ceiling", () => {
+    expect(expectedGapMs([5 * 60 * 60 * 1000], [])).toBe(MAX_EXPECTED_GAP_MS);
   });
 });
 
-describe("dueTierForElapsed", () => {
-  const tiers: [number, number, number] = [60 * 60 * 1000, 120 * 60 * 1000, 210 * 60 * 1000];
+describe("dueSlotsForElapsed", () => {
+  const gapMs = 60 * 60 * 1000; // 60min expected gap -> overdue at 75min
 
-  it("is 0 before the first tier", () => {
-    expect(dueTierForElapsed(30 * 60 * 1000, tiers)).toBe(0);
+  it("is 0 before the overdue buffer past the expected gap", () => {
+    expect(dueSlotsForElapsed(60 * 60 * 1000, gapMs)).toBe(0);
+    expect(dueSlotsForElapsed(74 * 60 * 1000, gapMs)).toBe(0);
   });
 
-  it("reaches each tier once elapsed time crosses its boundary", () => {
-    expect(dueTierForElapsed(61 * 60 * 1000, tiers)).toBe(1);
-    expect(dueTierForElapsed(121 * 60 * 1000, tiers)).toBe(2);
-    expect(dueTierForElapsed(211 * 60 * 1000, tiers)).toBe(3);
+  it("reaches slot 1 right at gap + buffer (matches the 60min/1h15 example)", () => {
+    expect(dueSlotsForElapsed(75 * 60 * 1000, gapMs)).toBe(1);
+  });
+
+  it("reaches further slots one full gap apart, not an escalating multiplier", () => {
+    expect(dueSlotsForElapsed(135 * 60 * 1000, gapMs)).toBe(2); // +60min after slot 1
+    expect(dueSlotsForElapsed(195 * 60 * 1000, gapMs)).toBe(3); // +60min after slot 2
+  });
+
+  it("scales with a different expected gap", () => {
+    const fastGapMs = 30 * 60 * 1000;
+    expect(dueSlotsForElapsed(30 * 60 * 1000 + OVERDUE_BUFFER_MS, fastGapMs)).toBe(1);
   });
 });
 
@@ -84,7 +83,7 @@ describe("maxRemindersForEngagement", () => {
     expect(maxRemindersForEngagement(1, 10)).toBe(2);
   });
 
-  it("gives a consistently-responsive user the full escalation", () => {
+  it("gives a consistently-responsive user the full allowance", () => {
     expect(maxRemindersForEngagement(5, 10)).toBe(3);
   });
 });

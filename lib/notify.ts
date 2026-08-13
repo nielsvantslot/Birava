@@ -83,7 +83,7 @@ export function queueNotifications(events: NotificationEvent[]) {
     await Promise.allSettled(
       pushAllowed.map((e) => {
         const { message, href } = describeNotification(e.type, e);
-        return sendPushToUser(e.userId, { title: "Birava", body: message, url: href });
+        return sendPushToUser(e.userId, { title: "Birava", body: message, url: href, id: e.id });
       })
     );
   });

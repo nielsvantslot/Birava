@@ -113,7 +113,7 @@ self.addEventListener("push", (event) => {
       body: data.body,
       icon: "/icons/icon-192x192.png",
       badge: "/icons/icon-192x192.png",
-      data: { url: data.url || "/dashboard" },
+      data: { url: data.url || "/dashboard", notificationId: data.id },
     })
   );
 });
@@ -121,11 +121,19 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const url = event.notification.data?.url || "/dashboard";
+  const notificationId = event.notification.data?.notificationId;
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientsArr) => {
-      const existing = clientsArr.find((c) => c.url.includes(url));
-      return existing ? existing.focus() : self.clients.openWindow(url);
-    })
+    Promise.all([
+      // Best-effort — a failed report should never block opening the app.
+      // Same-origin fetch carries the birava_session cookie automatically.
+      notificationId
+        ? fetch(`/api/notifications/${notificationId}/opened`, { method: "POST" }).catch(() => {})
+        : Promise.resolve(),
+      self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientsArr) => {
+        const existing = clientsArr.find((c) => c.url.includes(url));
+        return existing ? existing.focus() : self.clients.openWindow(url);
+      }),
+    ])
   );
 });
 

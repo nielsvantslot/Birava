@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
 import { createDrinkEntry } from "@/lib/commands/drinkEntryCommands";
-import { getCrewDetailForViewer } from "@/lib/queries/groupQueries";
+import { getCrewDetailForViewer, getGroupIdsForUser } from "@/lib/queries/groupQueries";
 
 const HOUR = 60 * 60 * 1000;
 
@@ -95,5 +95,26 @@ describe("getCrewDetailForViewer", () => {
     expect(detail).not.toBeNull();
     const ownerScore = detail!.scores.find((s) => s.userId === owner.id);
     expect(ownerScore?.venues).toBe(2);
+  });
+});
+
+describe("getGroupIdsForUser", () => {
+  it("returns only the crews a user actually belongs to", async () => {
+    const owner = await createUser();
+    const other = await createUser();
+    const ownGroup = await createGroupWithOwner(owner.id, new Date());
+    await createGroupWithOwner(other.id, new Date()); // a crew this user is not in
+
+    const groupIds = await getGroupIdsForUser(owner.id);
+
+    expect(groupIds).toEqual([ownGroup.id]);
+  });
+
+  it("returns an empty array for a user in no crews", async () => {
+    const user = await createUser();
+
+    const groupIds = await getGroupIdsForUser(user.id);
+
+    expect(groupIds).toEqual([]);
   });
 });

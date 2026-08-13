@@ -230,9 +230,9 @@ export function sessionTitle(session: DrinkSession, tz: string): string {
 
 /**
  * getLocalLegendVenue's own lookback window — exported so callers that only
- * need this stat (the dashboard's Local Legend card) can bound their own
- * query to the same window instead of fetching full lifetime history and
- * filtering it down in JS.
+ * need this stat (dashboard's Local Legend card, the achievement-diff path)
+ * can bound their own query/scan to the same window instead of handing it
+ * full lifetime history to filter down itself.
  */
 export const LOCAL_LEGEND_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
 

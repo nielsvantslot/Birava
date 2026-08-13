@@ -1,21 +1,21 @@
-import { SESSION_GAP_MS } from "@/lib/sessions";
+/**
+ * Bounds a user's own observed gap between drinks gets clamped into. Keeps a
+ * very fast logger from getting nudged within minutes, and a very sparse
+ * logger from waiting almost the full SESSION_GAP_MS before ever hearing
+ * from the reminder.
+ */
+export const MIN_EXPECTED_GAP_MS = 30 * 60 * 1000; // 30 min
+export const MAX_EXPECTED_GAP_MS = 90 * 60 * 1000; // 90 min
+
+/** Fallback gap for a user with no usable history yet (today's old constant). */
+export const DEFAULT_EXPECTED_GAP_MS = 60 * 60 * 1000; // 1 hour
 
 /**
- * Personalized quiet-threshold bounds — the floor/ceiling a user's own median
- * intra-session gap gets clamped into. Keeps a very fast logger from getting
- * nudged within minutes, and a very sparse logger from waiting almost the
- * full SESSION_GAP_MS before ever hearing from the reminder.
+ * How much later than the expected gap a user has to go quiet before we
+ * assume they've got an unlogged drink, rather than genuinely still be on
+ * their last one. E.g. a 60min expected gap only counts as overdue at 75min.
  */
-export const MIN_QUIET_THRESHOLD_MS = 30 * 60 * 1000; // 30 min
-export const MAX_QUIET_THRESHOLD_MS = 90 * 60 * 1000; // 90 min
-
-/** Fallback threshold for a user with no usable history yet (today's old constant). */
-export const DEFAULT_QUIET_THRESHOLD_MS = 60 * 60 * 1000; // 1 hour
-
-/** Ceilings for tiers 2 and 3, so a large personalized threshold can't push a
- * later tier past SESSION_GAP_MS (4h) and leave no room for it to ever fire. */
-const TIER_2_CEILING_MS = 180 * 60 * 1000; // 3h
-const TIER_3_CEILING_MS = 210 * 60 * 1000; // 3.5h — 30min buffer before the 4h hard close
+export const OVERDUE_BUFFER_MS = 15 * 60 * 1000; // 15 min
 
 const ENGAGEMENT_COLD_START_SAMPLE = 3;
 const ENGAGEMENT_LOW_RATE_CUTOFF = 1 / 3;
@@ -37,43 +37,42 @@ export function medianGapMs(gaps: number[]): number | null {
 }
 
 /**
- * A user's personalized "gone quiet" threshold: their own median intra-session
- * check-in gap, clamped to [MIN_QUIET_THRESHOLD_MS, MAX_QUIET_THRESHOLD_MS].
- * Falls back to DEFAULT_QUIET_THRESHOLD_MS when there's no history yet.
+ * A user's expected gap between drinks: the median of *this session's own*
+ * check-in gaps so far, so tonight's actual pace wins the moment there's any
+ * evidence of it. Falls back to the user's historical median (other
+ * sessions) once this session has one, then to DEFAULT_EXPECTED_GAP_MS if
+ * there's no history at all. Either way, clamped to
+ * [MIN_EXPECTED_GAP_MS, MAX_EXPECTED_GAP_MS].
  */
-export function personalizedQuietThresholdMs(medianGap: number | null): number {
-  if (medianGap === null) return DEFAULT_QUIET_THRESHOLD_MS;
-  return Math.min(MAX_QUIET_THRESHOLD_MS, Math.max(MIN_QUIET_THRESHOLD_MS, medianGap));
+export function expectedGapMs(sessionGaps: number[], historicalGaps: number[]): number {
+  const median = medianGapMs(sessionGaps.length > 0 ? sessionGaps : historicalGaps);
+  if (median === null) return DEFAULT_EXPECTED_GAP_MS;
+  return Math.min(MAX_EXPECTED_GAP_MS, Math.max(MIN_EXPECTED_GAP_MS, median));
 }
 
 /**
- * Escalation tiers built off a user's personalized threshold: tier 1 fires at
- * the threshold itself, tier 2 at 2x (capped), tier 3 at 3.5x (capped further
- * back, to leave a buffer before SESSION_GAP_MS permanently closes the
- * session and no further reminder could ever land).
+ * How many reminder "slots" are due given how long it's been since the
+ * check-in that started this quiet stretch. Slot 1 is due at
+ * `gapMs + OVERDUE_BUFFER_MS` (the user's usual gap, plus a buffer so a
+ * still-on-their-last-drink user isn't nudged early); each further slot is
+ * one more full gap after that — a *consistent* cadence, not an escalating
+ * multiplier, so catching up on a missed drink never requires waiting
+ * longer than usual for the next nudge.
  */
-export function tierBoundariesMs(thresholdMs: number): [number, number, number] {
-  const tier1 = thresholdMs;
-  const tier2 = Math.min(thresholdMs * 2, TIER_2_CEILING_MS);
-  const tier3 = Math.min(thresholdMs * 3.5, TIER_3_CEILING_MS, SESSION_GAP_MS - 30 * 60 * 1000);
-  return [tier1, tier2, tier3];
-}
-
-/** How many escalation tiers are due given how long the session has been quiet. */
-export function dueTierForElapsed(elapsedMs: number, tiers: [number, number, number]): 0 | 1 | 2 | 3 {
-  if (elapsedMs >= tiers[2]) return 3;
-  if (elapsedMs >= tiers[1]) return 2;
-  if (elapsedMs >= tiers[0]) return 1;
-  return 0;
+export function dueSlotsForElapsed(elapsedMs: number, gapMs: number): number {
+  if (elapsedMs < OVERDUE_BUFFER_MS) return 0;
+  return Math.floor((elapsedMs - OVERDUE_BUFFER_MS) / gapMs);
 }
 
 /**
- * The most reminders a user is eligible to receive per session, based on how
- * often they've actually opened past SESSION_REMINDER notifications
- * (Notification.openedAt). A user with no engagement history yet gets the
- * benefit of the doubt (2); a user who has never opened one gets capped at 1
- * — exactly today's single-reminder behavior, so a consistently-unresponsive
- * user never gets *more* nudges than before, only a responsive one gets more.
+ * The most reminders a user is eligible to receive per *quiet stretch*
+ * (resets the moment they log a new check-in — see sessionReminderCommands),
+ * based on how often they've actually opened past SESSION_REMINDER
+ * notifications (Notification.openedAt). A user with no engagement history
+ * yet gets the benefit of the doubt (2); a user who has never opened one
+ * gets capped at 1 — exactly today's single-reminder behavior, so a
+ * consistently-unresponsive user never gets *more* nudges than before, only
+ * a responsive one gets more.
  */
 export function maxRemindersForEngagement(openedCount: number, resolvedCount: number): 1 | 2 | 3 {
   if (resolvedCount < ENGAGEMENT_COLD_START_SAMPLE) return 2;
