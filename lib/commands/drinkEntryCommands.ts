@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { computeAchievements } from "@/lib/achievements";
+import { newlyEarnedAchievements } from "@/lib/achievements";
 import { SESSION_GAP_MS, MAX_BACKDATE_MS } from "@/lib/sessions";
 import { getUserTimeZone } from "@/lib/timezone";
 import { drinkPhotoService } from "@/lib/photoUpload";
@@ -248,11 +248,6 @@ export async function createDrinkEntry(
     drink_type: e.drinkType,
     venue: e.venue?.name ?? null,
   }));
-  const earnedBefore = new Set(
-    computeAchievements(beforeEntries, tz)
-      .filter((a) => a.earned)
-      .map((a) => a.id)
-  );
   // Built from `input.venue` (the name string, not `created`) since `created`
   // comes back from `tx.drinkEntry.create` with no venue include — Prisma
   // silently returns `undefined` for a relation that isn't included, which
@@ -264,9 +259,7 @@ export async function createDrinkEntry(
     drink_type: created.drinkType,
     venue: input.venue,
   };
-  const newlyEarned = computeAchievements([...beforeEntries, afterEntry], tz).filter(
-    (a) => a.earned && !earnedBefore.has(a.id)
-  );
+  const newlyEarned = newlyEarnedAchievements(beforeEntries, afterEntry, tz);
   const achievementUnlocked = newlyEarned.length > 0;
 
   const events: NotificationEvent[] = newlyEarned.map((a) => ({
