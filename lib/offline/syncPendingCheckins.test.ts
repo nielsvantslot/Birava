@@ -104,4 +104,69 @@ describe("flushPendingCheckins", () => {
 
     expect(addDrinkMock).not.toHaveBeenCalled();
   });
+
+  function rawPhoto(name: string): PendingCheckin["photo"] {
+    return { kind: "raw", arrayBuffer: new ArrayBuffer(1), type: "image/jpeg", name };
+  }
+
+  it("uploads photos for every queued entry concurrently, not one at a time", async () => {
+    vi.useRealTimers(); // this test cares about microtask ordering, not the sync timeout
+    getAllPendingCheckins.mockResolvedValue([
+      entry({ id: "a", photo: rawPhoto("a.jpg") }),
+      entry({ id: "b", photo: rawPhoto("b.jpg") }),
+    ]);
+    let resolveFirst: (value: { url: string; lqip: null }) => void = () => {};
+    const firstUpload = new Promise<{ url: string; lqip: null }>((resolve) => {
+      resolveFirst = resolve;
+    });
+    uploadMock.mockImplementationOnce(() => firstUpload).mockResolvedValueOnce({ url: "b-url", lqip: null });
+    addDrinkMock.mockResolvedValue({});
+
+    const flush = flushPendingCheckins("user-1", true, { silent: true });
+    // b's upload should get kicked off even though a's is still unresolved —
+    // proving they run in parallel rather than b waiting for a to settle
+    // first. Polled rather than a fixed number of `await Promise.resolve()`
+    // hops, since exactly how many microtask turns precede this is an
+    // implementation detail of flushPendingCheckins, not this test's concern.
+    await vi.waitFor(() => expect(uploadMock).toHaveBeenCalledTimes(2));
+
+    resolveFirst({ url: "a-url", lqip: null });
+    await flush;
+
+    expect(addDrinkMock).toHaveBeenCalledWith(expect.objectContaining({ photoUrl: "a-url" }));
+    expect(addDrinkMock).toHaveBeenCalledWith(expect.objectContaining({ photoUrl: "b-url" }));
+    expect(removePendingCheckin).toHaveBeenCalledWith("a");
+    expect(removePendingCheckin).toHaveBeenCalledWith("b");
+  });
+
+  it("reuses an already-uploaded photo without calling PhotoUploader.upload again", async () => {
+    getAllPendingCheckins.mockResolvedValue([
+      entry({ id: "resumed", photo: { kind: "uploaded", url: "existing-url", lqip: "lqip-data" } }),
+    ]);
+    addDrinkMock.mockResolvedValue({});
+
+    await flushPendingCheckins("user-1", true, { silent: true });
+
+    expect(uploadMock).not.toHaveBeenCalled();
+    expect(addDrinkMock).toHaveBeenCalledWith(
+      expect.objectContaining({ photoUrl: "existing-url", photoLqip: "lqip-data" })
+    );
+    expect(removePendingCheckin).toHaveBeenCalledWith("resumed");
+  });
+
+  it("doesn't let one entry's failed photo upload block addDrink for other entries", async () => {
+    getAllPendingCheckins.mockResolvedValue([
+      entry({ id: "bad-photo", photo: rawPhoto("bad.jpg") }),
+      entry({ id: "fine", photo: rawPhoto("fine.jpg") }),
+    ]);
+    uploadMock.mockResolvedValueOnce({ error: "Failed to process photo." }).mockResolvedValueOnce({ url: "fine-url", lqip: null });
+    addDrinkMock.mockResolvedValue({});
+
+    await flushPendingCheckins("user-1", true, { silent: true });
+
+    expect(updatePendingCheckin).toHaveBeenCalledWith("bad-photo", { status: "queued" });
+    expect(addDrinkMock).toHaveBeenCalledTimes(1);
+    expect(addDrinkMock).toHaveBeenCalledWith(expect.objectContaining({ photoUrl: "fine-url" }));
+    expect(removePendingCheckin).toHaveBeenCalledWith("fine");
+  });
 });
