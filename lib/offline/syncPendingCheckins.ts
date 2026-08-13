@@ -48,11 +48,15 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
  * immediate post-submit call, the auto-sync-on-reconnect component, and the
  * pending panel's manual "Retry now" button.
  *
- * A thrown error (fetch/network failure) means we're still offline — the
- * entry goes back to "queued" and the pass stops there, leaving the rest
- * queued for the next trigger. A `{ error }` *result* means the server
- * actually responded and said no — that's marked "failed" so it stops
- * auto-retrying, but the pass continues to the next entry.
+ * A thrown error (fetch/network failure) means this entry couldn't reach the
+ * server — it goes back to "queued" for a later retry, but the pass moves on
+ * to the next entry rather than assuming the whole device is offline: a
+ * genuinely offline device will just have every remaining entry throw the
+ * same way and get requeued too, at no extra cost, while a one-off/transient
+ * failure on a single item no longer stalls everything behind it until the
+ * next trigger. A `{ error }` *result* means the server actually responded
+ * and said no — that's marked "failed" so it stops auto-retrying, but the
+ * pass continues to the next entry either way.
  *
  * `silent` suppresses the "Check-in synced" toast — pass it for the
  * immediate post-submit call, where the form already showed its own
@@ -125,8 +129,14 @@ export async function flushPendingCheckins(
           await updatePendingCheckin(entry.id, { status: "failed", lastError: err.message });
           continue;
         }
+        // Not a timeout — a genuine throw (fetch/network failure). Requeue
+        // this entry and keep going: if the device is truly offline, the
+        // remaining entries will throw the same way and get requeued too, no
+        // worse off than stopping early; but if this was a one-off failure
+        // on just this entry, the rest of the batch still gets a chance to
+        // sync in this same pass instead of waiting for the next trigger.
         await updatePendingCheckin(entry.id, { status: "queued" });
-        break;
+        continue;
       }
     }
   } finally {

@@ -54,15 +54,34 @@ describe("flushPendingCheckins", () => {
     expect(removePendingCheckin).toHaveBeenCalledWith("second");
   });
 
-  it("re-queues (rather than fails) an entry on an immediate network error, and stops the pass there", async () => {
-    getAllPendingCheckins.mockResolvedValue([entry({ id: "offline" }), entry({ id: "untouched" })]);
-    addDrinkMock.mockRejectedValueOnce(new Error("network error"));
+  it("re-queues (rather than fails) an entry on an immediate network error, and still processes the rest of the pass", async () => {
+    getAllPendingCheckins.mockResolvedValue([entry({ id: "offline" }), entry({ id: "next" })]);
+    addDrinkMock.mockRejectedValueOnce(new Error("network error")).mockResolvedValueOnce({});
 
     await flushPendingCheckins("user-1", true, { silent: true });
 
     expect(updatePendingCheckin).toHaveBeenCalledWith("offline", { status: "queued" });
-    expect(addDrinkMock).toHaveBeenCalledTimes(1);
-    expect(removePendingCheckin).not.toHaveBeenCalled();
+    expect(addDrinkMock).toHaveBeenCalledTimes(2);
+    expect(removePendingCheckin).toHaveBeenCalledWith("next");
+  });
+
+  it("doesn't let one entry's network error abort entries further down the queue", async () => {
+    getAllPendingCheckins.mockResolvedValue([
+      entry({ id: "first" }),
+      entry({ id: "flaky" }),
+      entry({ id: "third" }),
+    ]);
+    addDrinkMock
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(new Error("transient network error"))
+      .mockResolvedValueOnce({});
+
+    await flushPendingCheckins("user-1", true, { silent: true });
+
+    expect(addDrinkMock).toHaveBeenCalledTimes(3);
+    expect(removePendingCheckin).toHaveBeenCalledWith("first");
+    expect(updatePendingCheckin).toHaveBeenCalledWith("flaky", { status: "queued" });
+    expect(removePendingCheckin).toHaveBeenCalledWith("third");
   });
 
   it("marks an entry failed (and continues the pass) when the server responds with an error result", async () => {
