@@ -9,6 +9,7 @@ import {
   getDrinkHistory,
   getDrinkEntryForUser,
   getRecentDrinkHistory,
+  getRecentDrinkHistoryForLegend,
   drinkHistoryTag,
 } from "@/lib/queries/drinkEntryQueries";
 import { getSessionById, getSessionsForUserIds } from "@/lib/queries/drinkSessionQueries";
@@ -125,6 +126,14 @@ export async function getMyDrinkHistory(): Promise<DrinkEntry[]> {
   if (!user) return [];
 
   return getDrinkHistory(user.id);
+}
+
+/** Current user's last 90 days of check-ins, for the dashboard's Local Legend stat — see getRecentDrinkHistoryForLegend. */
+export async function getMyRecentDrinkHistoryForLegend(): Promise<Array<Pick<DrinkEntry, "venue" | "created_at">>> {
+  const user = await getCurrentUser();
+  if (!user) return [];
+
+  return getRecentDrinkHistoryForLegend(user.id);
 }
 
 /** Another user's history for the public profile. Public read (no auth). */
