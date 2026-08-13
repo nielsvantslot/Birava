@@ -2,14 +2,12 @@ import { db } from "@/lib/db";
 import { queueNotifications, type NotificationEvent } from "@/lib/notify";
 import { SESSION_GAP_MS } from "@/lib/sessions";
 import { RateLimiterFactory } from "@/lib/rateLimit/RateLimiterFactory";
-import { getIntraSessionGapsForUser, getReminderEngagementForUser } from "@/lib/queries/reminderAlgorithmQueries";
 import {
-  dueTierForElapsed,
-  maxRemindersForEngagement,
-  medianGapMs,
-  personalizedQuietThresholdMs,
-  tierBoundariesMs,
-} from "@/lib/sessionReminderAlgorithm";
+  getIntraSessionGapsBySessionId,
+  getIntraSessionGapsForUser,
+  getReminderEngagementForUser,
+} from "@/lib/queries/reminderAlgorithmQueries";
+import { dueSlotsForElapsed, expectedGapMs, maxRemindersForEngagement } from "@/lib/sessionReminderAlgorithm";
 
 const REMINDER_TICK_KEY = "session-reminders-tick";
 const REMINDER_TICK_INTERVAL_MS = 15 * 60 * 1000;
@@ -22,19 +20,27 @@ const REMINDER_TICK_INTERVAL_MS = 15 * 60 * 1000;
  *
  * Three things make this per-user rather than one global rule
  * (lib/sessionReminderAlgorithm.ts has the pure math):
- *  - Personalized timing: "gone quiet" is measured against the user's own
- *    median intra-session check-in gap, not a fixed 1h for everyone.
- *  - Escalation: up to 3 reminders per session, at increasing tiers off that
- *    personalized threshold, instead of a single one-shot nudge.
- *  - Engagement cap: how many tiers a user is eligible for is capped by how
- *    often they've actually opened past reminders (Notification.openedAt) —
- *    a consistently-unresponsive user stays at exactly today's single
- *    reminder; only a responsive user gets the extra escalation tiers.
+ *  - Personalized timing: "gone quiet" is measured against this session's own
+ *    check-in gaps so far (tonight's actual pace), falling back to the
+ *    user's historical median, instead of a fixed 1h for everyone.
+ *  - Consistent-cadence repeats: once overdue, reminders repeat every
+ *    further expected-gap interval (not an escalating multiplier) — so
+ *    catching up on one missed drink never means the *next* nudge takes
+ *    longer to arrive than usual.
+ *  - Engagement cap: how many reminders a user is eligible for per quiet
+ *    stretch is capped by how often they've actually opened past reminders
+ *    (Notification.openedAt) — a consistently-unresponsive user stays at
+ *    exactly today's single reminder; only a responsive user gets more.
  *
- * Dedupes by counting existing SESSION_REMINDER rows per session (generalized
- * from the old boolean exists-check) and only ever sends the *next* tier due,
- * one at a time — even after a long gap in ticks, a session catches up one
- * reminder per call rather than bursting several tiers at once.
+ * Dedupes by counting SESSION_REMINDER rows sent *since the session's current
+ * endedAt* (i.e. since the last check-in), not the session's whole lifetime —
+ * every new check-in pushes endedAt forward and so implicitly resets this
+ * count to 0, which is what keeps repeat cadence consistent instead of
+ * escalating: a user who keeps forgetting and getting nudged back gets the
+ * same ~gap-length wait before each reminder, not a progressively longer one.
+ * Only ever sends the *next* slot due, one at a time — even after a long gap
+ * in ticks, a quiet stretch catches up one reminder per call rather than
+ * bursting several at once.
  */
 export async function sendSessionReminders(): Promise<{ sent: number }> {
   const now = Date.now();
@@ -51,12 +57,14 @@ export async function sendSessionReminders(): Promise<{ sent: number }> {
 
   const existingReminders = await db.notification.findMany({
     where: { type: "SESSION_REMINDER", entryId: { in: quietSessions.map((s) => s.id) } },
-    select: { entryId: true },
+    select: { entryId: true, createdAt: true },
   });
-  const existingCountBySessionId = new Map<string, number>();
+  const remindersBySessionId = new Map<string, Date[]>();
   for (const r of existingReminders) {
     if (!r.entryId) continue;
-    existingCountBySessionId.set(r.entryId, (existingCountBySessionId.get(r.entryId) ?? 0) + 1);
+    const list = remindersBySessionId.get(r.entryId);
+    if (list) list.push(r.createdAt);
+    else remindersBySessionId.set(r.entryId, [r.createdAt]);
   }
 
   const sessionsByUserId = new Map<string, typeof quietSessions>();
@@ -68,19 +76,23 @@ export async function sendSessionReminders(): Promise<{ sent: number }> {
 
   const events: NotificationEvent[] = [];
   for (const [userId, sessions] of sessionsByUserId) {
-    const [gaps, engagement] = await Promise.all([
+    const [sessionGapsById, historicalGaps, engagement] = await Promise.all([
+      getIntraSessionGapsBySessionId(sessions.map((s) => s.id)),
       getIntraSessionGapsForUser(userId),
       getReminderEngagementForUser(userId),
     ]);
-    const threshold = personalizedQuietThresholdMs(medianGapMs(gaps));
-    const tiers = tierBoundariesMs(threshold);
     const maxReminders = maxRemindersForEngagement(engagement.openedCount, engagement.resolvedCount);
 
     for (const session of sessions) {
-      const existingCount = existingCountBySessionId.get(session.id) ?? 0;
-      const dueTier = dueTierForElapsed(now - session.endedAt.getTime(), tiers);
-      const targetCount = Math.min(dueTier, maxReminders);
-      if (existingCount >= targetCount) continue;
+      const gapMs = expectedGapMs(sessionGapsById.get(session.id) ?? [], historicalGaps);
+      const dueSlots = dueSlotsForElapsed(now - session.endedAt.getTime(), gapMs);
+      if (dueSlots === 0) continue;
+
+      const sentSinceLastCheckin = (remindersBySessionId.get(session.id) ?? []).filter(
+        (createdAt) => createdAt.getTime() > session.endedAt.getTime()
+      ).length;
+      const targetCount = Math.min(dueSlots, maxReminders);
+      if (sentSinceLastCheckin >= targetCount) continue;
 
       events.push({
         // Generated here, not left to the DB default, so describeNotification
