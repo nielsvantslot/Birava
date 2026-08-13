@@ -57,6 +57,15 @@ export async function createUser(input: CreateUserDTO): Promise<ActionResultDTO>
   return {};
 }
 
+/** Marks the first-run onboarding flow (app/onboarding) done, whether the user finished it or skipped it — either way there's nothing left to show. */
+export async function completeOnboarding(userId: string): Promise<ActionResultDTO> {
+  await db.user.update({
+    where: { id: userId },
+    data: { hasCompletedOnboarding: true },
+  });
+  return {};
+}
+
 export async function updateProfileUsername(
   userId: string,
   input: UpdateProfileDTO
