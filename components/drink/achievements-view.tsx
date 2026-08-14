@@ -6,8 +6,9 @@ import type { VarietyAchievement } from "@/lib/achievements";
 
 /**
  * The full achievements page body — streak section + variety grid.
- * Extracted from app/(app)/achievements/page.tsx so onboarding can render
- * the exact same layout with sample data instead of re-describing it.
+ * Extracted from app/(app)/achievements/page.tsx as a pure presentational
+ * component, so the data-fetching page and this rendering stay separately
+ * testable/reusable.
  */
 export function AchievementsView({
   weeks,

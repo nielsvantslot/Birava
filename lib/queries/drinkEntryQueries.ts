@@ -1,8 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
-import { DrinkEntryMapper, toDrinkEntry } from "@/lib/mappers";
-import { DrinkEntryWithAuthorDTO } from "@/lib/dtos";
-import { getFollowingIds } from "@/lib/queries/followQueries";
+import { toDrinkEntry } from "@/lib/mappers";
 import { VENUE_SELECT } from "@/lib/queries/venueSelect";
 import { LOCAL_LEGEND_WINDOW_MS } from "@/lib/sessions";
 import type { DrinkEntry } from "@/lib/types";
@@ -32,24 +30,6 @@ export async function getViewableDrinkPhotoUrl(
     select: { photoUrl: true },
   });
   return entry?.photoUrl ?? null;
-}
-
-export async function getSocialFeed(
-  userId: string,
-  options: { limit: number; offset: number }
-): Promise<DrinkEntryWithAuthorDTO[]> {
-  const ids = await getFollowingIds(userId);
-  if (ids.length === 0) return [];
-
-  const entries = await db.drinkEntry.findMany({
-    where: { userId: { in: ids } },
-    include: { user: { select: { username: true, avatarUrl: true } } },
-    orderBy: { createdAt: "desc" },
-    skip: options.offset,
-    take: options.limit,
-  });
-
-  return entries.map((entry) => DrinkEntryMapper.toDTOWithAuthor(entry));
 }
 
 export function drinkHistoryTag(userId: string): string {

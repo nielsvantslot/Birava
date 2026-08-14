@@ -1,7 +1,5 @@
 export * from "./entryAuthorDTO";
 export * from "./getDrinkEntryDTO";
-export * from "./getDrinkEntryWithAuthorDTO";
-export * from "./getSocialFeedDTO";
 export * from "./createDrinkEntryDTO";
 export * from "./updateDrinkEntryDTO";
 export * from "./deleteDrinkEntryDTO";

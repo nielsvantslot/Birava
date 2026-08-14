@@ -88,7 +88,10 @@ export class PhotoUploader {
         signal,
       });
       const result = await PhotoUploader.parseJson(res);
-      if (!res.ok || !result?.url) return { error: result?.error ?? "Failed to process photo." };
+      // The finalize request completed and the server had its say — a
+      // definitive rejection (unsupported format, failed decode), not a
+      // network hiccup. Retrying the same file won't change the outcome.
+      if (!res.ok || !result?.url) return { error: result?.error ?? "Failed to process photo.", retryable: false };
       return { url: result.url, lqip: result.lqip ?? null };
     };
 
@@ -96,7 +99,9 @@ export class PhotoUploader {
       try {
         return await attempt();
       } catch {
-        return { error: "Couldn't upload photo — try a smaller photo or check your connection." };
+        // Caught here means the request itself never completed (network
+        // drop, DNS failure, etc.) — worth retrying later.
+        return { error: "Couldn't upload photo — try a smaller photo or check your connection.", retryable: true };
       }
     }
 
@@ -124,15 +129,16 @@ export class PhotoUploader {
     try {
       res = await fetch(endpoints.uploadUrl, { method: "POST", body: formData, signal });
     } catch {
-      return { error: "Couldn't upload photo — check your connection and try again." };
+      return { error: "Couldn't upload photo — check your connection and try again.", retryable: true };
     }
     // A dropped/reset connection (e.g. the platform rejecting an oversized
     // payload) surfaces as a thrown fetch above rather than a response, but a
-    // completed rejection commonly comes back as a plain 413 too.
-    if (res.status === 413) return { error: "Photo is too large. Please use a smaller photo." };
+    // completed rejection commonly comes back as a plain 413 too — either
+    // way, a smaller file is required, so retrying as-is won't help.
+    if (res.status === 413) return { error: "Photo is too large. Please use a smaller photo.", retryable: false };
 
     const result = await PhotoUploader.parseJson(res);
-    if (!res.ok || !result?.url) return { error: result?.error ?? "Failed to upload photo." };
+    if (!res.ok || !result?.url) return { error: result?.error ?? "Failed to upload photo.", retryable: false };
     return { url: result.url, lqip: result.lqip ?? null };
   }
 

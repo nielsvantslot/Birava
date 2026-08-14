@@ -181,27 +181,13 @@ export async function createDrinkEntry(
   actor: { username: string; avatarUrl: string | null }
 ): Promise<AddDrinkResultDTO> {
   const tz = await getUserTimeZone();
-  // Read history once; the "after" set is provably "before + the new row",
-  // so there's no need for a second full-table scan. This runs on every
-  // check-in write and can't use getDrinkHistory's 60s cache (it needs
-  // fresh pre-write state), so unlike the cached read paths it pays this
-  // cost in full every time — select only what computeAchievements/
-  // countSessions actually read (lib/achievements.ts), not every column.
-  const before = await db.drinkEntry.findMany({
-    where: { userId },
-    select: {
-      userId: true,
-      createdAt: true,
-      drinkType: true,
-      venue: { select: { name: true } },
-    },
-  });
 
   const createdAt = resolveCreatedAt(input.createdAt);
   const entryId = randomUUID();
 
   let created;
   let isNewSession: boolean;
+  let before;
   try {
     const result = await db.$transaction(async (tx) => {
       // Session assignment is read-then-write (find neighbours, then attach/
@@ -212,6 +198,29 @@ export async function createDrinkEntry(
       // advisory lock keyed by userId serializes session mutations per user
       // (auto-released at commit/rollback) without blocking other users.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
+
+      // Read history once *after* the lock, not before the transaction
+      // opens — the "after" set is provably "before + the new row", so
+      // there's no need for a second full-table scan, but reading it before
+      // the lock let two concurrent check-ins for the same user (an offline
+      // sync burst flushing several at once) both see the same pre-write
+      // achievement snapshot, both independently compute
+      // newlyEarnedAchievements as "just crossed the threshold", and both
+      // fire the same "Achievement Unlocked" notification for something
+      // that should only ever fire once. Can't use getDrinkHistory's 60s
+      // cache here regardless (it needs fresh pre-write state) — select
+      // only what computeAchievements/countSessions actually read
+      // (lib/achievements.ts), not every column.
+      const before = await tx.drinkEntry.findMany({
+        where: { userId },
+        select: {
+          userId: true,
+          createdAt: true,
+          drinkType: true,
+          venue: { select: { name: true } },
+        },
+      });
+
       const assignment = await assignSessionForNewEntry(tx, userId, entryId, createdAt);
       const venueId = await resolveVenueId(tx, input.venue, input.lat, input.lng);
       const entry = await tx.drinkEntry.create({
@@ -229,11 +238,13 @@ export async function createDrinkEntry(
       });
       return {
         entry,
+        before,
         isNewSession: assignment.isNewSession,
         orphanedShareImageUrls: assignment.orphanedShareImageUrls,
       };
     });
     created = result.entry;
+    before = result.before;
     isNewSession = result.isNewSession;
     if (result.orphanedShareImageUrls.length > 0) {
       await Promise.all(result.orphanedShareImageUrls.map((url) => shareImageCache.remove(url)));

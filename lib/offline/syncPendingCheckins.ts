@@ -28,6 +28,27 @@ const SYNC_STEP_TIMEOUT_MS = 45_000;
 
 class SyncTimeoutError extends Error {}
 
+/**
+ * Wraps a *completed* photo-upload rejection (PhotoUploadResultDto's error
+ * variant), carrying its `retryable` flag through Promise.allSettled — a
+ * plain `throw new Error(uploaded.error)` (the previous version of this)
+ * lost that distinction entirely, so a deterministic rejection (unsupported
+ * format, oversized file — see PhotoUploader.ts) and a transient one
+ * (network drop) were handled identically: both got silently requeued as
+ * "queued" forever, since only SyncTimeoutError was ever treated as
+ * permanent. A permanently-broken photo would cycle queued → syncing →
+ * queued indefinitely, always blamed on "waiting for connection" even
+ * though connectivity was never the problem.
+ */
+class PhotoUploadRejectedError extends Error {
+  constructor(
+    message: string,
+    readonly retryable: boolean
+  ) {
+    super(message);
+  }
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new SyncTimeoutError("Sync timed out — check your connection and try again.")), ms);
@@ -74,7 +95,7 @@ function uploadPhotos(
         PhotoUploader.upload(file, drinkPhotoUploadEndpoints(userId, supportsDirectUpload)),
         SYNC_STEP_TIMEOUT_MS
       );
-      if ("error" in uploaded) throw new Error(uploaded.error);
+      if ("error" in uploaded) throw new PhotoUploadRejectedError(uploaded.error, uploaded.retryable ?? true);
 
       // Persist the blob's URL into the queue record right away — if
       // addDrink below throws or errors, a retry (automatic, or the panel's
@@ -144,11 +165,16 @@ export async function flushPendingCheckins(
 
       if (photoResult.status === "rejected") {
         const err = photoResult.reason;
-        // Same distinction as addDrink's own catch below: a timeout means the
-        // upload was genuinely in flight for the full window (retrying
-        // immediately would likely just hang again), while anything else is
+        // Three distinct cases: a timeout means the upload was genuinely in
+        // flight for the full window (retrying immediately would likely
+        // just hang again); a non-retryable rejection means the server
+        // already gave a definitive "no" to this exact file (wrong
+        // format, too large) that retrying won't change; anything else
+        // (a plain thrown network error, or a retryable rejection) is
         // requeued so the next trigger can retry it.
         if (err instanceof SyncTimeoutError) {
+          await updatePendingCheckin(entry.id, { status: "failed", lastError: err.message });
+        } else if (err instanceof PhotoUploadRejectedError && !err.retryable) {
           await updatePendingCheckin(entry.id, { status: "failed", lastError: err.message });
         } else {
           await updatePendingCheckin(entry.id, { status: "queued" });
