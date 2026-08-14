@@ -57,7 +57,18 @@ export function queueNotifications(events: NotificationEvent[]) {
   if (filtered.length === 0) return;
 
   after(async () => {
-    await db.notification.createMany({ data: filtered });
+    try {
+      await db.notification.createMany({ data: filtered });
+    } catch {
+      // createMany is one INSERT statement — a single malformed/stale row
+      // (e.g. userId/actorId pointing at an account deleted between the
+      // triggering mutation and this deferred after() flush) throws for
+      // the WHOLE batch, silently dropping every other recipient's
+      // notification too. Falling back to one-at-a-time isolates the
+      // actually-bad row instead, matching the per-recipient isolation the
+      // push-send phase below already has via Promise.allSettled.
+      await Promise.allSettled(filtered.map((e) => db.notification.create({ data: e })));
+    }
 
     // NotificationPreference is sparse — only categories a user explicitly
     // turned off have a row (see lib/commands/notificationCommands.ts), so

@@ -36,7 +36,14 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
       } catch (err) {
         if (err instanceof WebPushError && (err.statusCode === 404 || err.statusCode === 410)) {
           await db.pushSubscription.deleteMany({ where: { endpoint: sub.endpoint } });
+          return;
         }
+        // Anything else (bad payload, rate-limited, a misconfigured/rotated
+        // VAPID key breaking every send) was previously swallowed with zero
+        // signal — a systemic failure here would silently drop 100% of push
+        // notifications with nothing in any log to notice it by. Not a dead
+        // subscription, so it's left in place to retry on the next send.
+        console.error("sendPushToUser: push send failed", err);
       }
     })
   );

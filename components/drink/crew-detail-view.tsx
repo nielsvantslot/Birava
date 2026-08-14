@@ -8,9 +8,9 @@ import type { CrewDetail } from "@/lib/queries/groupQueries";
 
 /**
  * The full crew page body — identity header, leaderboard, activity feed,
- * settings link. Extracted from app/(app)/crews/[id]/page.tsx so onboarding
- * can render the exact same layout with a sample crew instead of
- * re-describing it in prose.
+ * settings link. Extracted from app/(app)/crews/[id]/page.tsx as a pure
+ * presentational component, so the data-fetching page and this rendering
+ * stay separately testable/reusable.
  */
 export function CrewDetailView({
   crew,
