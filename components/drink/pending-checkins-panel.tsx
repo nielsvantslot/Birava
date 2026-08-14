@@ -10,6 +10,28 @@ import {
 } from "@/lib/offline/pendingCheckins";
 import { flushPendingCheckins } from "@/lib/offline/syncPendingCheckins";
 
+/**
+ * Tracks a "batch total" across a run of sync activity, purely from the
+ * reactive `entries` snapshot the panel already gets — no separate event
+ * from flushPendingCheckins needed. `active` (queued + syncing, i.e.
+ * "failed" excluded — those are stalled awaiting a manual retry, not part
+ * of an in-progress pass) resets the batch to null once it hits 0, and
+ * otherwise only ever grows to cover the largest active count seen since —
+ * so a fresh flush captures its starting size, and a check-in queued mid-
+ * flush extends the total instead of silently under-reporting it.
+ */
+function useBatchTotal(active: number): number | null {
+  const [batchTotal, setBatchTotal] = useState<number | null>(null);
+  useEffect(() => {
+    setBatchTotal((prev) => {
+      if (active === 0) return null;
+      if (prev === null || active > prev) return active;
+      return prev;
+    });
+  }, [active]);
+  return batchTotal;
+}
+
 function statusLabel(entry: PendingCheckin): string {
   switch (entry.status) {
     case "syncing":
@@ -44,6 +66,15 @@ export function PendingCheckinsPanel({
     return onPendingCheckinsChanged(refresh);
   }, []);
 
+  const activeCount = entries.filter((e) => e.status !== "failed").length;
+  const batchTotal = useBatchTotal(activeCount);
+  const isSyncing = entries.some((e) => e.status === "syncing");
+  // "completed so far" is just the gap between the batch's starting size and
+  // what's still active — items only leave `entries` by succeeding (a failed
+  // entry stays, excluded from `active` above but still present), so this
+  // can't be thrown off by failures.
+  const completedInBatch = batchTotal !== null ? Math.max(0, batchTotal - activeCount) : 0;
+
   if (entries.length === 0) return null;
 
   const cancel = async (entry: PendingCheckin) => {
@@ -67,6 +98,14 @@ export function PendingCheckinsPanel({
       <div className="h-row">
         <h3>Pending sync ({entries.length})</h3>
       </div>
+      {/* Only worth a line of its own once there's more than one item to
+          report progress across — a lone item already says "Syncing…"
+          inline below, and batchTotal <= 1 would just repeat that. */}
+      {isSyncing && batchTotal !== null && batchTotal > 1 && (
+        <p style={{ fontSize: 13, color: "var(--ink-dim)", margin: "-4px 0 8px" }}>
+          Syncing {completedInBatch + 1} of {batchTotal}…
+        </p>
+      )}
       {entries.map((entry) => (
         <div key={entry.id} className="row">
           <div className="rowmark">

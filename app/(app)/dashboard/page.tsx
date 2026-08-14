@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
 import { getLocalLegendVenue } from "@/lib/sessions";
-import { getMyFeedSessions, getMyDrinkHistory } from "@/lib/controllers/drinkController";
+import { getMyFeedSessions, getMyRecentDrinkHistoryForLegend } from "@/lib/controllers/drinkController";
 import { ScreenTabs } from "@/components/ui/screen-tabs";
 import { DashboardFeed } from "@/components/drink/dashboard-feed";
 import { SessionCardSkeleton } from "@/components/ui/skeleton";
@@ -39,13 +39,13 @@ export default async function DashboardPage({
 }
 
 async function FeedLoader({ userId, showOnlyOwn }: { userId: string; showOnlyOwn: boolean }) {
-  const [tz, feedPage, ownHistory] = await Promise.all([
+  const [tz, feedPage, recentOwnHistory] = await Promise.all([
     getUserTimeZone(),
     getMyFeedSessions({ onlyOwn: showOnlyOwn }),
-    getMyDrinkHistory(),
+    getMyRecentDrinkHistoryForLegend(),
   ]);
   const { sessions, cheers, commentCounts, nextCursor } = feedPage;
-  const legendVenue = getLocalLegendVenue(ownHistory);
+  const legendVenue = getLocalLegendVenue(recentOwnHistory);
 
   // The Local Legend callout appears once, on the newest own session
   const newestOwnId = sessions.find((s) => s.userId === userId)?.id;

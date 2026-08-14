@@ -111,7 +111,7 @@ A committed, idempotent seed builds the **Demobeer** showcase account (email `ja
 - **Run locally**: `docker exec -e SEED_DEMO=true birava-app npm run db:seed` (needs a DB where that email is free — locally it's taken by `SlayerofBeers`, so use a fresh DB to preview Demobeer).
 
 ## Route map
-- Tabs: `/dashboard` (merged session feed) · `/stats` · `/log` (create + edit via `?edit=<id>`) · `/crews` (+ `/crews/[id]`) · `/profile`. Off-nav: `/sessions/[id]`, `/achievements`, `/people`, `/profile/[username]`.
+- Tabs: `/dashboard` (merged session feed) · `/stats` · `/log` (create + edit via `?edit=<id>`) · `/crews` (+ `/crews/[id]`) · `/profile`. Off-nav: `/sessions/[id]`, `/achievements`, `/people`, `/profile/[username]`, `/onboarding` (signup's redirect target — see docs/architecture.md's "First-run onboarding" section).
 - Folded legacy: `/history` and `/feed` are gone (404); `/leaderboard`, `/leaderboard/[groupId]`, `/groups` redirect into `/crews`. Don't re-add them.
 
 ## Next.js 16 downgrade (2026-07-10)
@@ -131,6 +131,17 @@ The app briefly ran on Next.js 16.2.9 (with `cacheComponents: true`) but was dow
 - **`.github/workflows/restore-drill.yml`** monthly: creates a schema-only (genuinely empty) Neon branch, restores the latest backup into it, verifies real rows came back, tears the branch down. An unrestored backup is only a hypothesis.
 - **`scripts/restore-backup.ts`** (`npm run restore:backup`) is the real disaster-recovery tool — interactive CLI (`--list`, pick a backup, confirm by typing `RESTORE`) that does download → decrypt → `pg_restore` → verify against an operator-supplied target, so nobody's hand-typing the runbook under pressure during an actual incident. Shares `lib/backupBlobs.ts`/`lib/backupVerification.ts` with the drill and nightly-backup scripts rather than duplicating that logic three times.
 - Needs 5 GitHub secrets for the automated workflows (`PROD_DATABASE_URL_DIRECT`, `BLOB_READ_WRITE_TOKEN`, `BACKUP_ENCRYPTION_KEY`, `NEON_PROJECT_ID`, `NEON_API_KEY`) — see the doc for where each comes from; same values work as local env vars for `restore-backup.ts`. Workflows are inert until they're set.
+
+## Account deletion (GDPR right-to-erasure, added 2026-08-14)
+
+`User.deletionRequestedAt` (nullable) drives a **7-day soft-delete grace period** — chosen to match this app's existing grace-window precedents (orphaned-blob cleanup's 7-day window, `MAX_BACKDATE_MS`'s 7-day trust window), not an arbitrary number.
+
+- **Request** (`requestAccountDeletion`, `lib/commands/userCommands.ts`, triggered from Settings' "Danger zone" via `DeleteAccountButton` + the typed-confirmation `confirmModal` pattern — same as crew deletion): transfers ownership of any crew this user owns to its longest-tenured other member (or deletes the crew outright if they're the sole member) **immediately, at request time, not at purge time** — `Group.ownerId` cascades on User like everything else, so a raw delete would otherwise take the whole crew down with it. Then wipes every `Session` row (logged out everywhere) and sets `deletionRequestedAt`.
+- **Hidden from others for the whole grace period**, not just after the purge: excluded from `searchUsers`, public profile 404s (`getProfileByUsername`), and dropped from `getFollowingIds` so their sessions stop appearing in others' dashboard feeds. Deliberately **not** scrubbed: historical crew leaderboard stats — that's past fact, not new discoverability, and unwinding it on a cancelled deletion would be more confusing than leaving it.
+- **Cancel**: logging back in during the window calls `cancelAccountDeletion` unconditionally (`app/api/auth/login/route.ts`) — a no-op if nothing was pending, so the route never needs to check state itself first.
+- **Purge** (`purgeExpiredDeletedAccounts`, same bounded-batch-per-run pattern as `cleanupOrphanedBlobs`): deletes check-in photo and avatar blobs via the existing `drinkPhotoService`/`avatarPhotoService.remove()` methods (reused, not reimplemented), then `db.user.delete()` — every other table cascades automatically. Scheduled via `.github/workflows/purge-deleted-accounts.yml`, same GitHub Actions pattern as the other crons, guarded by the same `CRON_SECRET`.
+- **Backups are explicitly out of scope** — see `docs/database-backups.md`'s "GDPR erasure vs. this retention schedule" section. A deleted user's data can persist in an encrypted nightly dump for up to 400 days; this is a documented, deliberate trade-off, not a gap to close.
+- No demo-account exemption — Demobeer can be deleted like any account (harmless, reseeds on the next staging/preview deploy).
 
 ## Known landmines (see `docs/audit/` for the full reports)
 - **Uploads write to `public/uploads/` on the local filesystem** (`modules/photo-upload/adapters/LocalDiskStorageAdapter.ts`, wired in `lib/photoUpload.ts`) — this breaks on Vercel's ephemeral/read-only FS; used in dev only, `VercelBlobStorageAdapter` handles staging/production. Size (20MB cap) and format validation (via `sharp` failing to decode) live in `SharpImageProcessor` — see "Image pipeline" above.

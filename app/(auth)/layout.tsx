@@ -1,3 +1,5 @@
+import { ToastPill } from "@/components/ui/toast-pill";
+
 // The nonce-based CSP (lib/security/ContentSecurityPolicyBuilder.ts) is
 // generated fresh per request in middleware, and Next only stamps that nonce
 // onto its own script tags for dynamically-rendered routes. Login/signup have
@@ -18,6 +20,11 @@ export default function AuthLayout({
   return (
     <div className="min-h-screen flex items-center justify-center bg-[var(--background)] px-4">
       <div className="w-full max-w-sm">{children}</div>
+      {/* This layout has no toast host of its own otherwise — a page that
+          redirects here (e.g. deleting your account from /settings) can
+          still surface a message via toast-pill.tsx's queueToast(), which
+          this picks up on mount. */}
+      <ToastPill />
     </div>
   );
 }
