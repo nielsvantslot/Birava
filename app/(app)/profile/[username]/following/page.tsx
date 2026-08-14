@@ -3,13 +3,16 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getProfileByUsername } from "@/lib/controllers/profileController";
 import { getFollowingList, getMyFollowingIds } from "@/lib/controllers/socialController";
 import { UserList } from "@/components/drink/user-list";
+import { decodeUsernameParam } from "@/lib/utils";
 
 interface Props {
   params: Promise<{ username: string }>;
 }
 
 export default async function UserFollowingPage({ params }: Props) {
-  const { username } = await params;
+  const { username: rawUsername } = await params;
+  const username = decodeUsernameParam(rawUsername);
+  if (!username) notFound();
   const [currentUser, targetUser] = await Promise.all([
     getCurrentUser(),
     getProfileByUsername({ username }),
