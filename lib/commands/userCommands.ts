@@ -152,21 +152,21 @@ export async function finalizeAvatarUpload(userId: string, rawUrl: string): Prom
 }
 
 /**
- * Starts the 7-day GDPR-erasure grace period (see prisma/schema.prisma's
- * User.deletionRequestedAt doc comment). Transfers ownership of any crew
- * this user owns to its longest-tenured other member — or deletes the crew
- * outright if they're the only member — so a raw cascade delete of the User
- * row (which Group.ownerId also cascades on) never collaterally destroys
- * other members' data. Then logs the account out everywhere. The actual
- * data purge happens later, in purgeExpiredDeletedAccounts below; logging
- * back in before the window passes calls cancelAccountDeletion instead
- * (wired in app/api/auth/login/route.ts).
- *
- * Not wrapped in a transaction — matches this codebase's existing
- * multi-step command style (see lib/commands/groupCommands.ts), which
- * accepts the same partial-failure risk everywhere else.
+ * Transfers ownership of any crew `userId` owns to its longest-tenured
+ * *not-also-pending-deletion* other member — or deletes the crew outright
+ * if no such member exists — so a raw cascade delete of the User row (which
+ * Group.ownerId also cascades on) never collaterally destroys other
+ * members' data. The `deletionRequestedAt: null` filter on the successor
+ * matters: without it, ownership could land on a member who is themselves
+ * mid-grace-period, and since purgeExpiredDeletedAccounts doesn't re-derive
+ * "what does this account own" from scratch, that crew would silently
+ * cascade-delete when *that* member's own purge runs later — a real
+ * incident this app shipped once and is fixing here. Called both from
+ * requestAccountDeletion (the normal path) and defensively from
+ * purgeExpiredDeletedAccounts (in case ownership was somehow reacquired
+ * between request and purge).
  */
-export async function requestAccountDeletion(userId: string): Promise<ActionResultDTO> {
+async function releaseOwnedCrews(userId: string): Promise<void> {
   const ownedGroups = await db.group.findMany({
     where: { ownerId: userId },
     select: { id: true },
@@ -174,7 +174,7 @@ export async function requestAccountDeletion(userId: string): Promise<ActionResu
 
   for (const group of ownedGroups) {
     const successor = await db.groupMember.findFirst({
-      where: { groupId: group.id, userId: { not: userId } },
+      where: { groupId: group.id, userId: { not: userId }, user: { deletionRequestedAt: null } },
       orderBy: { joinedAt: "asc" },
     });
 
@@ -193,9 +193,27 @@ export async function requestAccountDeletion(userId: string): Promise<ActionResu
       data: { role: "MEMBER" },
     });
   }
+}
 
-  await db.session.deleteMany({ where: { userId } });
-  await db.user.update({ where: { id: userId }, data: { deletionRequestedAt: new Date() } });
+/**
+ * Starts the 7-day GDPR-erasure grace period (see prisma/schema.prisma's
+ * User.deletionRequestedAt doc comment). Releases any crew this user owns
+ * (releaseOwnedCrews above), then logs the account out everywhere. The
+ * session wipe and the deletionRequestedAt write are wrapped in one
+ * transaction (matching the array-form db.$transaction already used in
+ * lib/commands/groupCommands.ts) specifically to close the gap a login on
+ * another device could otherwise race through between the two — without it,
+ * a session created between "delete all sessions" and "flag the account"
+ * would survive untouched even though the account is now hidden and
+ * counting down to purge.
+ */
+export async function requestAccountDeletion(userId: string): Promise<ActionResultDTO> {
+  await releaseOwnedCrews(userId);
+
+  await db.$transaction([
+    db.session.deleteMany({ where: { userId } }),
+    db.user.update({ where: { id: userId }, data: { deletionRequestedAt: new Date() } }),
+  ]);
 
   return {};
 }
@@ -232,11 +250,19 @@ const DELETION_GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000;
  * DrinkEntry.photoUrl and User.avatarUrl need explicit blob deletion —
  * everything else cascades automatically once the User row goes (see
  * prisma/schema.prisma: Session, Follow, GroupMember, GroupBan,
- * GroupInvite, Cheer, Comment, Notification, PushSubscription,
- * NotificationPreference, ClientErrorLog, DrinkEntry, DrinkSession, and any
- * crew still owned by this user are all onDelete: Cascade). Crew ownership
- * was already resolved at request time (requestAccountDeletion above), so
- * by the time this runs there's nothing left to transfer.
+ * GroupInvite, Cheer, Comment, PushSubscription, NotificationPreference,
+ * ClientErrorLog, DrinkEntry, DrinkSession, and any crew still owned by
+ * this user are all onDelete: Cascade). Crew ownership was already
+ * resolved at request time (requestAccountDeletion above); releaseOwnedCrews
+ * is called again here anyway as a defensive backstop, in case a crew was
+ * somehow (re)acquired between request and purge.
+ *
+ * Notification is the one exception to "everything cascades": actorId is a
+ * denormalized snapshot with no real FK (see its schema doc comment), so a
+ * purged user's username/avatar would otherwise keep showing up forever in
+ * *other* users' notification history ("X cheered your session") — real
+ * erased-user PII surviving the erasure. Scrubbed explicitly below before
+ * the user row goes, since nothing else will ever touch those rows again.
  */
 export async function purgeExpiredDeletedAccounts(): Promise<AccountPurgeResultDTO> {
   const cutoff = new Date(Date.now() - DELETION_GRACE_PERIOD_MS);
@@ -251,6 +277,8 @@ export async function purgeExpiredDeletedAccounts(): Promise<AccountPurgeResultD
 
   for (const account of dueAccounts) {
     try {
+      await releaseOwnedCrews(account.id);
+
       const [entries, user] = await Promise.all([
         db.drinkEntry.findMany({
           where: { userId: account.id, photoUrl: { not: null } },
@@ -269,13 +297,26 @@ export async function purgeExpiredDeletedAccounts(): Promise<AccountPurgeResultD
         await avatarPhotoService.remove(user.avatarUrl, account.id);
       }
 
-      await db.user.delete({ where: { id: account.id } });
-      processed++;
+      await db.notification.updateMany({
+        where: { actorId: account.id },
+        data: { actorUsername: null, actorAvatarUrl: null },
+      });
+
+      // A conditional deleteMany, not delete(where:{id}) — re-checks
+      // deletionRequestedAt is still set and still past cutoff as part of
+      // the same atomic statement, so a login that ran cancelAccountDeletion
+      // for this exact account in the gap between the findMany above and
+      // this delete can't be silently overridden: count === 0 means the
+      // user cancelled in the meantime, and this account is correctly left
+      // alone rather than purged anyway.
+      const { count } = await db.user.deleteMany({
+        where: { id: account.id, deletionRequestedAt: { lte: cutoff } },
+      });
+      if (count > 0) processed++;
     } catch {
-      // One account's failure (a transient blob error, a race with the user
-      // logging back in and cancelling mid-purge) shouldn't abort the rest
-      // of the batch — it's still past its grace period tomorrow and gets
-      // picked up on the next run.
+      // One account's failure (a transient blob error) shouldn't abort the
+      // rest of the batch — it's still past its grace period tomorrow and
+      // gets picked up on the next run.
       failed++;
     }
   }

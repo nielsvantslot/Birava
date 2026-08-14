@@ -1,4 +1,5 @@
 import { cleanupOrphanedBlobs } from "@/lib/commands/photoCleanupCommands";
+import { verifyCronRequest } from "@/lib/auth/verifyCronRequest";
 
 // sharp isn't involved, but @vercel/blob's list()/del() need Node, not edge.
 export const runtime = "nodejs";
@@ -14,8 +15,7 @@ export const maxDuration = 60;
 // vercel.json's native cron, so every scheduled job lives on one platform.
 // Guarded by CRON_SECRET (same value already used by session-reminders).
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!verifyCronRequest(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
 
