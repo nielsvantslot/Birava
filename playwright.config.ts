@@ -26,13 +26,18 @@ export default defineConfig({
     // WebKit is real Apple WebKit, not an approximation — the only project
     // here that would actually reproduce the history.replaceState() rate
     // limit a regression of e2e/rsc-revalidate-loop.spec.ts's bug depends
-    // on. Scoped to that one spec via testMatch rather than running the
-    // whole suite twice — every other spec's chromium-only coverage is fine
-    // since none of them are WebKit-engine-specific.
+    // on, and Safari's Cache Storage implementation has its own quirks
+    // (storage limits, eviction behavior) distinct enough from Chromium's
+    // that the two sw-*-cache-*.spec.ts specs (public/sw.js's redirect- and
+    // session-boundary-cache fixes, added 2026-08-14) are worth the same
+    // real-engine run rather than trusting Chromium's Cache API to stand in
+    // for Safari's. Scoped to these specs via testMatch rather than running
+    // the whole suite twice — every other spec's chromium-only coverage is
+    // fine since none of them are WebKit-engine-specific.
     {
       name: "webkit",
       use: { ...devices["Desktop Safari"] },
-      testMatch: /rsc-revalidate-loop\.spec\.ts/,
+      testMatch: /(rsc-revalidate-loop|sw-redirect-cache-poisoning|sw-session-cache-clear)\.spec\.ts/,
     },
   ],
   webServer: {
