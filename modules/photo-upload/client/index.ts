@@ -1,6 +1,6 @@
 export { HeicConverter } from "./services/HeicConverter";
 export { ImageCompressor } from "./services/ImageCompressor";
-export { PhotoUploadPreparer } from "./services/PhotoUploadPreparer";
+export { PhotoUploadPreparer, PhotoMetadataStripFailedError } from "./services/PhotoUploadPreparer";
 export { PhotoUploader } from "./services/PhotoUploader";
 export { VercelBlobDirectUploadTransport } from "./services/VercelBlobDirectUploadTransport";
 export type { DirectUploadRequest, IDirectUploadTransport } from "./services/IDirectUploadTransport";
