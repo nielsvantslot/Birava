@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { clearSessionCaches } from "@/lib/swCache";
 import type { AuthResultDTO } from "@/lib/dtos";
 
 export default function SignupPage() {
@@ -69,6 +70,7 @@ export default function SignupPage() {
     }
 
     setLoading(false);
+    clearSessionCaches();
     router.push("/onboarding");
     router.refresh();
   };

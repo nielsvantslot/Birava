@@ -87,23 +87,53 @@ self.addEventListener("unhandledrejection", (event) => {
   });
 });
 
-// One-shot cache eviction, requested by the client right before navigating
-// to (or refreshing) a page whose data a mutation just changed
-// (lib/swCache.ts's invalidateCachedPages) — driven by the same path list
-// Next's own revalidatePath calls use server-side, not a reactive
-// "something changed, go refresh" signal like the removed postMessage below
-// reacts to, so it can't recreate that loop: nothing responds to this by
-// fetching or messaging again, it just deletes some keys.
+// Every cached page/RSC entry is keyed by URL alone, with no notion of which
+// session wrote it — so whatever's sitting in these caches when one session
+// ends (sign-out, account deletion) or a new one begins (login, signup) can
+// otherwise leak straight into the next session on this device/browser: the
+// stale-while-revalidate hit paints instantly, and nothing re-renders an
+// already-painted page once the background revalidate corrects the cache
+// (see the RSC branch's comment for why that reactive correction was
+// deliberately removed). Shared by both the logout POST branch below and the
+// message handler, so every session-boundary trigger clears the same set.
+function clearSessionScopedCaches() {
+  return Promise.all([
+    caches.delete(NAV_CACHE_NAME),
+    caches.delete(RSC_CACHE_NAME),
+    caches.delete(MEDIA_CACHE_NAME),
+  ]);
+}
+
+// One-shot cache eviction. Two message shapes:
+// - INVALIDATE_PAGES: requested by the client right before navigating to (or
+//   refreshing) a page whose data a mutation just changed
+//   (lib/swCache.ts's invalidateCachedPages) — driven by the same path list
+//   Next's own revalidatePath calls use server-side, not a reactive
+//   "something changed, go refresh" signal like the removed postMessage
+//   below reacts to, so it can't recreate that loop: nothing responds to
+//   this by fetching or messaging again, it just deletes some keys.
+// - CLEAR_SESSION_CACHES: requested right after a session boundary that
+//   isn't a plain POST to /api/auth/logout (login, signup, account
+//   deletion) — see clearSessionScopedCaches's comment. Same one-shot
+//   shape: deletes some keys, nothing reacts to it afterwards.
 self.addEventListener("message", (event) => {
   const data = event.data;
-  if (!data || data.type !== "INVALIDATE_PAGES" || !Array.isArray(data.urls)) return;
-  const keys = data.urls.map(pageCacheKey);
-  event.waitUntil(
-    Promise.all([
-      caches.open(RSC_CACHE_NAME).then((cache) => Promise.all(keys.map((key) => cache.delete(key)))),
-      caches.open(NAV_CACHE_NAME).then((cache) => Promise.all(keys.map((key) => cache.delete(key)))),
-    ])
-  );
+  if (!data) return;
+
+  if (data.type === "INVALIDATE_PAGES" && Array.isArray(data.urls)) {
+    const keys = data.urls.map(pageCacheKey);
+    event.waitUntil(
+      Promise.all([
+        caches.open(RSC_CACHE_NAME).then((cache) => Promise.all(keys.map((key) => cache.delete(key)))),
+        caches.open(NAV_CACHE_NAME).then((cache) => Promise.all(keys.map((key) => cache.delete(key)))),
+      ])
+    );
+    return;
+  }
+
+  if (data.type === "CLEAR_SESSION_CACHES") {
+    event.waitUntil(clearSessionScopedCaches());
+  }
 });
 
 self.addEventListener("push", (event) => {
@@ -182,11 +212,7 @@ self.addEventListener("fetch", (event) => {
       event.waitUntil(
         fetch(event.request.clone())
           .then((res) => {
-            if (res.ok) {
-              caches.delete(NAV_CACHE_NAME);
-              caches.delete(RSC_CACHE_NAME);
-              caches.delete(MEDIA_CACHE_NAME);
-            }
+            if (res.ok) return clearSessionScopedCaches();
           })
           .catch(() => {})
       );
