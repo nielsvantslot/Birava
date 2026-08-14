@@ -119,11 +119,46 @@ export class PhotoUploadService implements IPhotoUploadService {
 
   /** Does this stored file's URL (e.g. `https://.../entries-photos/{userId}/{uuid}.webp`) belong to `ownerId`? */
   private ownsUrl(url: string, ownerId: string): boolean {
-    return url.includes(`/${this.config.keyPrefix(ownerId)}/`);
+    return this.ownsNormalizedPath(PhotoUploadService.normalizedPathname(url), ownerId);
   }
 
   /** Does this bare storage key/pathname (e.g. `entries-photos/{userId}/{uuid}.jpg`, no host or leading slash) belong to `ownerId`? */
   private ownsPathname(pathname: string, ownerId: string): boolean {
-    return pathname.startsWith(`${this.config.keyPrefix(ownerId)}/`);
+    return this.ownsNormalizedPath(PhotoUploadService.normalizedPathname(pathname), ownerId);
+  }
+
+  /**
+   * Resolves `input` (an absolute URL or a bare storage key) against a dummy
+   * base so both shapes go through the same WHATWG URL parser — which, as
+   * part of normal path parsing, collapses any `.`/`..` segments before
+   * `.pathname` is read. That collapsing is exactly what makes
+   * ownsNormalizedPath's segment-count-and-prefix check below safe: a
+   * traversal payload like `entries-photos/A/../B/real.webp` (a previous
+   * version of this check accepted it — it substring/prefix-matched
+   * `entries-photos/A/` without noticing the `..`) resolves here to
+   * `entries-photos/B/real.webp`, which no longer matches attacker A's own
+   * prefix at all, so the ownership check below correctly rejects it instead
+   * of deleting/reading another user's file.
+   */
+  private static normalizedPathname(input: string): string {
+    return decodeURIComponent(new URL(input, "http://localhost").pathname);
+  }
+
+  /**
+   * Requires the path to be *exactly* `${keyPrefix(ownerId)}/<one segment>`
+   * — not just prefixed by it — so a resolved path can't smuggle in extra
+   * segments (e.g. a nested subdirectory) that a naive startsWith/includes
+   * check would have let through.
+   */
+  private ownsNormalizedPath(pathname: string, ownerId: string): boolean {
+    const segments = pathname.split("/").filter((s) => s.length > 0);
+    const prefixSegments = this.config
+      .keyPrefix(ownerId)
+      .split("/")
+      .filter((s) => s.length > 0);
+    return (
+      segments.length === prefixSegments.length + 1 &&
+      prefixSegments.every((seg, i) => segments[i] === seg)
+    );
   }
 }

@@ -1,5 +1,6 @@
 import { pruneClientErrorLogs } from "@/lib/commands/clientErrorLogCommands";
 import { RateLimitBucketPruner } from "@/lib/rateLimit/RateLimitBucketPruner";
+import { verifyCronRequest } from "@/lib/auth/verifyCronRequest";
 
 // Invoked once daily by .github/workflows/prune-client-error-logs.yml —
 // GitHub Actions, same as session-reminders/cleanup-orphaned-blobs, rather
@@ -8,8 +9,7 @@ import { RateLimitBucketPruner } from "@/lib/rateLimit/RateLimitBucketPruner";
 // cron's schedule rather than standing up a second one for another small,
 // unrelated table.
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!verifyCronRequest(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
 
