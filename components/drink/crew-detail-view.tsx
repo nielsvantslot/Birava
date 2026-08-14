@@ -1,0 +1,177 @@
+import Link from "next/link";
+import { sessionTitle } from "@/lib/sessions";
+import { formatDate, timeAgo } from "@/lib/dates";
+import { avatarSrc } from "@/lib/utils";
+import { CrewLeaderboard } from "@/components/drink/crew-leaderboard";
+import { CopyCodeChip } from "@/components/drink/crews-forms";
+import type { CrewDetail } from "@/lib/queries/groupQueries";
+
+/**
+ * The full crew page body — identity header, leaderboard, activity feed,
+ * settings link. Extracted from app/(app)/crews/[id]/page.tsx so onboarding
+ * can render the exact same layout with a sample crew instead of
+ * re-describing it in prose.
+ */
+export function CrewDetailView({
+  crew,
+  currentUserId,
+  tz,
+}: {
+  crew: CrewDetail;
+  currentUserId: string;
+  tz: string;
+}) {
+  const { scores, recentSessions } = crew;
+  const you = scores.find((s) => s.userId === currentUserId);
+  const usernameById = new Map(scores.map((s) => [s.userId, s.username]));
+  const isClosed = !!crew.closedAt;
+  // Same rule gates sharing the invite code and sending an in-app invite —
+  // any member when PUBLIC, owner/admin only when PRIVATE (#162).
+  const canInvite = crew.visibility === "PUBLIC" || crew.viewerRole !== "MEMBER";
+
+  return (
+    <>
+      {/* crew identity */}
+      <div className="section flush" style={{ padding: "20px 16px 16px" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            marginBottom: 14,
+          }}
+        >
+          <div
+            className="avatar"
+            style={{ width: 56, height: 56, fontSize: 17 }}
+          >
+            {crew.name.slice(0, 2).toUpperCase()}
+          </div>
+          <div className="grow">
+            <h1
+              style={{
+                fontFamily: "var(--serif)",
+                fontSize: 22,
+                fontWeight: 600,
+              }}
+            >
+              {crew.name}
+            </h1>
+            <p
+              style={{
+                fontSize: 13,
+                color: "var(--ink-dim)",
+                marginTop: 3,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              {crew.memberCount} member
+              {crew.memberCount === 1 ? "" : "s"}
+              {/* A closed crew stops accepting new members, so the code that
+                  no longer works shouldn't be offered here either. */}
+              {canInvite && !isClosed && (
+                <>
+                  {" "}
+                  · <CopyCodeChip code={crew.inviteCode} />
+                </>
+              )}
+            </p>
+          </div>
+        </div>
+        <div className="event">
+          <span className="ev-live">
+            {!isClosed && <span className="dot"></span>}
+            {isClosed ? "Closed" : "Live"}
+          </span>
+          <div className="members">
+            {scores.slice(0, 5).map((s) => (
+              <div className="avatar" key={s.userId}>
+                {s.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarSrc(s.userId)} alt={s.username} />
+                ) : (
+                  s.username.slice(0, 2).toUpperCase()
+                )}
+              </div>
+            ))}
+            {scores.length > 5 && (
+              <div className="avatar">+{scores.length - 5}</div>
+            )}
+          </div>
+          <span className="ev-end">
+            since {formatDate(new Date(crew.createdAt), tz)}
+          </span>
+        </div>
+      </div>
+
+      {/* leaderboard */}
+      <div className="section">
+        <div className="h-row" style={{ marginBottom: 2 }}>
+          <h3>Leaderboard</h3>
+        </div>
+        <p style={{ fontSize: 12.5, color: "var(--ink-dim)", marginBottom: 12 }}>
+          Ranked from the day each member joined — no lifetime totals.
+          {you ? ` You joined ${formatDate(new Date(you.joinedAt), tz)}.` : ""}
+        </p>
+        <CrewLeaderboard
+          rows={scores.map((s) => ({
+            userId: s.userId,
+            username: s.username,
+            avatarUrl: s.avatarUrl,
+            sessions: s.sessions,
+            drinks: s.drinks,
+            you: s.userId === currentUserId,
+          }))}
+        />
+      </div>
+
+      {/* crew activity */}
+      {recentSessions.length > 0 && (
+        <div className="section">
+          <div className="h-row">
+            <h3>Latest in the crew</h3>
+          </div>
+          {recentSessions.map((session) => (
+            <Link
+              key={session.id}
+              href={`/sessions/${session.id}`}
+              className="row"
+              style={{ textDecoration: "none", color: "inherit" }}
+              prefetch={false}
+            >
+              <div className="avatar">
+                {session.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarSrc(session.userId)} alt={session.username} />
+                ) : (
+                  (usernameById.get(session.userId) ?? session.username)
+                    .slice(0, 2)
+                    .toUpperCase()
+                )}
+              </div>
+              <div className="grow">
+                <b>
+                  {session.userId === currentUserId ? "You" : session.username}{" "}
+                  logged a session
+                </b>
+                <span>
+                  {sessionTitle(session, tz)} ·{" "}
+                  {timeAgo(new Date(session.end), tz)}
+                </span>
+              </div>
+              <span className="chev">›</span>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      <div className="section">
+        <Link href={`/crews/${crew.id}/settings`} className="btn btn-ghost" prefetch={false}>
+          Crew settings
+        </Link>
+      </div>
+    </>
+  );
+}
