@@ -335,14 +335,24 @@ export async function updateDrinkEntry(
   userId: string,
   input: UpdateDrinkEntryDTO
 ): Promise<ActionResultDTO> {
-  const existing = await db.drinkEntry.findFirst({
-    where: { id: input.id, userId },
-    select: { photoUrl: true, sessionId: true },
-  });
-  if (!existing) return { error: "Check-in not found" };
+  let existing: { photoUrl: string | null; sessionId: string } | null = null;
 
   try {
-    await db.$transaction(async (tx) => {
+    const result = await db.$transaction(async (tx) => {
+      // A concurrent createDrinkEntry can merge this entry's session into
+      // another one (and delete the old session row) between a read taken
+      // before this transaction opens and this transaction's own writes —
+      // the same per-user advisory lock createDrinkEntry/deleteDrinkEntry
+      // already use serializes that against this edit, but only if the
+      // sessionId is read *after* acquiring it, inside this transaction.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
+
+      const current = await tx.drinkEntry.findFirst({
+        where: { id: input.id, userId },
+        select: { photoUrl: true, sessionId: true },
+      });
+      if (!current) return null;
+
       const venueId = await resolveVenueId(tx, input.venue, input.lat, input.lng);
       await tx.drinkEntry.updateMany({
         where: { id: input.id, userId },
@@ -358,10 +368,13 @@ export async function updateDrinkEntry(
       // (title, venue line, route, hero photo fallback) — invalidate rather
       // than track exactly which ones did.
       await tx.drinkSession.update({
-        where: { id: existing.sessionId },
+        where: { id: current.sessionId },
         data: CLEAR_SHARE_IMAGE_CACHE,
       });
+      return current;
     });
+    if (!result) return { error: "Check-in not found" };
+    existing = result;
   } catch {
     return { error: "Failed to update check-in." };
   }
@@ -448,22 +461,34 @@ export async function deleteDrinkEntry(
   userId: string,
   input: DeleteDrinkEntryDTO
 ): Promise<ActionResultDTO> {
-  const entry = await db.drinkEntry.findFirst({
-    where: { id: input.id, userId },
-    select: { photoUrl: true, sessionId: true },
-  });
-  if (!entry) return {};
-
+  let entry: { photoUrl: string | null; sessionId: string } | null = null;
   let orphanedShareImageUrls: string[] = [];
   try {
-    await db.$transaction(async (tx) => {
+    const result = await db.$transaction(async (tx) => {
       // Same per-user serialization as createDrinkEntry's lock, and the same
       // key, so a concurrent create/delete pair for one user also serializes
-      // against each other, not just delete-vs-delete.
+      // against each other, not just delete-vs-delete. The entry (and its
+      // sessionId) must be read *after* acquiring this lock, inside this
+      // transaction — reading it beforehand let a concurrent createDrinkEntry
+      // merge/delete this entry's session out from under a stale sessionId,
+      // making reclusterSessionAfterDelete's own delete/update below throw on
+      // an already-gone row and roll back the delete the user actually asked
+      // for.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
+
+      const current = await tx.drinkEntry.findFirst({
+        where: { id: input.id, userId },
+        select: { photoUrl: true, sessionId: true },
+      });
+      if (!current) return null;
+
       await tx.drinkEntry.deleteMany({ where: { id: input.id, userId } });
-      orphanedShareImageUrls = await reclusterSessionAfterDelete(tx, userId, entry.sessionId);
+      const urls = await reclusterSessionAfterDelete(tx, userId, current.sessionId);
+      return { entry: current, orphanedShareImageUrls: urls };
     });
+    if (!result) return {};
+    entry = result.entry;
+    orphanedShareImageUrls = result.orphanedShareImageUrls;
   } catch {
     return { error: "Failed to delete check-in." };
   }
