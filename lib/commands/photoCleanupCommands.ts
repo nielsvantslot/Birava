@@ -29,6 +29,13 @@ const PREFIXES = ["entries-photos/", "avatars/"] as const;
 // depends on finishing the whole backlog in one pass.
 const MAX_DELETE_ATTEMPTS_PER_RUN = 200;
 
+// Applied per-prefix, not globally — the prefixes are scanned one at a time
+// (see the loop below), so a single shared cap lets a large backlog in
+// whichever prefix comes first exhaust the whole run's budget and starve
+// every prefix after it indefinitely. Splitting the cap evenly guarantees
+// every prefix gets scanned every run, even if one never fully drains.
+const MAX_DELETE_ATTEMPTS_PER_PREFIX = Math.floor(MAX_DELETE_ATTEMPTS_PER_RUN / PREFIXES.length);
+
 /**
  * Direct-to-Blob uploads (modules/photo-upload's direct-upload path) write a
  * durable blob before any DB row exists to reference it — the DB write only
@@ -76,10 +83,11 @@ export async function cleanupOrphanedBlobs(): Promise<BlobCleanupResultDTO> {
   let deleted = 0;
   let failed = 0;
 
-  prefixLoop: for (const prefix of PREFIXES) {
+  for (const prefix of PREFIXES) {
     const referenced = referencedByPrefix[prefix];
+    let attemptsThisPrefix = 0;
     let cursor: string | undefined;
-    do {
+    prefixLoop: do {
       const page = await list({ prefix, cursor, limit: 1000 });
       cursor = page.cursor;
 
@@ -97,7 +105,8 @@ export async function cleanupOrphanedBlobs(): Promise<BlobCleanupResultDTO> {
           // picked up on the next scheduled run.
           failed++;
         }
-        if (deleted + failed >= MAX_DELETE_ATTEMPTS_PER_RUN) break prefixLoop;
+        attemptsThisPrefix++;
+        if (attemptsThisPrefix >= MAX_DELETE_ATTEMPTS_PER_PREFIX) break prefixLoop;
       }
     } while (cursor);
   }
