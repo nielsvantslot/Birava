@@ -19,7 +19,6 @@ import {
   getFollowingIds,
   isFollowing,
 } from "@/lib/queries/followQueries";
-import { getSocialFeed as getSocialFeedQuery } from "@/lib/queries/drinkEntryQueries";
 import { searchUsers as searchUsersQuery } from "@/lib/queries/userQueries";
 import {
   getCheerStates,
@@ -35,14 +34,12 @@ import {
   CreateCommentResultDTO,
   DeleteCommentDTO,
   DeleteCommentResultDTO,
-  DrinkEntryWithAuthorDTO,
   FollowCountsDTO,
   FollowCountsQueryDTO,
   FollowUserDTO,
   GetCommentCountsDTO,
   GetSessionCommentsDTO,
   GetSessionCheersDTO,
-  GetSocialFeedDTO,
   IsFollowingQueryDTO,
   SearchUsersDTO,
   ToggleCheerDTO,
@@ -91,18 +88,6 @@ export async function getFollowersList(input: FollowCountsQueryDTO): Promise<Use
 
 export async function getFollowingList(input: FollowCountsQueryDTO): Promise<UserSummaryDTO[]> {
   return getFollowingQuery(input.profileId);
-}
-
-export async function getSocialFeed(
-  input: GetSocialFeedDTO = {}
-): Promise<DrinkEntryWithAuthorDTO[]> {
-  const user = await getCurrentUser();
-  if (!user) throwNotAuthenticated();
-
-  return getSocialFeedQuery(user.id, {
-    limit: input.limit ?? 20,
-    offset: input.offset ?? 0,
-  });
 }
 
 export async function searchUsers(input: SearchUsersDTO): Promise<UserSummaryDTO[]> {

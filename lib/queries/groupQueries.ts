@@ -150,11 +150,23 @@ async function getRecentCrewSessions(
   const joinedAt = new Map(members.map((m) => [m.userId, m.joinedAt]));
   const cutoff = closedAt ?? new Date();
 
-  const sessions = await getSessionsForUserIds(members.map((m) => m.userId), { limit: 20 });
+  // A single global top-N across every member (not per-member) means one
+  // prolific member's sessions can crowd out a quieter member's entirely
+  // before the join-date filter below even runs. Raised from 20 to 50 as a
+  // pragmatic mitigation, not a full fix — a per-member-fair pagination
+  // would need getSessionsForUserIds itself to support a per-user limit,
+  // which it doesn't today.
+  const sessions = await getSessionsForUserIds(members.map((m) => m.userId), { limit: 50 });
   return sessions
     .filter((s) => {
       const joined = joinedAt.get(s.userId);
-      return joined !== undefined && new Date(s.start) <= cutoff && new Date(s.end) >= joined;
+      // Requires the session to have STARTED after joining, not just
+      // overlapped the join date (the previous `end >= joined` check let a
+      // session a member started before joining — with check-ins the
+      // leaderboard correctly never scores — still render here in full,
+      // including those pre-join check-ins: the same session's stats
+      // disagreed between the leaderboard and this activity feed).
+      return joined !== undefined && new Date(s.start) <= cutoff && new Date(s.start) >= joined;
     })
     .slice(0, 4);
 }
