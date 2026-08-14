@@ -10,6 +10,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { queueToast } from "@/components/ui/toast-pill";
+import { clearSessionCaches } from "@/lib/swCache";
 import type { AuthResultDTO } from "@/lib/dtos";
 
 export default function LoginPage() {
@@ -40,6 +41,7 @@ export default function LoginPage() {
       if (result?.cancelledDeletion) {
         queueToast("Account deletion cancelled — welcome back.");
       }
+      clearSessionCaches();
       router.push("/dashboard");
       router.refresh();
     }

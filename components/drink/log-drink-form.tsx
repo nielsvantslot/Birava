@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { PhotoUploadPreparer, PhotoUploader } from "@/modules/photo-upload/client";
+import { PhotoUploadPreparer, PhotoUploader, PhotoMetadataStripFailedError } from "@/modules/photo-upload/client";
 import type { PhotoUploadResultDto } from "@/modules/photo-upload/client";
 import { editDrink, deleteDrink, getMyDrinkSuggestions } from "@/lib/controllers/drinkController";
 import { showToast } from "@/components/ui/toast-pill";
@@ -251,7 +251,14 @@ export function CheckinForm({
 
     discardPendingUpload(true);
 
-    const { file: prepared, previewUrl } = await PhotoUploadPreparer.prepare(file, PHOTO_COMPRESS_CONFIG, supportsDirectUpload);
+    let prepared: File, previewUrl: string | null;
+    try {
+      ({ file: prepared, previewUrl } = await PhotoUploadPreparer.prepare(file, PHOTO_COMPRESS_CONFIG, supportsDirectUpload));
+    } catch (err) {
+      showToast(err instanceof PhotoMetadataStripFailedError ? err.message : "Couldn't process this photo. Try a different one.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     // Checked here, the moment the photo is picked, rather than at submit —
     // client-side compression usually keeps this from ever firing, but when
     // it does, the user should hear about it before filling in the rest of

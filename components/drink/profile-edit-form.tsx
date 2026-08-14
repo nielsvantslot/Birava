@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateProfileUsername } from "@/lib/controllers/profileController";
-import { PhotoUploadPreparer, PhotoUploader } from "@/modules/photo-upload/client";
+import { PhotoUploadPreparer, PhotoUploader, PhotoMetadataStripFailedError } from "@/modules/photo-upload/client";
 import { AVATAR_MAX_DIMENSION, avatarUploadEndpoints } from "@/lib/avatarPhotoConfig";
 import { avatarSrc } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-pill";
@@ -48,8 +48,8 @@ export function ProfileEditForm({ userId, username, avatarUrl, supportsDirectUpl
         return;
       }
       router.refresh();
-    } catch {
-      setError("Couldn't upload that image.");
+    } catch (err) {
+      setError(err instanceof PhotoMetadataStripFailedError ? err.message : "Couldn't upload that image.");
     } finally {
       setAvatarUploading(false);
     }

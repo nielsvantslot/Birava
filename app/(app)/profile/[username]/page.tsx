@@ -7,6 +7,7 @@ import { getProfileByUsername } from "@/lib/controllers/profileController";
 import { getFollowCounts, isFollowingUser } from "@/lib/controllers/socialController";
 import { groupIntoSessions, activeWeeks } from "@/lib/sessions";
 import { computeAchievements } from "@/lib/achievements";
+import { decodeUsernameParam } from "@/lib/utils";
 import { FollowButton } from "@/components/drink/follow-button";
 import { ProfileHead } from "@/components/drink/profile-client";
 import { AchievementBadgeStrip } from "@/components/drink/achievement-badge-strip";
@@ -19,7 +20,9 @@ interface Props {
 }
 
 export default async function PublicProfilePage({ params }: Props) {
-  const { username } = await params;
+  const { username: rawUsername } = await params;
+  const username = decodeUsernameParam(rawUsername);
+  if (!username) notFound();
   // targetUser has to resolve before anything can render at all (notFound(),
   // and every section below needs its id/username/avatar) — currentUser is
   // needed alongside it just to know whether this is the viewer's own

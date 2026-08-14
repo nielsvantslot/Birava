@@ -68,11 +68,21 @@ export async function joinGroup(
     return { error: "This crew is closed and isn't accepting new members." };
   }
 
-  await db.groupMember.upsert({
-    where: { groupId_userId: { groupId: group.id, userId } },
-    update: {},
-    create: { groupId: group.id, userId },
-  });
+  try {
+    await db.groupMember.upsert({
+      where: { groupId_userId: { groupId: group.id, userId } },
+      update: {},
+      create: { groupId: group.id, userId },
+    });
+  } catch (error) {
+    // The owner can delete the crew in the window between the findUnique
+    // above and this upsert — surfaces as a foreign-key violation rather
+    // than a graceful "not found" without this catch.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      return { error: "That code doesn't match any crew." };
+    }
+    throw error;
+  }
 
   if (!alreadyMember) {
     queueNotifications(
