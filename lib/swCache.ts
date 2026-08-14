@@ -28,3 +28,21 @@ export function invalidateCachedPages(paths: string[]): void {
     urls: paths.map((path) => new URL(path, location.origin).toString()),
   });
 }
+
+/**
+ * Tells the service worker to drop every cached page/RSC/media entry —
+ * every one of them is keyed by URL alone with no notion of which session
+ * wrote it, so whatever's cached from a session that just ended (or hasn't
+ * started yet) can otherwise leak straight into the next one on this
+ * device/browser. public/sw.js already does this on its own for a plain
+ * POST to /api/auth/logout; call this explicitly right after any other
+ * session boundary — a successful login, signup, or account-deletion
+ * request — since those don't go through that exact endpoint (login/signup
+ * hit /api/auth/login and /api/signup; account deletion is a Server Action
+ * POST to the current page's own URL, not a fixed route the service worker
+ * could pattern-match on). Best-effort: a no-op if there's no active
+ * service worker (dev, or before one has taken control yet).
+ */
+export function clearSessionCaches(): void {
+  navigator.serviceWorker?.controller?.postMessage({ type: "CLEAR_SESSION_CACHES" });
+}
