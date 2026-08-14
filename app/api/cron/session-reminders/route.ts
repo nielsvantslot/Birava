@@ -1,4 +1,5 @@
 import { sendSessionReminders } from "@/lib/commands/sessionReminderCommands";
+import { verifyCronRequest } from "@/lib/auth/verifyCronRequest";
 
 // Invoked every 15 min by .github/workflows/session-reminders.yml — not
 // Vercel Cron, since the Hobby plan only allows once-a-day schedules there
@@ -6,8 +7,7 @@ import { sendSessionReminders } from "@/lib/commands/sessionReminderCommands";
 // same value in the Vercel project's env vars and this repo's Actions
 // secrets) so this can't be triggered by anyone who finds the URL.
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!verifyCronRequest(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
 

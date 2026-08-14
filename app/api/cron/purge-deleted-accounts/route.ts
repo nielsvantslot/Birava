@@ -1,4 +1,5 @@
 import { purgeExpiredDeletedAccounts } from "@/lib/commands/userCommands";
+import { verifyCronRequest } from "@/lib/auth/verifyCronRequest";
 
 // @vercel/blob's del() (via drinkPhotoService/avatarPhotoService) needs Node, not edge.
 export const runtime = "nodejs";
@@ -16,8 +17,7 @@ export const maxDuration = 60;
 // scheduled job lives on one platform. Guarded by CRON_SECRET (same value
 // already used by the other cron routes).
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!verifyCronRequest(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
 

@@ -83,19 +83,28 @@ export async function updateSession(request: NextRequest) {
   // cookie yet would get redirected straight into a login page that itself
   // can't load without a network.
   const isOfflinePage = url.pathname === "/offline";
+  // API routes are matched now (see middleware.ts's matcher comment) purely
+  // so the trust-header strip/set below still runs for them — they must
+  // never hit the page-redirect branches: a fetch() caller expecting a JSON
+  // 401 from getCurrentUser() returning null would instead transparently
+  // follow a redirect into the /login page's HTML and fail to parse it as
+  // JSON. Each API route already handles "no user" itself.
+  const isApiRoute = url.pathname.startsWith("/api/");
 
-  if (!dto && !isAuthPage && !isOfflinePage) {
-    url.pathname = "/login";
-    const response = NextResponse.redirect(url);
-    response.headers.set("Content-Security-Policy", csp);
-    return response;
-  }
+  if (!isApiRoute) {
+    if (!dto && !isAuthPage && !isOfflinePage) {
+      url.pathname = "/login";
+      const response = NextResponse.redirect(url);
+      response.headers.set("Content-Security-Policy", csp);
+      return response;
+    }
 
-  if (dto && isAuthPage) {
-    url.pathname = "/dashboard";
-    const response = NextResponse.redirect(url);
-    response.headers.set("Content-Security-Policy", csp);
-    return response;
+    if (dto && isAuthPage) {
+      url.pathname = "/dashboard";
+      const response = NextResponse.redirect(url);
+      response.headers.set("Content-Security-Policy", csp);
+      return response;
+    }
   }
 
   const requestHeaders = new Headers(request.headers);

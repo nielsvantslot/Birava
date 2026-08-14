@@ -3,9 +3,21 @@ import { verifyPassword } from "@/lib/auth/password";
 import { ProfileMapper, UserSummaryMapper } from "@/lib/mappers";
 import { ProfileDTO, UserSummaryDTO } from "@/lib/dtos";
 
+// A real bcrypt hash of an arbitrary fixed string (not any actual user's
+// password) — compared against on the not-found path below purely so that
+// branch pays the same ~10-round bcrypt cost a real user lookup does.
+// Without this, "email not found" returns almost instantly while "email
+// found, wrong password" always waits for a full bcrypt compare — a
+// measurable timing side-channel an attacker can use to enumerate
+// registered emails at whatever rate the login rate-limiter allows.
+const DUMMY_PASSWORD_HASH = "$2b$10$Dr/r/zArQ4wITQPdQwzQIOVbbj.NuCv5v5Fcfr5CNKNRlzH8WPcM6";
+
 export async function verifyCredentials(email: string, password: string): Promise<string | null> {
   const user = await db.user.findUnique({ where: { email } });
-  if (!user) return null;
+  if (!user) {
+    await verifyPassword(password, DUMMY_PASSWORD_HASH);
+    return null;
+  }
 
   const valid = await verifyPassword(password, user.passwordHash);
   return valid ? user.id : null;
