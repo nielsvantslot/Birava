@@ -11,7 +11,7 @@
 // never reached an active tab through any number of plain reloads or even
 // hard-refreshes, since neither bypasses this SW's own Cache Storage, only
 // the browser's separate HTTP cache).
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const STATIC_CACHE_NAME = `birava-static-${CACHE_VERSION}`;
 // A hard navigation requests full HTML; a client-side RSC transition to the
 // very same URL requests a structurally different Flight-payload response —
@@ -260,7 +260,19 @@ self.addEventListener("fetch", (event) => {
         caches.match(cacheKey, { cacheName: RSC_CACHE_NAME }).then((cached) => {
           const revalidate = fetch(event.request)
             .then((response) => {
-              if (response.ok) {
+              // fetch() follows redirects transparently — an unauthenticated
+              // request for a protected route (or an authenticated request
+              // for /login|/signup) comes back here as response.ok with a
+              // *different* page's Flight payload as the body. Caching that
+              // under this request's own URL would silently serve the wrong
+              // page's content on a later visit to this URL, regardless of
+              // auth state at that later time — confirmed live: an
+              // authenticated RSC fetch for /login (auto-redirected by
+              // middleware to /dashboard) had cached the dashboard's payload
+              // under the /login key, so a logged-out visitor's next
+              // client-side navigation to /login would have rendered the
+              // dashboard instead of the sign-in form.
+              if (response.ok && !response.redirected) {
                 const clone = response.clone();
                 caches.open(RSC_CACHE_NAME).then((cache) => cache.put(cacheKey, clone));
               }
@@ -300,7 +312,11 @@ self.addEventListener("fetch", (event) => {
       caches.match(cacheKey, { cacheName: NAV_CACHE_NAME }).then((cached) => {
         const revalidate = fetch(event.request)
           .then((response) => {
-            if (response.ok) {
+            // Same reasoning as the RSC branch above: a followed redirect
+            // (e.g. an expired-session hard reload of a protected page
+            // bouncing to /login) must never be cached under the
+            // pre-redirect URL.
+            if (response.ok && !response.redirected) {
               const clone = response.clone();
               caches.open(NAV_CACHE_NAME).then((cache) => cache.put(cacheKey, clone));
             }
