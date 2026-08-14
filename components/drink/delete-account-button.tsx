@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { requestAccountDeletion } from "@/lib/controllers/accountController";
 import { queueToast, showToast } from "@/components/ui/toast-pill";
 import { confirmModal } from "@/components/ui/confirm-modal";
+import { clearSessionCaches } from "@/lib/swCache";
 
 /**
  * Starts the GDPR-erasure grace period (see lib/commands/userCommands.ts's
@@ -36,6 +37,7 @@ export function DeleteAccountButton({ username }: { username: string }) {
         return;
       }
       queueToast("Account scheduled for deletion in 7 days — log back in to cancel.");
+      clearSessionCaches();
       router.push("/login");
       router.refresh();
     });
