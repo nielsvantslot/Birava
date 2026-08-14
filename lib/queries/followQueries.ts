@@ -30,9 +30,10 @@ export async function getFollowCounts(profileId: string): Promise<FollowCountsDT
   return { followers, following };
 }
 
+/** Excludes anyone mid-GDPR-erasure — their sessions stop showing up in others' feeds for the whole grace period, not just after the purge. */
 export async function getFollowingIds(userId: string): Promise<string[]> {
   const follows = await db.follow.findMany({
-    where: { followerId: userId },
+    where: { followerId: userId, following: { deletionRequestedAt: null } },
     select: { followingId: true },
   });
   return follows.map((f) => f.followingId);

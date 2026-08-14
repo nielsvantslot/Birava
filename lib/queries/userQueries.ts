@@ -11,9 +11,10 @@ export async function verifyCredentials(email: string, password: string): Promis
   return valid ? user.id : null;
 }
 
+/** Null for a pending-deletion account too — hidden from other users for the whole GDPR grace period, not just gone after the purge. */
 export async function getProfileByUsername(username: string): Promise<ProfileDTO | null> {
   const user = await db.user.findUnique({ where: { username } });
-  return user ? ProfileMapper.toDTO(user) : null;
+  return user && !user.deletionRequestedAt ? ProfileMapper.toDTO(user) : null;
 }
 
 const USER_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -41,6 +42,7 @@ export async function searchUsers(excludeUserId: string, query: string): Promise
     where: {
       username: { contains: query.trim(), mode: "insensitive" },
       id: { not: excludeUserId },
+      deletionRequestedAt: null,
     },
     select: { id: true, username: true, avatarUrl: true },
     take: 20,

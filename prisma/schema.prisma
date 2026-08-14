@@ -19,6 +19,12 @@ model User {
   /// wall. Kept as a real column (not derived) so it survives independent of
   /// that redirect ever changing.
   hasCompletedOnboarding  Boolean                  @default(false)
+  /// Set when the user requests account deletion (GDPR erasure) — starts a
+  /// 7-day grace period during which the account is logged out everywhere
+  /// and hidden from other users (see lib/commands/userCommands.ts). Logging
+  /// back in clears this. The purge cron hard-deletes accounts past the
+  /// window (app/api/cron/purge-deleted-accounts/route.ts).
+  deletionRequestedAt     DateTime?                @db.Timestamptz(6)
   createdAt               DateTime                 @default(now()) @db.Timestamptz(6)
   drinkEntries            DrinkEntry[]
   drinkSessions           DrinkSession[]

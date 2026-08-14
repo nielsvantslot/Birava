@@ -6,4 +6,6 @@
 export class AuthResultDTO {
   declare success?: boolean;
   declare error?: string;
+  /** Set when logging in cancelled a pending GDPR-erasure request (see app/api/auth/login/route.ts) — the client shows a toast about it instead of staying silent. */
+  declare cancelledDeletion?: boolean;
 }

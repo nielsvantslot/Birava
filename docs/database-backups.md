@@ -65,6 +65,20 @@ here would just duplicate that for extra cost with no added protection.
 Only production is backed up. Staging is exempt on purpose — its data is
 disposable (seeded demo accounts, throwaway test data).
 
+**GDPR erasure vs. this retention schedule** — a deliberate, documented
+trade-off, not an oversight: account deletion
+(`lib/commands/userCommands.ts`'s `requestAccountDeletion`/
+`purgeExpiredDeletedAccounts`) removes a user's data from every live system
+completely and immediately once the grace period ends. It does **not**
+reach into these encrypted nightly dumps — a deleted user's data can still
+exist inside a backup for up to 400 days after deletion, per the retention
+table above. Scrubbing individual users out of already-encrypted backups
+(or out of a backup only if/when it's ever restored) was considered and
+rejected as disproportionate engineering for this app's scale; the accepted
+position is that live-system erasure plus this bounded, disclosed retention
+window is a legitimate technical constraint on the right to erasure, the
+same way any backup system already is at every company that has one.
+
 ## Layer 3 — Monthly restore drill (`.github/workflows/restore-drill.yml`)
 
 **Untested backups are a hypothesis, not a backup.** Once a month:

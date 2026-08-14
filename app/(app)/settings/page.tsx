@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/session";
 import { SignOutButton } from "@/components/drink/profile-client";
+import { DeleteAccountButton } from "@/components/drink/delete-account-button";
 import { getAppVersion } from "@/lib/version";
 
 export default async function SettingsPage() {
@@ -52,6 +53,13 @@ export default async function SettingsPage() {
           <h3>Account</h3>
         </div>
         <SignOutButton />
+      </div>
+
+      <div className="section">
+        <div className="h-row" style={{ marginBottom: 6 }}>
+          <h3>Danger zone</h3>
+        </div>
+        <DeleteAccountButton username={user.username} />
       </div>
 
       <p className="app-version">v{version}</p>
