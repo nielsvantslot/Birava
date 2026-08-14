@@ -5,6 +5,7 @@ import { getMyUnreadNotificationCount } from "@/lib/controllers/notificationCont
 import { AppHeader } from "@/components/layout/app-header";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import { ToastPill } from "@/components/ui/toast-pill";
 
 /**
  * Mirrors app/(app)/layout.tsx's shell (header/sidebar/bottom nav, same
@@ -38,6 +39,13 @@ export default function OnboardingLayout({
       <Suspense fallback={null}>
         <BottomNav />
       </Suspense>
+      {/* Missing here entirely was a real bug: the permissions step renders
+          PushSubscribeToggle/LocationPermissionToggle, both of which call
+          showToast() on their error paths — with no ToastPill mounted
+          anywhere in this layout, those errors fired into a page with zero
+          listeners and were silently lost (e.g. a failed push subscription
+          just stopped spinning, no explanation). */}
+      <ToastPill />
     </div>
   );
 }
