@@ -29,6 +29,18 @@ export default defineConfig({
     // on. Scoped to that one spec via testMatch rather than running the
     // whole suite twice — every other spec's chromium-only coverage is fine
     // since none of them are WebKit-engine-specific.
+    //
+    // Briefly widened (2026-08-14) to also cover sw-redirect-cache-poisoning
+    // and sw-session-cache-clear, on the theory that Safari's Cache Storage
+    // has its own quirks worth a real-engine run — reverted the same day
+    // after sw-redirect-cache-poisoning.spec.ts crashed the real WebKit
+    // renderer in CI (not a flaky assertion failure — "Navigation failed
+    // because page crashed!", reproduced on both the run and its retry).
+    // Both specs already have solid Chromium coverage; chasing a genuine
+    // WebKit engine crash in a Service-Worker-heavy test is exactly the
+    // kind of SW-lifecycle rabbit hole this repo has been burned by before
+    // (see the iOS Safari reload-loop incident) and deserves its own
+    // focused investigation, not a fix improvised mid-unrelated-PR.
     {
       name: "webkit",
       use: { ...devices["Desktop Safari"] },
