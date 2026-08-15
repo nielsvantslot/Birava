@@ -20,6 +20,21 @@ export class VercelBlobDirectUploadCoordinator implements IDirectUploadCoordinat
 
   async handleTokenRequest(input: HandleTokenRequestInput): Promise<Json> {
     const { requestBody, request, validatePathname, maxUploadBytes, allowedContentTypes } = input;
+    // Without an explicit callbackUrl, @vercel/blob computes one from
+    // Vercel's own System Environment Variables (VERCEL_URL et al.), which
+    // always point at the deployment's own *.vercel.app URL — never a
+    // custom domain alias. This app serves entirely on custom domains
+    // (birava.nl, staging.birava.nl), so that auto-computed URL never
+    // matches where the browser's direct-upload request actually came
+    // from. Confirmed live: every client-side direct upload on staging hung
+    // for the full 15s timeout (PhotoUploader.ts's DIRECT_UPLOAD_TIMEOUT_MS)
+    // before falling back to the server-mediated route, consistent with
+    // Vercel's own documented custom-domain gotcha for this exact SDK
+    // method. request.url reflects the real Host header Next.js received,
+    // so deriving callbackUrl from it (rather than trusting the SDK's
+    // built-in default) keeps this correct regardless of which domain the
+    // request came in on.
+    const callbackUrl = new URL(request.url).origin + new URL(request.url).pathname;
     // requestBody arrives as the interface's honest `Json` — its real shape
     // is Vercel's own GenerateClientTokenEvent | UploadCompletedEvent wire
     // protocol (@vercel/blob/client's HandleUploadBody), which this class
@@ -39,6 +54,7 @@ export class VercelBlobDirectUploadCoordinator implements IDirectUploadCoordinat
           allowedContentTypes,
           maximumSizeInBytes: maxUploadBytes,
           addRandomSuffix: false,
+          callbackUrl,
         };
       },
     });
