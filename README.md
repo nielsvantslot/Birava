@@ -57,7 +57,6 @@ Edit `.env`:
 
 ```env
 DATABASE_URL=postgresql://birava:birava@localhost:5432/birava?schema=public
-NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
 ### 3. Start local Postgres with Docker
@@ -109,7 +108,6 @@ Set the environment variables in Vercel dashboard under **Settings → Environme
 | Key | Value |
 |-----|-------|
 | `DATABASE_URL` | Your production Postgres connection string |
-| `NEXT_PUBLIC_APP_URL` | Your app URL (e.g. `https://your-domain.com`) |
 
 ### Option B – GitHub Integration
 
