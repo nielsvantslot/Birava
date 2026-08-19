@@ -5,4 +5,5 @@ export class SessionUserDTO {
   declare avatarUrl: string | null;
   declare createdAt: string;
   declare email: string;
+  declare isDeveloper: boolean;
 }

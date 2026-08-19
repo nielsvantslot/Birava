@@ -24,6 +24,7 @@ export type DrinkSession = {
   userId: string;
   username: string;
   avatarUrl: string | null;
+  isDeveloper: boolean;
   start: string; // ISO
   end: string; // ISO
   /**
@@ -80,6 +81,7 @@ export function assembleDrinkSession(
     userId: string;
     username: string;
     avatarUrl: string | null;
+    isDeveloper: boolean;
     start: string;
     end: string;
     name: string | null;
@@ -98,6 +100,11 @@ function buildSession(checkins: DrinkEntry[]): DrinkSession {
     userId: first.user_id,
     username: first.profiles?.username ?? "",
     avatarUrl: first.profiles?.avatar_url ?? null,
+    // groupIntoSessions() only feeds aggregate-only screens (see CLAUDE.md) —
+    // none render this derived session's identity fields directly, so there's
+    // no real badge signal to carry through Profile (lib/types.ts), which
+    // predates this flag.
+    isDeveloper: false,
     start: first.created_at,
     end: last.created_at,
     name: null,

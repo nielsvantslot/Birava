@@ -56,7 +56,7 @@ export async function searchUsers(excludeUserId: string, query: string): Promise
       id: { not: excludeUserId },
       deletionRequestedAt: null,
     },
-    select: { id: true, username: true, avatarUrl: true },
+    select: { id: true, username: true, avatarUrl: true, isDeveloper: true },
     take: 20,
   });
 

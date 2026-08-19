@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { avatarSrc, cn } from "@/lib/utils";
+import { DevBadge } from "@/components/ui/dev-badge";
 
 export type LeaderboardRow = {
   userId: string;
   username: string;
   avatarUrl: string | null;
+  isDeveloper: boolean;
   sessions: number;
   drinks: number;
   you: boolean;
@@ -54,7 +56,10 @@ export function CrewLeaderboard({ rows }: { rows: LeaderboardRow[] }) {
               )}
             </div>
             <div className="grow">
-              <b>{row.you ? "You" : row.username}</b>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <b>{row.you ? "You" : row.username}</b>
+                {row.isDeveloper && <DevBadge />}
+              </div>
               <span>
                 {row.sessions} session{row.sessions === 1 ? "" : "s"} ·{" "}
                 {row.drinks} drink{row.drinks === 1 ? "" : "s"}
