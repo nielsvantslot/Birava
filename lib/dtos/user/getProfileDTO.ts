@@ -3,4 +3,5 @@ export class ProfileDTO {
   declare username: string;
   declare avatarUrl: string | null;
   declare createdAt: string;
+  declare isDeveloper: boolean;
 }

@@ -16,7 +16,7 @@ export async function createComment(
 
   const row = await db.comment.create({
     data: { sessionId, userId, body: trimmed },
-    include: { user: { select: { username: true, avatarUrl: true } } },
+    include: { user: { select: { username: true, avatarUrl: true, isDeveloper: true } } },
   });
 
   const session = await db.drinkSession.findUnique({ where: { id: sessionId }, select: { userId: true } });

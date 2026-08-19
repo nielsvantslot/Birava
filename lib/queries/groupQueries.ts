@@ -24,7 +24,7 @@ const memberSelect = {
     userId: true,
     role: true,
     joinedAt: true,
-    user: { select: { username: true, avatarUrl: true } },
+    user: { select: { username: true, avatarUrl: true, isDeveloper: true } },
   },
 } as const;
 
@@ -32,13 +32,14 @@ function toMemberInputs(
   members: {
     userId: string;
     joinedAt: Date;
-    user: { username: string; avatarUrl: string | null };
+    user: { username: string; avatarUrl: string | null; isDeveloper: boolean };
   }[]
 ): CrewMemberInput[] {
   return members.map((gm) => ({
     userId: gm.userId,
     username: gm.user.username,
     avatarUrl: gm.user.avatarUrl,
+    isDeveloper: gm.user.isDeveloper,
     joinedAt: gm.joinedAt,
   }));
 }
@@ -104,6 +105,7 @@ export type CrewMemberInfo = {
   userId: string;
   username: string;
   avatarUrl: string | null;
+  isDeveloper: boolean;
   role: CrewRole;
 };
 
@@ -111,6 +113,7 @@ export type BannedCrewMember = {
   userId: string;
   username: string;
   avatarUrl: string | null;
+  isDeveloper: boolean;
 };
 
 export type CrewDetail = {
@@ -198,7 +201,7 @@ export async function getCrewDetailForViewer(
     getRecentCrewSessions(members, crew.closedAt),
     db.groupBan.findMany({
       where: { groupId: crewId },
-      include: { user: { select: { username: true, avatarUrl: true } } },
+      include: { user: { select: { username: true, avatarUrl: true, isDeveloper: true } } },
     }),
   ]);
   const { scores } = scoreCrew(members, entryRows, crew.closedAt);
@@ -217,12 +220,14 @@ export async function getCrewDetailForViewer(
       userId: m.userId,
       username: m.user.username,
       avatarUrl: m.user.avatarUrl,
+      isDeveloper: m.user.isDeveloper,
       role: m.role,
     })),
     bannedMembers: bans.map((b) => ({
       userId: b.userId,
       username: b.user.username,
       avatarUrl: b.user.avatarUrl,
+      isDeveloper: b.user.isDeveloper,
     })),
     scores,
     recentSessions,

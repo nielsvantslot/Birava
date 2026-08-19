@@ -29,7 +29,9 @@ function isSessionUserDTO(value: unknown): value is SessionUserDTO {
     "createdAt" in value &&
     typeof value.createdAt === "string" &&
     "email" in value &&
-    typeof value.email === "string"
+    typeof value.email === "string" &&
+    "isDeveloper" in value &&
+    typeof value.isDeveloper === "boolean"
   );
 }
 
@@ -99,7 +101,7 @@ export const getCurrentUser = cache(async (): Promise<SessionUserDTO | null> => 
     where: { sessionToken: token },
     select: {
       expiresAt: true,
-      user: { select: { id: true, email: true, username: true, avatarUrl: true, createdAt: true } },
+      user: { select: { id: true, email: true, username: true, avatarUrl: true, createdAt: true, isDeveloper: true } },
     },
   });
 
