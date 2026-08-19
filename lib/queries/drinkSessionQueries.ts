@@ -11,7 +11,7 @@ const SESSION_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-
 type EntryWithVenue = DrinkEntry & { venue: Pick<Venue, "name" | "lat" | "lng"> | null };
 
 type SessionRowWithRelations = DrinkSessionRow & {
-  user: Pick<User, "username" | "avatarUrl">;
+  user: Pick<User, "username" | "avatarUrl" | "isDeveloper">;
   entries: EntryWithVenue[];
 };
 
@@ -22,6 +22,7 @@ function toDrinkSession(row: SessionRowWithRelations): DrinkSession {
       userId: row.userId,
       username: row.user.username,
       avatarUrl: row.user.avatarUrl,
+      isDeveloper: row.user.isDeveloper,
       start: row.startedAt.toISOString(),
       end: row.endedAt.toISOString(),
       name: row.name,
@@ -37,7 +38,7 @@ export async function getSessionById(id: string): Promise<DrinkSession | null> {
   const row = await db.drinkSession.findUnique({
     where: { id },
     include: {
-      user: { select: { username: true, avatarUrl: true } },
+      user: { select: { username: true, avatarUrl: true, isDeveloper: true } },
       entries: { orderBy: { createdAt: "asc" }, include: { venue: VENUE_SELECT } },
     },
   });
@@ -124,7 +125,7 @@ export async function getSessionsForUserIds(
         orderBy: [{ endedAt: "desc" }, { id: "desc" }],
         take: options.limit,
         include: {
-          user: { select: { username: true, avatarUrl: true } },
+          user: { select: { username: true, avatarUrl: true, isDeveloper: true } },
           entries: { orderBy: { createdAt: "asc" }, include: { venue: VENUE_SELECT } },
         },
       });

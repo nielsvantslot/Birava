@@ -87,14 +87,24 @@ async function SidebarNavLoader() {
   if (!user) redirect("/login");
 
   const unreadCount = await getMyUnreadNotificationCount();
-  return <SidebarNav userId={user.id} username={user.username} avatarUrl={user.avatarUrl} unreadCount={unreadCount} />;
+  return (
+    <SidebarNav
+      userId={user.id}
+      username={user.username}
+      avatarUrl={user.avatarUrl}
+      isDeveloper={user.isDeveloper}
+      unreadCount={unreadCount}
+    />
+  );
 }
 
 async function RightRailLoader() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  return <RightRail userId={user.id} username={user.username} avatarUrl={user.avatarUrl} />;
+  return (
+    <RightRail userId={user.id} username={user.username} avatarUrl={user.avatarUrl} isDeveloper={user.isDeveloper} />
+  );
 }
 
 function HeaderSkeleton() {

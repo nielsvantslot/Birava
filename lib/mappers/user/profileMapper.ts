@@ -8,6 +8,7 @@ export class ProfileMapper {
       username: user.username,
       avatarUrl: user.avatarUrl,
       createdAt: user.createdAt.toISOString(),
+      isDeveloper: user.isDeveloper,
     };
   }
 }

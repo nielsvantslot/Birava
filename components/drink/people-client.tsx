@@ -3,6 +3,7 @@
 import { useState, useTransition, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import { FollowButton } from "@/components/drink/follow-button";
+import { DevBadge } from "@/components/ui/dev-badge";
 import { searchUsers } from "@/lib/controllers/socialController";
 import { avatarSrc } from "@/lib/utils";
 
@@ -12,6 +13,7 @@ interface UserResult {
   id: string;
   username: string;
   avatarUrl: string | null;
+  isDeveloper: boolean;
 }
 
 interface PeopleClientProps {
@@ -109,8 +111,9 @@ export function PeopleClient({
                 u.username.slice(0, 2).toUpperCase()
               )}
             </div>
-            <div className="grow">
+            <div className="grow" style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <b>{u.username}</b>
+              {u.isDeveloper && <DevBadge />}
             </div>
           </Link>
           {u.id !== currentUserId && (

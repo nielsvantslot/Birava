@@ -61,7 +61,7 @@ export default async function ProfilePage() {
 async function ProfileMain({
   user,
 }: {
-  user: { id: string; username: string; avatarUrl: string | null; createdAt: string };
+  user: { id: string; username: string; avatarUrl: string | null; isDeveloper: boolean; createdAt: string };
 }) {
   // Independent reads — run in parallel (F2).
   const [tz, entries, followCounts] = await Promise.all([
@@ -87,6 +87,7 @@ async function ProfileMain({
       userId={user.id}
       username={user.username}
       avatarUrl={user.avatarUrl}
+      isDeveloper={user.isDeveloper}
       memberSince={memberSince}
       followers={followCounts.followers}
       following={followCounts.following}

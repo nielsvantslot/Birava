@@ -12,6 +12,7 @@ import { Minimap } from "@/components/drink/minimap";
 import { SocialActs } from "@/components/drink/social-row";
 import { CheckinExpander } from "@/components/drink/checkin-expander";
 import { LocalLegendCallout } from "@/components/drink/local-legend-callout";
+import { DevBadge } from "@/components/ui/dev-badge";
 
 function initials(name: string): string {
   return name.slice(0, 2).toUpperCase();
@@ -135,7 +136,10 @@ export function SessionCard({
           )}
         </div>
         <div className="grow">
-          <b>{session.username}</b>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <b>{session.username}</b>
+            {session.isDeveloper && <DevBadge />}
+          </span>
           <div className="meta">{meta}</div>
         </div>
       </Link>

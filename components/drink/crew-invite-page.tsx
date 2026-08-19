@@ -3,9 +3,10 @@
 import { useState, useTransition } from "react";
 import { getCrewInviteCandidates, sendCrewInvite } from "@/lib/controllers/groupController";
 import { showToast } from "@/components/ui/toast-pill";
+import { DevBadge } from "@/components/ui/dev-badge";
 import { avatarSrc } from "@/lib/utils";
 
-type Candidate = { userId: string; username: string; avatarUrl: string | null };
+type Candidate = { userId: string; username: string; avatarUrl: string | null; isDeveloper: boolean };
 type CandidatesResult = { candidates: Candidate[]; total: number; pending: Candidate[] };
 
 function CandidateRow({
@@ -25,8 +26,9 @@ function CandidateRow({
           candidate.username.slice(0, 2).toUpperCase()
         )}
       </div>
-      <div className="grow">
+      <div className="grow" style={{ display: "flex", alignItems: "center", gap: 5 }}>
         <b>{candidate.username}</b>
+        {candidate.isDeveloper && <DevBadge />}
       </div>
       {action}
     </div>

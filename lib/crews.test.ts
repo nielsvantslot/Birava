@@ -26,6 +26,7 @@ function member(overrides: Partial<CrewMemberInput> & { userId: string; joinedAt
   return {
     username: overrides.userId,
     avatarUrl: null,
+    isDeveloper: false,
     ...overrides,
   };
 }

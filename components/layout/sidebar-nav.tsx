@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { avatarSrc, cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/components/layout/nav-items";
+import { DevBadge } from "@/components/ui/dev-badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,13 +18,14 @@ interface SidebarNavProps {
   userId?: string;
   username?: string;
   avatarUrl?: string | null;
+  isDeveloper?: boolean;
   unreadCount?: number;
 }
 
-export function SidebarNav({ userId, username, avatarUrl, unreadCount = 0 }: SidebarNavProps) {
+export function SidebarNav({ userId, username, avatarUrl, isDeveloper, unreadCount = 0 }: SidebarNavProps) {
   return (
-    <Suspense fallback={<SidebarInner pathname="" userId={userId} username={username} avatarUrl={avatarUrl} unreadCount={unreadCount} />}>
-      <SidebarInnerWithPathname userId={userId} username={username} avatarUrl={avatarUrl} unreadCount={unreadCount} />
+    <Suspense fallback={<SidebarInner pathname="" userId={userId} username={username} avatarUrl={avatarUrl} isDeveloper={isDeveloper} unreadCount={unreadCount} />}>
+      <SidebarInnerWithPathname userId={userId} username={username} avatarUrl={avatarUrl} isDeveloper={isDeveloper} unreadCount={unreadCount} />
     </Suspense>
   );
 }
@@ -38,6 +40,7 @@ function SidebarInner({
   userId,
   username,
   avatarUrl,
+  isDeveloper,
   unreadCount = 0,
 }: SidebarNavProps & { pathname: string }) {
   const router = useRouter();
@@ -113,8 +116,9 @@ function SidebarInner({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" side="top" className="w-48">
-            <div className="px-3 py-2">
+            <div className="px-3 py-2 flex items-center gap-1.5">
               <p className="text-sm font-semibold">{username ?? "User"}</p>
+              {isDeveloper && <DevBadge />}
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>

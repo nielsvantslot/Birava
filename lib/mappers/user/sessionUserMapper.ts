@@ -3,7 +3,7 @@ import type { SessionUserDTO } from "@/lib/dtos";
 
 export class SessionUserMapper {
   static toDTO(
-    user: Pick<UserRow, "id" | "email" | "username" | "avatarUrl" | "createdAt">
+    user: Pick<UserRow, "id" | "email" | "username" | "avatarUrl" | "createdAt" | "isDeveloper">
   ): SessionUserDTO {
     return {
       id: user.id,
@@ -11,6 +11,7 @@ export class SessionUserMapper {
       username: user.username,
       avatarUrl: user.avatarUrl,
       createdAt: user.createdAt.toISOString(),
+      isDeveloper: user.isDeveloper,
     };
   }
 }

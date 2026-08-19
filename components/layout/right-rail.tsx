@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { avatarSrc } from "@/lib/utils";
+import { DevBadge } from "@/components/ui/dev-badge";
 
 interface RightRailProps {
   userId: string;
   username: string;
   avatarUrl?: string | null;
+  isDeveloper?: boolean;
 }
 
-export function RightRail({ userId, username, avatarUrl }: RightRailProps) {
+export function RightRail({ userId, username, avatarUrl, isDeveloper }: RightRailProps) {
   // prefetch={false} on every link here: this rail renders on every
   // authenticated page, so its links sit in the viewport (and get prefetched)
   // on every single navigation — pure waste since staleTimes.dynamic is 0
@@ -25,7 +27,10 @@ export function RightRail({ userId, username, avatarUrl }: RightRailProps) {
           )}
         </span>
         <span className="grow">
-          <b>{username}</b>
+          <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <b>{username}</b>
+            {isDeveloper && <DevBadge />}
+          </span>
           <span className="rail-sub">View your profile</span>
         </span>
       </Link>

@@ -19,6 +19,11 @@ model User {
   /// wall. Kept as a real column (not derived) so it survives independent of
   /// that redirect ever changing.
   hasCompletedOnboarding  Boolean                  @default(false)
+  /// A little fun/credit flag for people who actually worked on Birava —
+  /// shows a small badge next to their username everywhere. Granted by hand
+  /// (direct SQL/script), not derived from git history or any account
+  /// heuristic — there's no "in-house" signal to derive it from otherwise.
+  isDeveloper             Boolean                  @default(false)
   /// Set when the user requests account deletion (GDPR erasure) — starts a
   /// 7-day grace period during which the account is logged out everywhere
   /// and hidden from other users (see lib/commands/userCommands.ts). Logging

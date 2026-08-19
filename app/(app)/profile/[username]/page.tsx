@@ -94,6 +94,7 @@ async function PublicProfileMain({
       userId={targetUser.id}
       username={targetUser.username}
       avatarUrl={targetUser.avatarUrl}
+      isDeveloper={targetUser.isDeveloper}
       memberSince={memberSince}
       followers={followerCount}
       following={followingCount}

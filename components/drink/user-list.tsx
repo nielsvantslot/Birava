@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { FollowButton } from "@/components/drink/follow-button";
+import { DevBadge } from "@/components/ui/dev-badge";
 import { avatarSrc } from "@/lib/utils";
 import type { UserSummaryDTO } from "@/lib/dtos";
 
@@ -48,8 +49,9 @@ export function UserList({ users, currentUserId, followingIds, emptyMessage }: U
                 u.username.slice(0, 2).toUpperCase()
               )}
             </div>
-            <div className="grow">
+            <div className="grow" style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <b>{u.username}</b>
+              {u.isDeveloper && <DevBadge />}
             </div>
           </Link>
           {u.id !== currentUserId && (
