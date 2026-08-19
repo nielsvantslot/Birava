@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { avatarSrc } from "@/lib/utils";
+import { DevBadge } from "@/components/ui/dev-badge";
 
 interface ProfileHeadProps {
   userId: string;
   username: string;
   avatarUrl: string | null;
+  isDeveloper: boolean;
   memberSince: string;
   followers: number;
   following: number;
@@ -31,6 +33,7 @@ export function ProfileHead({
   userId,
   username,
   avatarUrl,
+  isDeveloper,
   memberSince,
   followers,
   following,
@@ -51,7 +54,10 @@ export function ProfileHead({
           )}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h1>{username}</h1>
+          <h1 style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {username}
+            {isDeveloper && <DevBadge />}
+          </h1>
           <p>member since {memberSince}</p>
           <div className="follow-counts">
             <Link href={followersHref} prefetch={false}>

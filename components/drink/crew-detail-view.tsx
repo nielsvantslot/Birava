@@ -4,6 +4,7 @@ import { formatDate, timeAgo } from "@/lib/dates";
 import { avatarSrc } from "@/lib/utils";
 import { CrewLeaderboard } from "@/components/drink/crew-leaderboard";
 import { CopyCodeChip } from "@/components/drink/crews-forms";
+import { DevBadge } from "@/components/ui/dev-badge";
 import type { CrewDetail } from "@/lib/queries/groupQueries";
 
 /**
@@ -120,6 +121,7 @@ export function CrewDetailView({
             userId: s.userId,
             username: s.username,
             avatarUrl: s.avatarUrl,
+            isDeveloper: s.isDeveloper,
             sessions: s.sessions,
             drinks: s.drinks,
             you: s.userId === currentUserId,
@@ -153,7 +155,12 @@ export function CrewDetailView({
               </div>
               <div className="grow">
                 <b>
-                  {session.userId === currentUserId ? "You" : session.username}{" "}
+                  {/* .row span forces 13px/ink-dim — nest a bold span here
+                      instead, inline-styled, so the username stays bold. */}
+                  <b style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                    {session.userId === currentUserId ? "You" : session.username}
+                    {session.isDeveloper && <DevBadge />}
+                  </b>{" "}
                   logged a session
                 </b>
                 <span>

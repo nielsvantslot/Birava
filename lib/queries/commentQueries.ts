@@ -29,7 +29,7 @@ export async function getSessionComments(
   const rows = await db.comment.findMany({
     where: { sessionId: { in: sessionIds } },
     orderBy: { createdAt: "asc" },
-    include: { user: { select: { username: true, avatarUrl: true } } },
+    include: { user: { select: { username: true, avatarUrl: true, isDeveloper: true } } },
   });
 
   const map = new Map<string, CommentDTO[]>();

@@ -5,6 +5,7 @@ export type CrewInviteCandidate = {
   userId: string;
   username: string;
   avatarUrl: string | null;
+  isDeveloper: boolean;
 };
 
 const CANDIDATES_PAGE_SIZE = 20;
@@ -39,7 +40,10 @@ export async function getCrewInviteCandidates(
     getFollowerIds(actorId),
     db.groupInvite.findMany({
       where: { groupId, status: "PENDING" },
-      select: { invitedUserId: true, invitedUser: { select: { username: true, avatarUrl: true } } },
+      select: {
+        invitedUserId: true,
+        invitedUser: { select: { username: true, avatarUrl: true, isDeveloper: true } },
+      },
     }),
   ]);
 
@@ -61,7 +65,7 @@ export async function getCrewInviteCandidates(
       : await Promise.all([
           db.user.findMany({
             where,
-            select: { id: true, username: true, avatarUrl: true },
+            select: { id: true, username: true, avatarUrl: true, isDeveloper: true },
             orderBy: { username: "asc" },
             take: CANDIDATES_PAGE_SIZE,
             skip: options.offset ?? 0,
@@ -70,12 +74,18 @@ export async function getCrewInviteCandidates(
         ]);
 
   return {
-    candidates: users.map((u) => ({ userId: u.id, username: u.username, avatarUrl: u.avatarUrl })),
+    candidates: users.map((u) => ({
+      userId: u.id,
+      username: u.username,
+      avatarUrl: u.avatarUrl,
+      isDeveloper: u.isDeveloper,
+    })),
     total,
     pending: pendingInvites.map((i) => ({
       userId: i.invitedUserId,
       username: i.invitedUser.username,
       avatarUrl: i.invitedUser.avatarUrl,
+      isDeveloper: i.invitedUser.isDeveloper,
     })),
   };
 }

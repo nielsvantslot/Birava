@@ -12,6 +12,7 @@ import { showToast } from "@/components/ui/toast-pill";
 import { confirmModal } from "@/components/ui/confirm-modal";
 import { avatarSrc } from "@/lib/utils";
 import { invalidateCachedPages } from "@/lib/swCache";
+import { DevBadge } from "@/components/ui/dev-badge";
 
 type CrewRole = "OWNER" | "ADMIN" | "MEMBER";
 
@@ -19,6 +20,7 @@ type CrewMemberInfo = {
   userId: string;
   username: string;
   avatarUrl: string | null;
+  isDeveloper: boolean;
   role: CrewRole;
 };
 
@@ -26,6 +28,7 @@ type BannedCrewMember = {
   userId: string;
   username: string;
   avatarUrl: string | null;
+  isDeveloper: boolean;
 };
 
 type ActionResult = { error?: string; revalidatedPaths?: string[] };
@@ -116,7 +119,10 @@ export function CrewSettingsPanel({
               )}
             </div>
             <div className="grow">
-              <b>{m.username}</b>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <b>{m.username}</b>
+                {m.isDeveloper && <DevBadge />}
+              </div>
               <span>{m.role === "ADMIN" ? "Admin" : "Member"}</span>
             </div>
             {isOwner && (
@@ -174,8 +180,9 @@ export function CrewSettingsPanel({
                   b.username.slice(0, 2).toUpperCase()
                 )}
               </div>
-              <div className="grow">
+              <div className="grow" style={{ display: "flex", alignItems: "center", gap: 5 }}>
                 <b>{b.username}</b>
+                {b.isDeveloper && <DevBadge />}
               </div>
               <button
                 className="btn btn-ghost"

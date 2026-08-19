@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createComment, deleteComment } from "@/lib/controllers/socialController";
 import { showToast } from "@/components/ui/toast-pill";
+import { DevBadge } from "@/components/ui/dev-badge";
 import { timeAgo } from "@/lib/dates";
 import { avatarSrc } from "@/lib/utils";
 import type { CommentDTO } from "@/lib/dtos";
@@ -104,8 +105,13 @@ export function CommentsSection({
               </Link>
               <div className="grow">
                 <div className="comment-meta">
-                  <Link href={`/profile/${c.username}`} prefetch={false}>
+                  <Link
+                    href={`/profile/${c.username}`}
+                    prefetch={false}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+                  >
                     <b>{c.username}</b>
+                    {c.isDeveloper && <DevBadge />}
                   </Link>
                   <span>{timeAgo(new Date(c.createdAt), tz)}</span>
                 </div>

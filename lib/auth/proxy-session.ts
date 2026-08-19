@@ -58,7 +58,7 @@ export async function resolveSessionUser(token: string): Promise<SessionUserDTO 
     where: { sessionToken: token },
     select: {
       expiresAt: true,
-      user: { select: { id: true, email: true, username: true, avatarUrl: true, createdAt: true } },
+      user: { select: { id: true, email: true, username: true, avatarUrl: true, createdAt: true, isDeveloper: true } },
     },
   });
 

@@ -15,6 +15,7 @@ export type CrewMemberScore = {
   userId: string;
   username: string;
   avatarUrl: string | null;
+  isDeveloper: boolean;
   joinedAt: string; // ISO
   sessions: number;
   venues: number;
@@ -31,6 +32,7 @@ export type CrewMemberInput = {
   userId: string;
   username: string;
   avatarUrl: string | null;
+  isDeveloper: boolean;
   joinedAt: Date;
 };
 
@@ -70,6 +72,7 @@ export function scoreCrew(
       userId: m.userId,
       username: m.username,
       avatarUrl: m.avatarUrl,
+      isDeveloper: m.isDeveloper,
       joinedAt: m.joinedAt.toISOString(),
       sessions: ownSessions.length,
       venues: venues.size,
@@ -84,6 +87,7 @@ export function scoreCrew(
     ...s,
     username: info.get(s.userId)?.username ?? "",
     avatarUrl: info.get(s.userId)?.avatarUrl ?? null,
+    isDeveloper: info.get(s.userId)?.isDeveloper ?? false,
   }));
 
   return { scores, recentSessions };
