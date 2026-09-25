@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { ControllerChangeReloadGate } from "@/lib/swControllerReload";
 
 export function ServiceWorkerRegistration() {
   useEffect(() => {
@@ -28,6 +29,24 @@ export function ServiceWorkerRegistration() {
       return;
     }
 
+    // See ControllerChangeReloadGate's own comment for the full "why": in
+    // short, sw.js's skipWaiting()+clients.claim() combination hands this tab
+    // to a new SW mid-session with no navigation involved, so without this,
+    // an already-open tab keeps running its old JS bundle while every
+    // subsequent request goes through a different SW/cache generation. This
+    // is a one-time hard `location.reload()` (a real navigation, through
+    // sw.js's NAV_CACHE_NAME branch), not the reactive
+    // router.refresh()-on-SW-message pattern that caused the iOS Safari crash
+    // loop this app already fixed (see sw.js's RSC branch comment) — that
+    // loop depended on refresh() sending the exact same RSC-shaped fetch this
+    // SW's own revalidation responds to, so its own background fetch became
+    // the next trigger; a hard reload doesn't feed back into anything, and
+    // the gate only ever returns true once regardless.
+    const reloadGate = new ControllerChangeReloadGate(Boolean(navigator.serviceWorker.controller));
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloadGate.onControllerChange()) window.location.reload();
+    });
+
     navigator.serviceWorker
       .register("/sw.js")
       .then((registration) => {
@@ -35,10 +54,11 @@ export function ServiceWorkerRegistration() {
         // (throttled, roughly once/day) — a user who opens the app daily
         // could otherwise sit on a stale SW/cache for a long time even after
         // a fix ships (see sw.js's CACHE_VERSION comment for the incident
-        // this traces back to). Forcing a check on every foreground/visit
-        // doesn't itself change what's on screen (an update install still
-        // only takes over on the next navigation), it just collapses how
-        // long "stale" can last from up to a day to effectively one visit.
+        // this traces back to). Forcing a check on every foreground/visit,
+        // combined with the controllerchange reload above, collapses how
+        // long "stale" can last from up to a day to effectively one visit —
+        // and the moment a new SW does take over, it now actually reaches the
+        // screen instead of silently waiting for some later navigation.
         registration.update().catch(() => {});
         document.addEventListener("visibilitychange", () => {
           if (document.visibilityState === "visible") registration.update().catch(() => {});

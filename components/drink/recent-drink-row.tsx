@@ -33,6 +33,7 @@ export function RecentDrinkRow({
     startTransition(async () => {
       await addPendingCheckin({
         id: crypto.randomUUID(),
+        userId,
         createdAt: Date.now(),
         payload: {
           drinkName: entry.drink_name,

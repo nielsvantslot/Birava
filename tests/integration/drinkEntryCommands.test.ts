@@ -63,6 +63,71 @@ describe("createDrinkEntry", () => {
     expect(entry.userId).not.toBe(userB.id);
   });
 
+  it("replays the same result instead of creating a duplicate when clientId repeats (retried sync)", async () => {
+    const user = await fixtures.createUser();
+    const clientId = "11111111-1111-4111-8111-111111111111";
+
+    const first = await createDrinkEntry(
+      user.id,
+      { ...emptyPayload, drinkName: "Westmalle Tripel", clientId },
+      { username: user.username, avatarUrl: user.avatarUrl }
+    );
+    const retry = await createDrinkEntry(
+      user.id,
+      { ...emptyPayload, drinkName: "Westmalle Tripel", clientId },
+      { username: user.username, avatarUrl: user.avatarUrl }
+    );
+
+    expect(first.error).toBeUndefined();
+    expect(retry.error).toBeUndefined();
+    expect(retry.id).toBe(first.id);
+
+    const count = await db.drinkEntry.count({ where: { userId: user.id } });
+    expect(count).toBe(1);
+  });
+
+  it("never replays another user's entry when clientId collides with an id it doesn't own", async () => {
+    const owner = await fixtures.createUser();
+    const attacker = await fixtures.createUser();
+    const victimEntry = await fixtures.createDrinkEntry(owner.id, { drinkName: "Victim's beer" });
+
+    const result = await createDrinkEntry(
+      attacker.id,
+      { ...emptyPayload, drinkName: "Attacker's beer", clientId: victimEntry.id },
+      { username: attacker.username, avatarUrl: attacker.avatarUrl }
+    );
+
+    // Must not silently "replay" the victim's entry (which would discard the
+    // attacker's own submitted data and hand back someone else's id/session
+    // path) — either a clean error (id collision) or, if IDs never actually
+    // collide in production since clientId is a fresh UUID per queued entry,
+    // a real new entry belonging to the attacker.
+    if (!result.error) {
+      const created = await db.drinkEntry.findUniqueOrThrow({ where: { id: result.id! } });
+      expect(created.userId).toBe(attacker.id);
+    }
+    const victimUnchanged = await db.drinkEntry.findUniqueOrThrow({ where: { id: victimEntry.id } });
+    expect(victimUnchanged.drinkName).toBe("Victim's beer");
+    expect(victimUnchanged.userId).toBe(owner.id);
+  });
+
+  it("only creates one entry when two concurrent syncs race on the same clientId", async () => {
+    const user = await fixtures.createUser();
+    const clientId = "22222222-2222-4222-8222-222222222222";
+
+    const [a, b] = await Promise.all([
+      createDrinkEntry(user.id, { ...emptyPayload, clientId }, { username: user.username, avatarUrl: user.avatarUrl }),
+      createDrinkEntry(user.id, { ...emptyPayload, clientId }, { username: user.username, avatarUrl: user.avatarUrl }),
+    ]);
+
+    expect(a.error).toBeUndefined();
+    expect(b.error).toBeUndefined();
+    expect(a.id).toBe(b.id);
+
+    const count = await db.drinkEntry.count({ where: { userId: user.id } });
+    expect(count).toBe(1);
+  });
+
   it("unlocks an achievement the new check-in's own venue newly qualifies for", async () => {
     const user = await fixtures.createUser();
     // Local Legend needs 3+ check-ins at the same venue within 90 days —
