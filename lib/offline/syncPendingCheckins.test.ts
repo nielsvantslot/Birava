@@ -20,6 +20,7 @@ import { flushPendingCheckins } from "./syncPendingCheckins";
 function entry(overrides: Partial<PendingCheckin> = {}): PendingCheckin {
   return {
     id: "entry-1",
+    userId: "user-1",
     createdAt: 0,
     status: "queued",
     payload: { drinkName: "IPA", drinkType: "Beer", venue: null, lat: null, lng: null },
@@ -38,6 +39,23 @@ describe("flushPendingCheckins", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.clearAllMocks();
+  });
+
+  it("scopes its read of the queue to the caller's own userId — this store is shared across whoever is logged into the device", async () => {
+    getAllPendingCheckins.mockResolvedValue([]);
+
+    await flushPendingCheckins("user-42", true, { silent: true });
+
+    expect(getAllPendingCheckins).toHaveBeenCalledWith("user-42");
+  });
+
+  it("passes each entry's own id as addDrink's idempotency key so a retried sync can't create a duplicate row", async () => {
+    getAllPendingCheckins.mockResolvedValue([entry({ id: "entry-abc" })]);
+    addDrinkMock.mockResolvedValue({});
+
+    await flushPendingCheckins("user-1", true, { silent: true });
+
+    expect(addDrinkMock).toHaveBeenCalledWith(expect.objectContaining({ clientId: "entry-abc" }));
   });
 
   it("marks an entry failed once its addDrink call passes the sync timeout, and still processes the next entry", async () => {
