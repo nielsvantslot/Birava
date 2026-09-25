@@ -32,6 +32,23 @@ export type PendingCheckinPayload = {
 
 export type PendingCheckin = {
   id: string;
+  /**
+   * Whoever was logged in when this entry was queued — not just metadata,
+   * but the thing getAllPendingCheckins filters by. This store is a single
+   * shared IndexedDB database per *device/browser*, not per account: without
+   * this, a shared or handed-off device (a different person logging in
+   * after a previous user logged out, or logs out while something is still
+   * queued) would flush the previous user's still-queued check-in — with
+   * its real drinkName/venue/photo — as a brand-new entry under whoever is
+   * logged in when the next sync trigger fires. Optional only for entries
+   * that predate this field (queued by a build shipped before this fix);
+   * getAllPendingCheckins treats a missing userId as belonging to whoever
+   * asks, matching this field's absence in behavior before this fix existed
+   * — required here (so every new call site is compiler-enforced to supply
+   * it) even though an already-stored pre-fix record won't actually have it
+   * at runtime; getAllPendingCheckins is written defensively against that.
+   */
+  userId: string;
   createdAt: number;
   status: "queued" | "syncing" | "failed";
   lastError?: string;
@@ -96,9 +113,20 @@ export async function addPendingCheckin(entry: Omit<PendingCheckin, "status"> & 
   emitChange();
 }
 
-export async function getAllPendingCheckins(): Promise<PendingCheckin[]> {
+/**
+ * Scoped to `userId` — this store is one shared IndexedDB database per
+ * device/browser, not per account (see PendingCheckin.userId's own comment).
+ * An entry with no `userId` at all predates this field (queued by a build
+ * shipped before this fix) and is returned to whoever asks, matching this
+ * function's behavior before the field existed — everything queued since
+ * this fix shipped always has one, so this only ever matters for a brief
+ * transition window right after deploy.
+ */
+export async function getAllPendingCheckins(userId: string): Promise<PendingCheckin[]> {
   const entries = (await withStore<PendingCheckin[]>("readonly", (store) => store.getAll())) ?? [];
-  return entries.sort((a, b) => a.createdAt - b.createdAt);
+  return entries
+    .filter((e) => e.userId === userId || e.userId === undefined)
+    .sort((a, b) => a.createdAt - b.createdAt);
 }
 
 export async function updatePendingCheckin(

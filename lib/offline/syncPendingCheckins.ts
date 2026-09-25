@@ -152,7 +152,7 @@ export async function flushPendingCheckins(
   flushing = true;
 
   try {
-    const allEntries = await getAllPendingCheckins();
+    const allEntries = await getAllPendingCheckins(userId);
     const entries = allEntries.filter((entry) => entry.status !== "failed");
     if (entries.length === 0) return;
 
@@ -185,7 +185,7 @@ export async function flushPendingCheckins(
       try {
         const { url: photoUrl, lqip: photoLqip } = photoResult.value;
         const result = await withTimeout(
-          addDrink({ ...entry.payload, photoUrl, photoLqip, createdAt: entry.createdAt }),
+          addDrink({ ...entry.payload, photoUrl, photoLqip, createdAt: entry.createdAt, clientId: entry.id }),
           SYNC_STEP_TIMEOUT_MS
         );
         if (result.error) {

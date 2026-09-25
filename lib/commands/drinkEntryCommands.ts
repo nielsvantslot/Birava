@@ -183,11 +183,16 @@ export async function createDrinkEntry(
   const tz = await getUserTimeZone();
 
   const createdAt = resolveCreatedAt(input.createdAt);
-  const entryId = randomUUID();
+  // A client-supplied id (the offline queue's own idempotency key, see
+  // CreateDrinkEntryDTO.clientId) is reused verbatim as the DrinkEntry's own
+  // id rather than always minting a fresh one, so a retried sync lands on
+  // exactly the same row instead of a new one.
+  const entryId = input.clientId ?? randomUUID();
 
   let created;
   let isNewSession: boolean;
   let before;
+  let replay = false;
   try {
     const result = await db.$transaction(async (tx) => {
       // Session assignment is read-then-write (find neighbours, then attach/
@@ -198,6 +203,35 @@ export async function createDrinkEntry(
       // advisory lock keyed by userId serializes session mutations per user
       // (auto-released at commit/rollback) without blocking other users.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
+
+      // Idempotency check, inside the same advisory-locked transaction: a
+      // retried sync (client timeout where the server actually committed, or
+      // two tabs flushing the same queued entry at once) reaches this same
+      // entryId a second time. The lock above already serializes this against
+      // the original attempt, so whichever request commits first "wins" the
+      // create and every later one just finds it here and replays the
+      // original result instead of re-running session assignment (which
+      // would otherwise see its own already-created entry as a neighbour and
+      // corrupt the session bounds it's trying to compute).
+      //
+      // Scoped to { id, userId }, not id alone — clientId is attacker-
+      // reachable input (addDrink is a "use server" export, a real POST
+      // endpoint, not just the offline queue's own caller), and DrinkEntry
+      // ids are visible to other users via shareable /sessions/[id] links. An
+      // id-only lookup would let a caller pass another user's real entry id
+      // as clientId and get back a "replay" of that entry — discarding their
+      // own submitted drink/venue/photo with no error, and describing
+      // someone else's row as if it were their own.
+      const existingEntry = await tx.drinkEntry.findFirst({ where: { id: entryId, userId } });
+      if (existingEntry) {
+        return {
+          entry: existingEntry,
+          before: [],
+          isNewSession: false,
+          orphanedShareImageUrls: [],
+          replay: true as const,
+        };
+      }
 
       // Read history once *after* the lock, not before the transaction
       // opens — the "after" set is provably "before + the new row", so
@@ -263,16 +297,26 @@ export async function createDrinkEntry(
         before,
         isNewSession: assignment.isNewSession,
         orphanedShareImageUrls: assignment.orphanedShareImageUrls,
+        replay: false as const,
       };
     });
     created = result.entry;
     before = result.before;
     isNewSession = result.isNewSession;
+    replay = result.replay;
     if (result.orphanedShareImageUrls.length > 0) {
       await Promise.all(result.orphanedShareImageUrls.map((url) => shareImageCache.remove(url)));
     }
   } catch {
     return { error: "Failed to save check-in." };
+  }
+
+  // A replay of an already-committed create: achievements/notifications
+  // already fired for the original attempt, and `before` was never read (see
+  // above), so there's nothing left to do beyond handing back the same
+  // success shape the original caller got.
+  if (replay) {
+    return { achievementUnlocked: false, id: created.id, revalidatedPaths: [`/sessions/${created.sessionId}`] };
   }
 
   const beforeEntries = before.map((e) => ({

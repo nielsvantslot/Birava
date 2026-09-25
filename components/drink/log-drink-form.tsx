@@ -581,6 +581,7 @@ export function CheckinForm({
 
     await addPendingCheckin({
       id: crypto.randomUUID(),
+      userId,
       createdAt: Date.now(),
       payload: {
         drinkName: name.trim() || null,
