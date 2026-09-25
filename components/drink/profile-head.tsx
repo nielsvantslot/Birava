@@ -1,9 +1,6 @@
-"use client";
-
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { avatarSrc } from "@/lib/utils";
-import { DevBadge } from "@/components/ui/dev-badge";
+import { Avatar } from "@/components/ui/avatar";
+import { UsernameLabel } from "@/components/ui/username-label";
 
 interface ProfileHeadProps {
   userId: string;
@@ -46,18 +43,10 @@ export function ProfileHead({
     <div className="section flush">
       <div className="profile-head">
         <div className="avatar">
-          {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarSrc(userId)} alt={username} />
-          ) : (
-            username.slice(0, 2).toUpperCase()
-          )}
+          <Avatar userId={userId} username={username} avatarUrl={avatarUrl} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h1 style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            {username}
-            {isDeveloper && <DevBadge />}
-          </h1>
+          <UsernameLabel as="h1" block name={username} isDeveloper={isDeveloper} />
           <p>member since {memberSince}</p>
           <div className="follow-counts">
             <Link href={followersHref} prefetch={false}>
@@ -103,21 +92,5 @@ export function ProfileActions() {
         Settings
       </Link>
     </div>
-  );
-}
-
-export function SignOutButton() {
-  const router = useRouter();
-
-  const handleSignOut = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-    router.refresh();
-  };
-
-  return (
-    <button className="btn btn-ghost" onClick={handleSignOut}>
-      Sign out
-    </button>
   );
 }

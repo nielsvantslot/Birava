@@ -297,6 +297,9 @@ input:focus-visible, .chip:focus-visible, .switch:focus-visible {
 
 /* ---- rows ---- */
 .row { display: flex; align-items: center; gap: 13px; padding: 14px 0; }
+/* Username + optional DevBadge, laid out via components/ui/username-label.tsx. */
+.username-row { display: inline-flex; align-items: center; gap: 5px; }
+.username-row--block { display: flex; }
 .row + .row { border-top: 1px solid var(--line); }
 .row .grow { flex: 1; min-width: 0; }
 .row b { display: block; font-size: 15px; font-weight: 700; }

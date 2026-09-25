@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/session";
-import { SignOutButton } from "@/components/drink/profile-client";
+import { SignOutButton } from "@/components/drink/sign-out-button";
 import { DeleteAccountButton } from "@/components/drink/delete-account-button";
 import { getAppVersion } from "@/lib/version";
 

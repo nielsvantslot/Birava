@@ -2,11 +2,12 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { groupIntoSessions, activeWeeks } from "@/lib/sessions";
-import { computeAchievements } from "@/lib/achievements";
+import { buildProfileStats } from "@/lib/sessions";
+import { computeAchievements, sortByRelevance } from "@/lib/achievements";
+import { formatMemberSince } from "@/lib/dates";
 import { getMyDrinkHistory, getRecentSessionsForUser } from "@/lib/controllers/drinkController";
 import { getFollowCounts } from "@/lib/controllers/socialController";
-import { ProfileHead, ProfileActions } from "@/components/drink/profile-client";
+import { ProfileHead, ProfileActions } from "@/components/drink/profile-head";
 import { AchievementBadgeStrip } from "@/components/drink/achievement-badge-strip";
 import { RecentSessionsList } from "@/components/drink/recent-sessions-list";
 import { NavActionRow } from "@/components/ui/nav-action-row";
@@ -69,18 +70,6 @@ async function ProfileMain({
     getMyDrinkHistory(),
     getFollowCounts({ profileId: user.id }),
   ]);
-  const sessions = groupIntoSessions(entries);
-  const weeks = activeWeeks(sessions, tz);
-
-  const venues = new Set(
-    entries.map((e) => e.venue?.trim()).filter((v): v is string => !!v)
-  );
-  const types = new Set(entries.map((e) => e.drink_type).filter(Boolean));
-
-  const memberSince = new Date(user.createdAt).toLocaleDateString("en-GB", {
-    month: "long",
-    year: "numeric",
-  });
 
   return (
     <ProfileHead
@@ -88,15 +77,10 @@ async function ProfileMain({
       username={user.username}
       avatarUrl={user.avatarUrl}
       isDeveloper={user.isDeveloper}
-      memberSince={memberSince}
+      memberSince={formatMemberSince(user.createdAt)}
       followers={followCounts.followers}
       following={followCounts.following}
-      stats={{
-        sessions: sessions.length,
-        venues: venues.size,
-        types: types.size,
-        activeWeeks: weeks.current,
-      }}
+      stats={buildProfileStats(entries, tz)}
     />
   );
 }
@@ -136,12 +120,7 @@ async function AchievementBadgesLoader() {
   ]);
   if (entries.length === 0) return null;
 
-  const achievements = computeAchievements(entries, tz);
-  const ordered = [...achievements].sort(
-    (a, b) =>
-      Number(b.earned) - Number(a.earned) ||
-      b.progress / b.goal - a.progress / a.goal
-  );
+  const ordered = sortByRelevance(computeAchievements(entries, tz));
 
   return (
     <div className="section">

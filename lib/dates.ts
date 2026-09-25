@@ -126,3 +126,8 @@ export function formatDate(date: Date, tz: string): string {
     year: "numeric",
   }).format(date);
 }
+
+/** "September 2026" — a profile's "member since" line. */
+export function formatMemberSince(createdAt: string): string {
+  return new Date(createdAt).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+}

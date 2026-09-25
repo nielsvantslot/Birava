@@ -1,5 +1,6 @@
 import type { DrinkEntry as DrinkEntryRow, Venue } from "@prisma/client";
 import type { DrinkEntry } from "@/lib/types";
+import { VenueGeoMapper } from "@/lib/mappers/venue/venueGeo";
 
 type ProfileInclude = { username: string; avatarUrl: string | null } | null;
 type VenueInclude = Pick<Venue, "name" | "lat" | "lng"> | null;
@@ -14,8 +15,7 @@ export function toDrinkEntry(
     drink_name: entry.drinkName,
     drink_type: entry.drinkType,
     venue: entry.venue?.name ?? null,
-    lat: entry.venue?.lat == null ? null : Number(entry.venue.lat),
-    lng: entry.venue?.lng == null ? null : Number(entry.venue.lng),
+    ...VenueGeoMapper.toLatLng(entry.venue?.lat ?? null, entry.venue?.lng ?? null),
     photo_url: entry.photoUrl,
     photo_lqip: entry.photoLqip,
     created_at: entry.createdAt.toISOString(),

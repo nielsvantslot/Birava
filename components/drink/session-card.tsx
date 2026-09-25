@@ -7,22 +7,14 @@ import {
   sessionTitle,
 } from "@/lib/sessions";
 import { formatTime, relativeDayTime } from "@/lib/dates";
-import { avatarSrc, drinkPhotoSrc } from "@/lib/utils";
+import { drinkPhotoSrc } from "@/lib/utils";
+import { PluralFormatter } from "@/lib/format/pluralFormatter";
 import { Minimap } from "@/components/drink/minimap";
 import { SocialActs } from "@/components/drink/social-row";
 import { CheckinExpander } from "@/components/drink/checkin-expander";
 import { LocalLegendCallout } from "@/components/drink/local-legend-callout";
-import { DevBadge } from "@/components/ui/dev-badge";
-
-function initials(name: string): string {
-  return name.slice(0, 2).toUpperCase();
-}
-
-function duration(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
-}
+import { Avatar } from "@/components/ui/avatar";
+import { UsernameLabel } from "@/components/ui/username-label";
 
 export function DurationNum({ minutes }: { minutes: number }) {
   const h = Math.floor(minutes / 60);
@@ -118,7 +110,7 @@ export function SessionCard({
 
   const shareText = lone
     ? `${session.username} logged ${title} on Birava`
-    : `${session.username} — ${title} on Birava: ${checkins.length} check-ins, ${session.venues.length || 1} ${session.venues.length === 1 ? "venue" : "venues"}`;
+    : `${session.username} — ${title} on Birava: ${checkins.length} check-ins, ${session.venues.length || 1} venue${PluralFormatter.suffix(session.venues.length || 1)}`;
 
   return (
     <div className="section flush">
@@ -128,18 +120,10 @@ export function SessionCard({
           is pure waste. */}
       <Link className="who" href={`/profile/${session.username}`} prefetch={false}>
         <div className="avatar">
-          {session.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarSrc(session.userId)} alt={session.username} />
-          ) : (
-            initials(session.username)
-          )}
+          <Avatar userId={session.userId} username={session.username} avatarUrl={session.avatarUrl} />
         </div>
         <div className="grow">
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-            <b>{session.username}</b>
-            {session.isDeveloper && <DevBadge />}
-          </span>
+          <UsernameLabel name={<b>{session.username}</b>} isDeveloper={session.isDeveloper} />
           <div className="meta">{meta}</div>
         </div>
       </Link>
@@ -249,5 +233,3 @@ export function SessionCard({
     </div>
   );
 }
-
-export { duration as formatDuration };

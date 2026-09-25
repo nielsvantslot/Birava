@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { sessionTitle, type DrinkSession } from "@/lib/sessions";
 import { relativeDay } from "@/lib/dates";
+import { PluralFormatter } from "@/lib/format/pluralFormatter";
 import { BeerGlassIcon } from "@/components/drink/beer-glass-icon";
 
 interface RecentSessionsListProps {
@@ -21,9 +22,9 @@ export function RecentSessionsList({ sessions, tz }: RecentSessionsListProps) {
     <>
       {sessions.map((session) => {
         const meta = [
-          `${session.checkins.length} check-in${session.checkins.length === 1 ? "" : "s"}`,
+          `${session.checkins.length} check-in${PluralFormatter.suffix(session.checkins.length)}`,
           session.venues.length
-            ? `${session.venues.length} venue${session.venues.length === 1 ? "" : "s"}`
+            ? `${session.venues.length} venue${PluralFormatter.suffix(session.venues.length)}`
             : null,
           relativeDay(new Date(session.start), tz).toLowerCase(),
         ]

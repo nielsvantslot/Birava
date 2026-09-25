@@ -12,7 +12,6 @@ export function DevBadge() {
       strokeWidth={2.25}
       color="var(--ink-dim)"
       style={{ flexShrink: 0, verticalAlign: "middle" }}
-      aria-label="Birava developer"
     >
       <title>Birava developer</title>
     </Code2>

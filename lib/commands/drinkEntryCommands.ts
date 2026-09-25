@@ -208,18 +208,40 @@ export async function createDrinkEntry(
       // newlyEarnedAchievements as "just crossed the threshold", and both
       // fire the same "Achievement Unlocked" notification for something
       // that should only ever fire once. Can't use getDrinkHistory's 60s
-      // cache here regardless (it needs fresh pre-write state) — select
-      // only what computeAchievements/countSessions actually read
-      // (lib/achievements.ts), not every column.
-      const before = await tx.drinkEntry.findMany({
-        where: { userId },
-        select: {
-          userId: true,
-          createdAt: true,
-          drinkType: true,
-          venue: { select: { name: true } },
-        },
-      });
+      // cache here regardless (it needs fresh pre-write state).
+      //
+      // Two bounded reads instead of one unconditional full-history scan:
+      // every achievement below only ever cares about *distinct* drink
+      // types (≤4 total, `distinct` pushes that dedup to the DB) or
+      // venue/week state, which by construction only venued check-ins can
+      // contribute to (see achievements.ts's aggregate(), which skips any
+      // entry with no venue) — so check-ins with neither a new type nor a
+      // venue don't need to be read at all. A user who's logged thousands
+      // of check-ins over years no longer pays for a full-table scan on
+      // every single one just to answer "have all 4 types been seen" and
+      // "which venues, in which weeks".
+      const [distinctTypes, venuedBefore] = await Promise.all([
+        tx.drinkEntry.findMany({
+          where: { userId },
+          distinct: ["drinkType"],
+          select: { drinkType: true },
+        }),
+        tx.drinkEntry.findMany({
+          where: { userId, venueId: { not: null } },
+          select: { createdAt: true, drinkType: true, venue: { select: { name: true } } },
+        }),
+      ]);
+      // Reassembled into the same shape the single full-history fetch used
+      // to produce, so newlyEarnedAchievements below is untouched. The
+      // synthetic distinct-type rows carry no venue, so aggregate()/
+      // getLocalLegendVenue (which both skip any entry with no venue) treat
+      // them as contributing to drink_type only — their created_at is a
+      // dead field for that reason and reuses this check-in's own timestamp
+      // rather than a fake one.
+      const before = [
+        ...distinctTypes.map((t) => ({ userId, createdAt, drinkType: t.drinkType, venue: null })),
+        ...venuedBefore.map((e) => ({ userId, createdAt: e.createdAt, drinkType: e.drinkType, venue: e.venue })),
+      ];
 
       const assignment = await assignSessionForNewEntry(tx, userId, entryId, createdAt);
       const venueId = await resolveVenueId(tx, input.venue, input.lat, input.lng);

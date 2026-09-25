@@ -12,31 +12,100 @@ import {
   regenerateInviteCode,
 } from "@/lib/controllers/groupController";
 import { showToast } from "@/components/ui/toast-pill";
-import { confirmModal } from "@/components/ui/confirm-modal";
+import { confirmModal, ConfirmModalOptions } from "@/components/ui/confirm-modal";
+import { FieldError } from "@/components/ui/field-error";
 import { invalidateCachedPages } from "@/lib/swCache";
 
-export function CreateCrewForm() {
+/**
+ * The confirm-then-mutate-then-toast/revalidate/redirect shape shared by
+ * every owner-only destructive crew action below (leave/close/delete/
+ * regenerate-code) — used to be 4 copy-pasted button components differing
+ * only in copy, the action called, and where (if anywhere) it redirects.
+ */
+function ConfirmActionButton<T extends { error?: string; revalidatedPaths?: string[] }>({
+  confirm,
+  action,
+  successToast,
+  extraRevalidatePaths = [],
+  redirectTo,
+  idleLabel,
+  pendingLabel,
+}: {
+  confirm: ConfirmModalOptions;
+  action: () => Promise<T>;
+  successToast: string | ((result: T) => string);
+  extraRevalidatePaths?: string[];
+  redirectTo?: string;
+  idleLabel: string;
+  pendingLabel: string;
+}) {
   const router = useRouter();
-  const [name, setName] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  const handleClick = async () => {
+    const confirmed = await confirmModal(confirm);
+    if (!confirmed) return;
+    startTransition(async () => {
+      const result = await action();
+      if (result.error) {
+        showToast(result.error);
+        return;
+      }
+      showToast(typeof successToast === "function" ? successToast(result) : successToast);
+      invalidateCachedPages([...(result.revalidatedPaths ?? []), ...extraRevalidatePaths]);
+      if (redirectTo) router.push(redirectTo);
+      router.refresh();
+    });
+  };
+
+  return (
+    <button className="btn btn-ghost" onClick={handleClick} disabled={isPending}>
+      {isPending ? pendingLabel : idleLabel}
+    </button>
+  );
+}
+
+/**
+ * The value/error/pending state machine shared by CreateCrewForm and
+ * JoinCrewForm below — each form's JSX (labels, placeholders, button
+ * variant, extra input attrs, whether it clears its error on every
+ * keystroke) stays independent, since those genuinely differ between the
+ * two; only the submit/toast/revalidate/reset plumbing was duplicated.
+ */
+function useSingleFieldCrewForm<T extends { error?: string; revalidatedPaths?: string[] }>(
+  submit: (value: string) => Promise<T>,
+  successToast: (result: T) => string
+) {
+  const router = useRouter();
+  const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!value.trim()) return;
     setError(null);
     startTransition(async () => {
-      const result = await createGroup({ name });
+      const result = await submit(value);
       if (result.error) {
         setError(result.error);
         return;
       }
-      showToast(`Crew created — share code ${result.inviteCode}`);
-      setName("");
+      showToast(successToast(result));
+      setValue("");
       invalidateCachedPages(result.revalidatedPaths ?? []);
       router.refresh();
     });
   };
+
+  return { value, setValue, error, setError, isPending, handleSubmit };
+}
+
+export function CreateCrewForm() {
+  const { value: name, setValue: setName, error, isPending, handleSubmit } = useSingleFieldCrewForm(
+    (name) => createGroup({ name }),
+    (result) => `Crew created — share code ${result.inviteCode}`
+  );
 
   return (
     <form onSubmit={handleSubmit}>
@@ -50,11 +119,7 @@ export function CreateCrewForm() {
           onChange={(e) => setName(e.target.value)}
         />
       </div>
-      {error && (
-        <p style={{ fontSize: 13, color: "#E5837A", marginBottom: 12 }}>
-          {error}
-        </p>
-      )}
+      {error && <FieldError>{error}</FieldError>}
       <button className="btn btn-primary" type="submit" disabled={isPending}>
         {isPending ? "Creating…" : "Create crew"}
       </button>
@@ -63,27 +128,10 @@ export function CreateCrewForm() {
 }
 
 export function JoinCrewForm() {
-  const router = useRouter();
-  const [code, setCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!code.trim()) return;
-    setError(null);
-    startTransition(async () => {
-      const result = await joinGroupByInvite({ inviteCode: code });
-      if (result.error) {
-        setError(result.error);
-        return;
-      }
-      showToast(`Joined ${result.groupName} — you're ranked from today`);
-      setCode("");
-      invalidateCachedPages(result.revalidatedPaths ?? []);
-      router.refresh();
-    });
-  };
+  const { value: code, setValue: setCode, error, setError, isPending, handleSubmit } = useSingleFieldCrewForm(
+    (code) => joinGroupByInvite({ inviteCode: code }),
+    (result) => `Joined ${result.groupName} — you're ranked from today`
+  );
 
   return (
     <form onSubmit={handleSubmit}>
@@ -101,11 +149,7 @@ export function JoinCrewForm() {
           }}
         />
       </div>
-      {error && (
-        <p style={{ fontSize: 13, color: "#E5837A", marginBottom: 12 }}>
-          {error}
-        </p>
-      )}
+      {error && <FieldError>{error}</FieldError>}
       <button
         className="btn btn-ghost"
         type="submit"
@@ -120,66 +164,34 @@ export function JoinCrewForm() {
 
 /** Non-owner members can leave; the crew owner has no such action (leaveGroup blocks it). */
 export function LeaveCrewButton({ crewId }: { crewId: string }) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-
-  const handleClick = async () => {
-    const confirmed = await confirmModal({
-      title: "Leave this crew?",
-      message: "You'll need a fresh invite to rejoin.",
-      confirmLabel: "Leave",
-      danger: true,
-    });
-    if (!confirmed) return;
-    startTransition(async () => {
-      const result = await leaveGroup({ groupId: crewId });
-      if (result.error) {
-        showToast(result.error);
-        return;
-      }
-      showToast("Left the crew");
-      invalidateCachedPages(result.revalidatedPaths ?? []);
-      router.push("/crews");
-      router.refresh();
-    });
-  };
-
   return (
-    <button className="btn btn-ghost" onClick={handleClick} disabled={isPending}>
-      {isPending ? "Leaving…" : "Leave crew"}
-    </button>
+    <ConfirmActionButton
+      confirm={{ title: "Leave this crew?", message: "You'll need a fresh invite to rejoin.", confirmLabel: "Leave", danger: true }}
+      action={() => leaveGroup({ groupId: crewId })}
+      successToast="Left the crew"
+      redirectTo="/crews"
+      idleLabel="Leave crew"
+      pendingLabel="Leaving…"
+    />
   );
 }
 
 /** Owner-only: stop new check-ins from counting toward the leaderboard and block new joins. */
 export function CloseCrewButton({ crewId }: { crewId: string }) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-
-  const handleClick = async () => {
-    const confirmed = await confirmModal({
-      title: "Close this crew?",
-      message: "Existing stats stay visible, but check-ins after this point won't count, and no one new can join.",
-      confirmLabel: "Close crew",
-      danger: true,
-    });
-    if (!confirmed) return;
-    startTransition(async () => {
-      const result = await closeGroup({ groupId: crewId });
-      if (result.error) {
-        showToast(result.error);
-        return;
-      }
-      showToast("Crew closed");
-      invalidateCachedPages([...(result.revalidatedPaths ?? []), `/crews/${crewId}`]);
-      router.refresh();
-    });
-  };
-
   return (
-    <button className="btn btn-ghost" onClick={handleClick} disabled={isPending}>
-      {isPending ? "Closing…" : "Close crew"}
-    </button>
+    <ConfirmActionButton
+      confirm={{
+        title: "Close this crew?",
+        message: "Existing stats stay visible, but check-ins after this point won't count, and no one new can join.",
+        confirmLabel: "Close crew",
+        danger: true,
+      }}
+      action={() => closeGroup({ groupId: crewId })}
+      successToast="Crew closed"
+      extraRevalidatePaths={[`/crews/${crewId}`]}
+      idleLabel="Close crew"
+      pendingLabel="Closing…"
+    />
   );
 }
 
@@ -189,35 +201,21 @@ export function CloseCrewButton({ crewId }: { crewId: string }) {
  * not just the owner.
  */
 export function DeleteCrewButton({ crewId, crewName }: { crewId: string; crewName: string }) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-
-  const handleClick = async () => {
-    const confirmed = await confirmModal({
-      title: "Delete this crew?",
-      message: `This permanently deletes "${crewName}" for every member — there's no undo.`,
-      confirmLabel: "Delete crew",
-      danger: true,
-      confirmText: crewName,
-    });
-    if (!confirmed) return;
-    startTransition(async () => {
-      const result = await deleteGroup({ groupId: crewId });
-      if (result.error) {
-        showToast(result.error);
-        return;
-      }
-      showToast("Crew deleted");
-      invalidateCachedPages(result.revalidatedPaths ?? []);
-      router.push("/crews");
-      router.refresh();
-    });
-  };
-
   return (
-    <button className="btn btn-ghost" onClick={handleClick} disabled={isPending}>
-      {isPending ? "Deleting…" : "Delete crew"}
-    </button>
+    <ConfirmActionButton
+      confirm={{
+        title: "Delete this crew?",
+        message: `This permanently deletes "${crewName}" for every member — there's no undo.`,
+        confirmLabel: "Delete crew",
+        danger: true,
+        confirmText: crewName,
+      }}
+      action={() => deleteGroup({ groupId: crewId })}
+      successToast="Crew deleted"
+      redirectTo="/crews"
+      idleLabel="Delete crew"
+      pendingLabel="Deleting…"
+    />
   );
 }
 
@@ -258,9 +256,7 @@ export function RenameCrewForm({ crewId, name }: { crewId: string; name: string 
           onChange={(e) => setValue(e.target.value)}
         />
       </div>
-      {error && (
-        <p style={{ fontSize: 13, color: "#E5837A", marginBottom: 12 }}>{error}</p>
-      )}
+      {error && <FieldError>{error}</FieldError>}
       <button className="btn btn-ghost" type="submit" disabled={isPending || unchanged}>
         {isPending ? "Saving…" : "Save name"}
       </button>
@@ -273,33 +269,20 @@ export function RenameCrewForm({ crewId, name }: { crewId: string; name: string 
  * one — anyone who saved or was shown it can no longer join with it.
  */
 export function RegenerateInviteCodeButton({ crewId }: { crewId: string }) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-
-  const handleClick = async () => {
-    const confirmed = await confirmModal({
-      title: "Get a new invite code?",
-      message: "The current code stops working immediately — anyone who has it will need the new one to join.",
-      confirmLabel: "Generate new code",
-      danger: true,
-    });
-    if (!confirmed) return;
-    startTransition(async () => {
-      const result = await regenerateInviteCode({ groupId: crewId });
-      if (result.error) {
-        showToast(result.error);
-        return;
-      }
-      showToast(`New code ${result.inviteCode} — share it with the crew`);
-      invalidateCachedPages([...(result.revalidatedPaths ?? []), `/crews/${crewId}`]);
-      router.refresh();
-    });
-  };
-
   return (
-    <button className="btn btn-ghost" onClick={handleClick} disabled={isPending}>
-      {isPending ? "Generating…" : "Get a new invite code"}
-    </button>
+    <ConfirmActionButton
+      confirm={{
+        title: "Get a new invite code?",
+        message: "The current code stops working immediately — anyone who has it will need the new one to join.",
+        confirmLabel: "Generate new code",
+        danger: true,
+      }}
+      action={() => regenerateInviteCode({ groupId: crewId })}
+      successToast={(result) => `New code ${result.inviteCode} — share it with the crew`}
+      extraRevalidatePaths={[`/crews/${crewId}`]}
+      idleLabel="Get a new invite code"
+      pendingLabel="Generating…"
+    />
   );
 }
 

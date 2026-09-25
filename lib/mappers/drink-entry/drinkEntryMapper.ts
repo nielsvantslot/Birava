@@ -1,5 +1,6 @@
 import type { DrinkEntry as DrinkEntryRow, Venue } from "@prisma/client";
 import type { DrinkEntryDTO, EntryAuthorDTO } from "@/lib/dtos";
+import { VenueGeoMapper } from "@/lib/mappers/venue/venueGeo";
 
 type VenueInclude = Pick<Venue, "name" | "lat" | "lng"> | null;
 
@@ -13,8 +14,7 @@ export class DrinkEntryMapper {
       drinkName: entry.drinkName,
       drinkType: entry.drinkType,
       venue: entry.venue?.name ?? null,
-      lat: entry.venue?.lat == null ? null : Number(entry.venue.lat),
-      lng: entry.venue?.lng == null ? null : Number(entry.venue.lng),
+      ...VenueGeoMapper.toLatLng(entry.venue?.lat ?? null, entry.venue?.lng ?? null),
       photoUrl: entry.photoUrl,
       photoLqip: entry.photoLqip,
       createdAt: entry.createdAt.toISOString(),

@@ -1,12 +1,14 @@
 import { db } from "@/lib/db";
 import { UserSummaryMapper } from "@/lib/mappers";
 import { FollowCountsDTO, UserSummaryDTO } from "@/lib/dtos";
+import { AUTHOR_SELECT } from "@/lib/queries/authorSelect";
+import { VISIBLE_USER_WHERE } from "@/lib/queries/userVisibility";
 
 /** Full user rows (not just ids) of everyone following `userId`, most recent first. */
 export async function getFollowers(userId: string): Promise<UserSummaryDTO[]> {
   const follows = await db.follow.findMany({
     where: { followingId: userId },
-    select: { follower: { select: { id: true, username: true, avatarUrl: true, isDeveloper: true } } },
+    select: { follower: AUTHOR_SELECT },
     orderBy: { createdAt: "desc" },
   });
   return follows.map((f) => UserSummaryMapper.toDTO(f.follower));
@@ -16,7 +18,7 @@ export async function getFollowers(userId: string): Promise<UserSummaryDTO[]> {
 export async function getFollowing(userId: string): Promise<UserSummaryDTO[]> {
   const follows = await db.follow.findMany({
     where: { followerId: userId },
-    select: { following: { select: { id: true, username: true, avatarUrl: true, isDeveloper: true } } },
+    select: { following: AUTHOR_SELECT },
     orderBy: { createdAt: "desc" },
   });
   return follows.map((f) => UserSummaryMapper.toDTO(f.following));
@@ -33,7 +35,7 @@ export async function getFollowCounts(profileId: string): Promise<FollowCountsDT
 /** Excludes anyone mid-GDPR-erasure — their sessions stop showing up in others' feeds for the whole grace period, not just after the purge. */
 export async function getFollowingIds(userId: string): Promise<string[]> {
   const follows = await db.follow.findMany({
-    where: { followerId: userId, following: { deletionRequestedAt: null } },
+    where: { followerId: userId, following: VISIBLE_USER_WHERE },
     select: { followingId: true },
   });
   return follows.map((f) => f.followingId);

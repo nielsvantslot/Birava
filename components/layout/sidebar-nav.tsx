@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { avatarSrc, cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/components/layout/nav-items";
-import { DevBadge } from "@/components/ui/dev-badge";
+import { UsernameLabel } from "@/components/ui/username-label";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -116,10 +116,13 @@ function SidebarInner({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" side="top" className="w-48">
-            <div className="px-3 py-2 flex items-center gap-1.5">
-              <p className="text-sm font-semibold">{username ?? "User"}</p>
-              {isDeveloper && <DevBadge />}
-            </div>
+            <UsernameLabel
+              as="div"
+              className="px-3 py-2"
+              block
+              name={<p className="text-sm font-semibold">{username ?? "User"}</p>}
+              isDeveloper={isDeveloper}
+            />
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link href="/profile" className="cursor-pointer" prefetch={false}>

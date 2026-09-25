@@ -4,8 +4,8 @@ import { SESSION_GAP_MS } from "@/lib/sessions";
 import { RateLimiterFactory } from "@/lib/rateLimit/RateLimiterFactory";
 import {
   getIntraSessionGapsBySessionId,
-  getIntraSessionGapsForUser,
-  getReminderEngagementForUser,
+  getIntraSessionGapsForUsers,
+  getReminderEngagementForUsers,
 } from "@/lib/queries/reminderAlgorithmQueries";
 import { dueSlotsForElapsed, expectedGapMs, maxRemindersForEngagement } from "@/lib/sessionReminderAlgorithm";
 
@@ -73,14 +73,21 @@ export async function sendSessionReminders(): Promise<{ sent: number }> {
     if (bucket) bucket.push(session);
     else sessionsByUserId.set(session.userId, [session]);
   }
+  const userIds = [...sessionsByUserId.keys()];
+
+  // Each of these three used to run per user, sequentially, inside the loop
+  // below — a tick with many concurrently-quiet users paid a round trip per
+  // user per query. Batched across every quiet user this tick at once instead.
+  const [sessionGapsById, historicalGapsByUser, engagementByUser] = await Promise.all([
+    getIntraSessionGapsBySessionId(quietSessions.map((s) => s.id)),
+    getIntraSessionGapsForUsers(userIds),
+    getReminderEngagementForUsers(userIds),
+  ]);
 
   const events: NotificationEvent[] = [];
   for (const [userId, sessions] of sessionsByUserId) {
-    const [sessionGapsById, historicalGaps, engagement] = await Promise.all([
-      getIntraSessionGapsBySessionId(sessions.map((s) => s.id)),
-      getIntraSessionGapsForUser(userId),
-      getReminderEngagementForUser(userId),
-    ]);
+    const historicalGaps = historicalGapsByUser.get(userId) ?? [];
+    const engagement = engagementByUser.get(userId) ?? { openedCount: 0, resolvedCount: 0 };
     const maxReminders = maxRemindersForEngagement(engagement.openedCount, engagement.resolvedCount);
 
     for (const session of sessions) {
