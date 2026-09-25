@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getAllPendingCheckins,
   onPendingCheckinsChanged,
@@ -11,25 +11,50 @@ import {
 import { flushPendingCheckins } from "@/lib/offline/syncPendingCheckins";
 
 /**
- * Tracks a "batch total" across a run of sync activity, purely from the
+ * Tracks batch progress across a run of sync activity, purely from the
  * reactive `entries` snapshot the panel already gets — no separate event
- * from flushPendingCheckins needed. `active` (queued + syncing, i.e.
- * "failed" excluded — those are stalled awaiting a manual retry, not part
- * of an in-progress pass) resets the batch to null once it hits 0, and
- * otherwise only ever grows to cover the largest active count seen since —
- * so a fresh flush captures its starting size, and a check-in queued mid-
- * flush extends the total instead of silently under-reporting it.
+ * from flushPendingCheckins needed. `batchTotal` resets to null once nothing
+ * is active (queued/syncing — "failed" excluded, those are stalled awaiting
+ * a manual retry, not part of an in-progress pass) and otherwise only ever
+ * grows to cover the largest active count seen since, so a fresh flush
+ * captures its starting size and a check-in queued mid-flush extends the
+ * total instead of silently under-reporting it.
+ *
+ * `completedInBatch` is derived from which *ids* have disappeared from
+ * `entries` entirely since they were last seen active, not from the gap
+ * between `batchTotal` and the current active count — a failed entry stays
+ * present in `entries` (status "failed"), so diffing ids correctly never
+ * counts a failure as a completion, which a plain count-gap would (an entry
+ * failing shrinks the active count exactly the same way one succeeding
+ * does).
  */
-function useBatchTotal(active: number): number | null {
+function useBatchProgress(entries: PendingCheckin[]): { batchTotal: number | null; completedInBatch: number } {
+  const activeIds = useMemo(
+    () => new Set(entries.filter((e) => e.status !== "failed").map((e) => e.id)),
+    [entries]
+  );
   const [batchTotal, setBatchTotal] = useState<number | null>(null);
+  const [completedInBatch, setCompletedInBatch] = useState(0);
+  const trackedIdsRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
-    setBatchTotal((prev) => {
-      if (active === 0) return null;
-      if (prev === null || active > prev) return active;
-      return prev;
-    });
-  }, [active]);
-  return batchTotal;
+    if (activeIds.size === 0) {
+      setBatchTotal(null);
+      setCompletedInBatch(0);
+      trackedIdsRef.current = new Set();
+      return;
+    }
+
+    setBatchTotal((prev) => (prev === null || activeIds.size > prev ? activeIds.size : prev));
+
+    const presentIds = new Set(entries.map((e) => e.id));
+    const resolvedSinceLastCheck = [...trackedIdsRef.current].filter((id) => !presentIds.has(id)).length;
+    if (resolvedSinceLastCheck > 0) setCompletedInBatch((c) => c + resolvedSinceLastCheck);
+
+    trackedIdsRef.current = new Set([...trackedIdsRef.current, ...activeIds]);
+  }, [entries, activeIds]);
+
+  return { batchTotal, completedInBatch };
 }
 
 function statusLabel(entry: PendingCheckin): string {
@@ -60,20 +85,14 @@ export function PendingCheckinsPanel({
 
   useEffect(() => {
     const refresh = () => {
-      getAllPendingCheckins().then(setEntries);
+      getAllPendingCheckins(userId).then(setEntries);
     };
     refresh();
     return onPendingCheckinsChanged(refresh);
-  }, []);
+  }, [userId]);
 
-  const activeCount = entries.filter((e) => e.status !== "failed").length;
-  const batchTotal = useBatchTotal(activeCount);
+  const { batchTotal, completedInBatch } = useBatchProgress(entries);
   const isSyncing = entries.some((e) => e.status === "syncing");
-  // "completed so far" is just the gap between the batch's starting size and
-  // what's still active — items only leave `entries` by succeeding (a failed
-  // entry stays, excluded from `active` above but still present), so this
-  // can't be thrown off by failures.
-  const completedInBatch = batchTotal !== null ? Math.max(0, batchTotal - activeCount) : 0;
 
   if (entries.length === 0) return null;
 
