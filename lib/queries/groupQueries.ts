@@ -6,6 +6,7 @@ import {
 } from "@/lib/crews";
 import { getSessionsForUserIds } from "@/lib/queries/drinkSessionQueries";
 import { VENUE_SELECT } from "@/lib/queries/venueSelect";
+import { AUTHOR_SELECT } from "@/lib/queries/authorSelect";
 import type { DrinkSession } from "@/lib/sessions";
 
 /**
@@ -24,9 +25,14 @@ const memberSelect = {
     userId: true,
     role: true,
     joinedAt: true,
-    user: { select: { username: true, avatarUrl: true, isDeveloper: true } },
+    user: AUTHOR_SELECT,
   },
 } as const;
+
+/** Earliest `joinedAt` across a crew's members — the scoring/activity window start (crew leaderboard scores "since each member joined", per CLAUDE.md). */
+function earliestJoinDate(members: { joinedAt: Date }[]): Date {
+  return new Date(Math.min(...members.map((m) => m.joinedAt.getTime())));
+}
 
 function toMemberInputs(
   members: {
@@ -75,11 +81,7 @@ export async function getCrewSummariesForUser(
       : await db.drinkEntry.findMany({
           where: {
             userId: { in: allMemberIds },
-            createdAt: {
-              gte: new Date(
-                Math.min(...allMembers.map((gm) => gm.joinedAt.getTime()))
-              ),
-            },
+            createdAt: { gte: earliestJoinDate(allMembers) },
           },
           include: { venue: VENUE_SELECT },
           orderBy: { createdAt: "asc" },
@@ -188,7 +190,7 @@ export async function getCrewDetailForViewer(
   if (!viewer) return null;
 
   const members = toMemberInputs(crew.members);
-  const earliest = new Date(Math.min(...members.map((m) => m.joinedAt.getTime())));
+  const earliest = earliestJoinDate(members);
   const [entryRows, recentSessions, bans] = await Promise.all([
     db.drinkEntry.findMany({
       where: {
@@ -201,7 +203,7 @@ export async function getCrewDetailForViewer(
     getRecentCrewSessions(members, crew.closedAt),
     db.groupBan.findMany({
       where: { groupId: crewId },
-      include: { user: { select: { username: true, avatarUrl: true, isDeveloper: true } } },
+      include: { user: AUTHOR_SELECT },
     }),
   ]);
   const { scores } = scoreCrew(members, entryRows, crew.closedAt);

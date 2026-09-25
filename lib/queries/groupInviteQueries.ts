@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { getFollowingIds, getFollowerIds } from "@/lib/queries/followQueries";
+import { AUTHOR_FIELDS, AUTHOR_SELECT } from "@/lib/queries/authorSelect";
 
 export type CrewInviteCandidate = {
   userId: string;
@@ -42,7 +43,7 @@ export async function getCrewInviteCandidates(
       where: { groupId, status: "PENDING" },
       select: {
         invitedUserId: true,
-        invitedUser: { select: { username: true, avatarUrl: true, isDeveloper: true } },
+        invitedUser: AUTHOR_SELECT,
       },
     }),
   ]);
@@ -65,7 +66,7 @@ export async function getCrewInviteCandidates(
       : await Promise.all([
           db.user.findMany({
             where,
-            select: { id: true, username: true, avatarUrl: true, isDeveloper: true },
+            select: AUTHOR_FIELDS,
             orderBy: { username: "asc" },
             take: CANDIDATES_PAGE_SIZE,
             skip: options.offset ?? 0,

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { updateNotificationPreference } from "@/lib/controllers/notificationController";
 import type { NotificationPreferenceKey } from "@/lib/dtos";
 import { showToast } from "@/components/ui/toast-pill";
+import { Switch } from "@/components/ui/switch";
 
 type Preferences = Record<NotificationPreferenceKey, boolean>;
 type Category = { key: NotificationPreferenceKey; label: string; description: string };
@@ -126,13 +127,11 @@ export function NotificationPreferenceToggles({
                 <b>{label}</b>
                 <p>{description}</p>
               </div>
-              <button
-                role="switch"
-                aria-checked={prefs[key]}
-                aria-label={label}
-                className={`switch${prefs[key] ? " on" : ""}`}
-                disabled={disabled || pendingKey === key}
+              <Switch
+                on={prefs[key]}
                 onClick={() => handleToggle(key)}
+                disabled={disabled || pendingKey === key}
+                label={label}
               />
             </div>
           ))}

@@ -4,9 +4,9 @@ import { toDrinkEntry } from "@/lib/mappers";
 import { assembleDrinkSession, type DrinkSession } from "@/lib/sessions";
 import { drinkHistoryTag } from "@/lib/queries/drinkEntryQueries";
 import { VENUE_SELECT } from "@/lib/queries/venueSelect";
+import { AUTHOR_SELECT } from "@/lib/queries/authorSelect";
+import { UuidValidator } from "@/lib/validation/uuidValidator";
 import type { DrinkEntry, DrinkSession as DrinkSessionRow, User, Venue } from "@prisma/client";
-
-const SESSION_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type EntryWithVenue = DrinkEntry & { venue: Pick<Venue, "name" | "lat" | "lng"> | null };
 
@@ -33,12 +33,12 @@ function toDrinkSession(row: SessionRowWithRelations): DrinkSession {
 
 /** A single session by id — a direct lookup, since sessions are real rows. */
 export async function getSessionById(id: string): Promise<DrinkSession | null> {
-  if (!SESSION_ID_PATTERN.test(id)) return null;
+  if (!UuidValidator.isValid(id)) return null;
 
   const row = await db.drinkSession.findUnique({
     where: { id },
     include: {
-      user: { select: { username: true, avatarUrl: true, isDeveloper: true } },
+      user: AUTHOR_SELECT,
       entries: { orderBy: { createdAt: "asc" }, include: { venue: VENUE_SELECT } },
     },
   });
@@ -52,7 +52,7 @@ export async function getSessionById(id: string): Promise<DrinkSession | null> {
  * uses this instead of getSessionById and defers the full load to cache-miss.
  */
 export async function getSessionOwnerId(id: string): Promise<string | null> {
-  if (!SESSION_ID_PATTERN.test(id)) return null;
+  if (!UuidValidator.isValid(id)) return null;
 
   const row = await db.drinkSession.findUnique({
     where: { id },
@@ -125,7 +125,7 @@ export async function getSessionsForUserIds(
         orderBy: [{ endedAt: "desc" }, { id: "desc" }],
         take: options.limit,
         include: {
-          user: { select: { username: true, avatarUrl: true, isDeveloper: true } },
+          user: AUTHOR_SELECT,
           entries: { orderBy: { createdAt: "asc" }, include: { venue: VENUE_SELECT } },
         },
       });

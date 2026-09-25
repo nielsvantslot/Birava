@@ -163,6 +163,13 @@ export function earnedIds(entries: AchievementEntry[], tz: string): Set<string> 
   );
 }
 
+/** Earned first, then by how close to earning — the display order every achievement list/strip uses. */
+export function sortByRelevance(achievements: VarietyAchievement[]): VarietyAchievement[] {
+  return [...achievements].sort(
+    (a, b) => Number(b.earned) - Number(a.earned) || b.progress / b.goal - a.progress / a.goal
+  );
+}
+
 /**
  * Which achievements newly become earned by adding exactly one entry to a
  * user's history. Used only by the check-in write path

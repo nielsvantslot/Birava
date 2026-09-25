@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Group, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { generateInviteCode } from "@/lib/utils";
 import { queueNotifications } from "@/lib/notify";
@@ -19,6 +19,18 @@ import {
   CloseGroupDTO,
   DeleteGroupDTO,
 } from "@/lib/dtos";
+
+/** The "load the crew, confirm the caller owns it" check repeated at the start of every owner-only command below. */
+async function requireOwnedGroup(
+  groupId: string,
+  userId: string,
+  action: string
+): Promise<{ group: Group } | { error: string }> {
+  const group = await db.group.findUnique({ where: { id: groupId } });
+  if (!group) return { error: "Crew not found" };
+  if (group.ownerId !== userId) return { error: `Only the crew owner can ${action}` };
+  return { group };
+}
 
 export async function createGroup(
   ownerId: string,
@@ -58,11 +70,11 @@ export async function joinGroup(
     return { error: "You were removed from this crew and can't rejoin with this code." };
   }
 
-  const existingMembers = await db.groupMember.findMany({
-    where: { groupId: group.id },
+  const existingMembership = await db.groupMember.findUnique({
+    where: { groupId_userId: { groupId: group.id, userId } },
     select: { userId: true },
   });
-  const alreadyMember = existingMembers.some((m) => m.userId === userId);
+  const alreadyMember = existingMembership !== null;
 
   if (group.closedAt && !alreadyMember) {
     return { error: "This crew is closed and isn't accepting new members." };
@@ -85,8 +97,12 @@ export async function joinGroup(
   }
 
   if (!alreadyMember) {
+    const otherMembers = await db.groupMember.findMany({
+      where: { groupId: group.id, userId: { not: userId } },
+      select: { userId: true },
+    });
     queueNotifications(
-      existingMembers.map((m) => ({
+      otherMembers.map((m) => ({
         userId: m.userId,
         type: "CREW_JOIN" as const,
         actorId: userId,
@@ -117,9 +133,8 @@ export async function leaveGroup(userId: string, input: LeaveGroupDTO): Promise<
 
 /** Owner-only: PUBLIC lets any member share/see the invite code; PRIVATE limits that to owner + admins. */
 export async function setCrewVisibility(userId: string, input: SetCrewVisibilityDTO): Promise<ActionResultDTO> {
-  const group = await db.group.findUnique({ where: { id: input.groupId } });
-  if (!group) return { error: "Crew not found" };
-  if (group.ownerId !== userId) return { error: "Only the crew owner can change visibility" };
+  const found = await requireOwnedGroup(input.groupId, userId, "change visibility");
+  if ("error" in found) return found;
 
   await db.group.update({
     where: { id: input.groupId },
@@ -131,9 +146,8 @@ export async function setCrewVisibility(userId: string, input: SetCrewVisibility
 
 /** Owner-only: renames the crew. The invite code, id, and every stat/link built on it are untouched. */
 export async function renameGroup(userId: string, input: RenameGroupDTO): Promise<ActionResultDTO> {
-  const group = await db.group.findUnique({ where: { id: input.groupId } });
-  if (!group) return { error: "Crew not found" };
-  if (group.ownerId !== userId) return { error: "Only the crew owner can rename the crew" };
+  const found = await requireOwnedGroup(input.groupId, userId, "rename the crew");
+  if ("error" in found) return found;
 
   const name = input.name.trim();
   if (name.length < 2) return { error: "Crew name must be at least 2 characters" };
@@ -152,10 +166,9 @@ export async function regenerateInviteCode(
   userId: string,
   input: RegenerateInviteCodeDTO
 ): Promise<RegenerateInviteCodeResultDTO> {
-  const group = await db.group.findUnique({ where: { id: input.groupId } });
-  if (!group) return { error: "Crew not found" };
-  if (group.ownerId !== userId) return { error: "Only the crew owner can regenerate the invite code" };
-  if (group.closedAt) return { error: "This crew is closed and isn't accepting new members" };
+  const found = await requireOwnedGroup(input.groupId, userId, "regenerate the invite code");
+  if ("error" in found) return found;
+  if (found.group.closedAt) return { error: "This crew is closed and isn't accepting new members" };
 
   // generateInviteCode's 6-char base36 space makes a collision astronomically
   // unlikely, but the column is unique — retry on the rare clash instead of
@@ -181,12 +194,9 @@ export async function regenerateInviteCode(
  * everyone keeps logging normally everywhere else in the app.
  */
 export async function closeGroup(userId: string, input: CloseGroupDTO): Promise<ActionResultDTO> {
-  const group = await db.group.findUnique({ where: { id: input.groupId } });
-  if (!group) return { error: "Crew not found" };
-  if (group.ownerId !== userId) {
-    return { error: "Only the crew owner can close it" };
-  }
-  if (group.closedAt) return { error: "Crew is already closed" };
+  const found = await requireOwnedGroup(input.groupId, userId, "close it");
+  if ("error" in found) return found;
+  if (found.group.closedAt) return { error: "Crew is already closed" };
 
   await db.group.update({
     where: { id: input.groupId },
@@ -198,10 +208,9 @@ export async function closeGroup(userId: string, input: CloseGroupDTO): Promise<
 
 /** Owner-only: promote a member to admin, or demote an admin back to member. The owner's own role can't be changed this way. */
 export async function setMemberRole(userId: string, input: SetMemberRoleDTO): Promise<ActionResultDTO> {
-  const group = await db.group.findUnique({ where: { id: input.groupId } });
-  if (!group) return { error: "Crew not found" };
-  if (group.ownerId !== userId) return { error: "Only the crew owner can change roles" };
-  if (input.userId === group.ownerId) return { error: "The owner's role can't be changed" };
+  const found = await requireOwnedGroup(input.groupId, userId, "change roles");
+  if ("error" in found) return found;
+  if (input.userId === found.group.ownerId) return { error: "The owner's role can't be changed" };
 
   const target = await db.groupMember.findUnique({
     where: { groupId_userId: { groupId: input.groupId, userId: input.userId } },
@@ -256,9 +265,8 @@ export async function kickMember(userId: string, input: KickMemberDTO): Promise<
 
 /** Owner-only: lifts a previous kick so the user can rejoin via the invite code again. */
 export async function unbanMember(userId: string, input: UnbanMemberDTO): Promise<ActionResultDTO> {
-  const group = await db.group.findUnique({ where: { id: input.groupId } });
-  if (!group) return { error: "Crew not found" };
-  if (group.ownerId !== userId) return { error: "Only the crew owner can lift a removal" };
+  const found = await requireOwnedGroup(input.groupId, userId, "lift a removal");
+  if ("error" in found) return found;
 
   await db.groupBan.deleteMany({ where: { groupId: input.groupId, userId: input.userId } });
 
@@ -273,9 +281,8 @@ export async function unbanMember(userId: string, input: UnbanMemberDTO): Promis
  * itself. Unlike closeGroup, there's no undo.
  */
 export async function deleteGroup(userId: string, input: DeleteGroupDTO): Promise<ActionResultDTO> {
-  const group = await db.group.findUnique({ where: { id: input.groupId } });
-  if (!group) return { error: "Crew not found" };
-  if (group.ownerId !== userId) return { error: "Only the crew owner can delete it" };
+  const found = await requireOwnedGroup(input.groupId, userId, "delete it");
+  if ("error" in found) return found;
 
   await db.group.delete({ where: { id: input.groupId } });
 

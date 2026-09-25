@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getUserTimeZone } from "@/lib/timezone";
 import { getMyDrinkHistory } from "@/lib/controllers/drinkController";
 import { groupIntoSessions, activeWeeks } from "@/lib/sessions";
-import { computeAchievements } from "@/lib/achievements";
+import { computeAchievements, sortByRelevance } from "@/lib/achievements";
 import { weekIndex } from "@/lib/dates";
 import { DRINK_TYPES } from "@/lib/types";
 import { AchievementGlyph } from "@/components/drink/achievement-icon";
@@ -117,9 +117,7 @@ async function StatsBody() {
   );
   const weeks = activeWeeks(sessions, tz);
   const achievements = computeAchievements(entries, tz);
-  const teaser = [...achievements]
-    .sort((a, b) => Number(b.earned) - Number(a.earned) || b.progress / b.goal - a.progress / a.goal)
-    .slice(0, 2);
+  const teaser = sortByRelevance(achievements).slice(0, 2);
 
   // Sessions per calendar week, last 12 weeks (oldest first)
   const thisWeek = weekIndex(new Date(), tz);

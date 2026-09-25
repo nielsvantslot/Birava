@@ -25,7 +25,7 @@ import { CheckinGrid } from "@/components/drink/checkin-grid";
 import { CommentsSection } from "@/components/drink/comments-section";
 import { DurationNum } from "@/components/drink/session-card";
 import { LocalLegendCallout } from "@/components/drink/local-legend-callout";
-import { DevBadge } from "@/components/ui/dev-badge";
+import { UsernameLabel } from "@/components/ui/username-label";
 import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 
 type VenueGroup = { venue: string | null; checkins: DrinkEntry[] };
@@ -98,10 +98,7 @@ export default async function SessionDetailPage({
             )}
           </div>
           <div className="grow">
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-              <b>{session.username}</b>
-              {session.isDeveloper && <DevBadge />}
-            </span>
+            <UsernameLabel name={<b>{session.username}</b>} isDeveloper={session.isDeveloper} />
             <div className="meta">
               {meta}
               {session.venues[0] ? ` · ${session.venues[0]}` : ""}

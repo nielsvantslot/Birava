@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { CommentMapper } from "@/lib/mappers";
 import { CreateCommentResultDTO, DeleteCommentResultDTO } from "@/lib/dtos";
 import { queueNotifications } from "@/lib/notify";
+import { AUTHOR_SELECT } from "@/lib/queries/authorSelect";
 
 const MAX_COMMENT_LENGTH = 500;
 
@@ -16,7 +17,7 @@ export async function createComment(
 
   const row = await db.comment.create({
     data: { sessionId, userId, body: trimmed },
-    include: { user: { select: { username: true, avatarUrl: true, isDeveloper: true } } },
+    include: { user: AUTHOR_SELECT },
   });
 
   const session = await db.drinkSession.findUnique({ where: { id: sessionId }, select: { userId: true } });

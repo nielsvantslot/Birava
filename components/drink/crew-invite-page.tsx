@@ -3,8 +3,9 @@
 import { useState, useTransition } from "react";
 import { getCrewInviteCandidates, sendCrewInvite } from "@/lib/controllers/groupController";
 import { showToast } from "@/components/ui/toast-pill";
-import { DevBadge } from "@/components/ui/dev-badge";
-import { avatarSrc } from "@/lib/utils";
+import { Avatar } from "@/components/ui/avatar";
+import { UsernameLabel } from "@/components/ui/username-label";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type Candidate = { userId: string; username: string; avatarUrl: string | null; isDeveloper: boolean };
 type CandidatesResult = { candidates: Candidate[]; total: number; pending: Candidate[] };
@@ -19,17 +20,15 @@ function CandidateRow({
   return (
     <div className="row" key={candidate.userId}>
       <div className="avatar">
-        {candidate.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatarSrc(candidate.userId)} alt={candidate.username} />
-        ) : (
-          candidate.username.slice(0, 2).toUpperCase()
-        )}
+        <Avatar userId={candidate.userId} username={candidate.username} avatarUrl={candidate.avatarUrl} />
       </div>
-      <div className="grow" style={{ display: "flex", alignItems: "center", gap: 5 }}>
-        <b>{candidate.username}</b>
-        {candidate.isDeveloper && <DevBadge />}
-      </div>
+      <UsernameLabel
+        as="div"
+        className="grow"
+        block
+        name={<b>{candidate.username}</b>}
+        isDeveloper={candidate.isDeveloper}
+      />
       {action}
     </div>
   );
@@ -123,11 +122,11 @@ export function CrewInvitePage({
         )}
 
         {!loading && candidates.length === 0 && (
-          <p style={{ fontSize: 14, color: "var(--ink-dim)", padding: "14px 0" }}>
+          <EmptyState>
             {query.trim()
               ? "No mutual follows match that search."
               : "No one to invite yet — you need to mutually follow someone first."}
-          </p>
+          </EmptyState>
         )}
 
         {!loading &&

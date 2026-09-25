@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { avatarSrc } from "@/lib/utils";
-import { DevBadge } from "@/components/ui/dev-badge";
+import { Avatar } from "@/components/ui/avatar";
+import { UsernameLabel } from "@/components/ui/username-label";
 
 interface RightRailProps {
   userId: string;
@@ -19,18 +19,10 @@ export function RightRail({ userId, username, avatarUrl, isDeveloper }: RightRai
     <aside className="right-rail hidden xl:flex flex-none sticky top-0 h-screen">
       <Link href="/profile" className="rail-profile" prefetch={false}>
         <span className="avatar">
-          {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarSrc(userId)} alt="" />
-          ) : (
-            username.slice(0, 2).toUpperCase()
-          )}
+          <Avatar userId={userId} username={username} avatarUrl={avatarUrl ?? null} alt="" />
         </span>
         <span className="grow">
-          <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <b>{username}</b>
-            {isDeveloper && <DevBadge />}
-          </span>
+          <UsernameLabel block name={<b>{username}</b>} isDeveloper={isDeveloper} />
           <span className="rail-sub">View your profile</span>
         </span>
       </Link>

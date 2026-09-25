@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { PROXIMITY_THRESHOLD_DEG, venuesMatch } from "@/lib/venueMatching";
+import { VenueGeoMapper } from "@/lib/mappers/venue/venueGeo";
 
 type Tx = Prisma.TransactionClient;
 
@@ -50,7 +51,7 @@ export async function resolveVenueId(
   const match = candidates.find((c) =>
     venuesMatch(
       { name: trimmed, lat, lng },
-      { name: c.name, lat: c.lat === null ? null : Number(c.lat), lng: c.lng === null ? null : Number(c.lng) }
+      { name: c.name, ...VenueGeoMapper.toLatLng(c.lat, c.lng) }
     )
   );
 
