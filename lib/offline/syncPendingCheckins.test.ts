@@ -58,6 +58,33 @@ describe("flushPendingCheckins", () => {
     expect(addDrinkMock).toHaveBeenCalledWith(expect.objectContaining({ clientId: "entry-abc" }));
   });
 
+  it("coalesces an overlapping call into one more pass instead of dropping it, so a check-in queued mid-flight still gets synced without waiting for the next external trigger", async () => {
+    vi.useRealTimers(); // this test cares about microtask ordering, not the sync timeout
+    getAllPendingCheckins
+      .mockResolvedValueOnce([entry({ id: "first" })])
+      .mockResolvedValueOnce([entry({ id: "second" })]);
+
+    let resolveFirstAddDrink: (value: { achievementUnlocked?: boolean }) => void = () => {};
+    const firstAddDrink = new Promise<{ achievementUnlocked?: boolean }>((resolve) => {
+      resolveFirstAddDrink = resolve;
+    });
+    addDrinkMock.mockImplementationOnce(() => firstAddDrink).mockResolvedValueOnce({});
+
+    const flush1 = flushPendingCheckins("user-1", true, { silent: true });
+    // Wait until pass 1 is hung mid-addDrink for "first" before the second,
+    // overlapping call arrives — this is the exact window a plain
+    // `if (flushing) return` used to drop entirely.
+    await vi.waitFor(() => expect(addDrinkMock).toHaveBeenCalledTimes(1));
+    const flush2 = flushPendingCheckins("user-1", true, { silent: true });
+
+    resolveFirstAddDrink({});
+    await Promise.all([flush1, flush2]);
+
+    expect(getAllPendingCheckins).toHaveBeenCalledTimes(2);
+    expect(removePendingCheckin).toHaveBeenCalledWith("first");
+    expect(removePendingCheckin).toHaveBeenCalledWith("second");
+  });
+
   it("marks an entry failed once its addDrink call passes the sync timeout, and still processes the next entry", async () => {
     getAllPendingCheckins.mockResolvedValue([entry({ id: "stuck" }), entry({ id: "second" })]);
     addDrinkMock
