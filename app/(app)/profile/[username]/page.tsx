@@ -5,11 +5,12 @@ import { getUserTimeZone } from "@/lib/timezone";
 import { getDrinkHistoryForUser, getRecentSessionsForUser } from "@/lib/controllers/drinkController";
 import { getProfileByUsername } from "@/lib/controllers/profileController";
 import { getFollowCounts, isFollowingUser } from "@/lib/controllers/socialController";
-import { groupIntoSessions, activeWeeks } from "@/lib/sessions";
+import { buildProfileStats } from "@/lib/sessions";
 import { computeAchievements } from "@/lib/achievements";
 import { decodeUsernameParam } from "@/lib/utils";
+import { formatMemberSince } from "@/lib/dates";
 import { FollowButton } from "@/components/drink/follow-button";
-import { ProfileHead } from "@/components/drink/profile-client";
+import { ProfileHead } from "@/components/drink/profile-head";
 import { AchievementBadgeStrip } from "@/components/drink/achievement-badge-strip";
 import { RecentSessionsList } from "@/components/drink/recent-sessions-list";
 import type { ProfileDTO, SessionUserDTO } from "@/lib/dtos";
@@ -73,21 +74,9 @@ async function PublicProfileMain({
   ]);
   const { followers: followerCount, following: followingCount } = counts;
 
-  const sessions = groupIntoSessions(entries);
-  const venues = new Set(
-    entries.map((e) => e.venue?.trim()).filter((v): v is string => !!v)
-  );
-  const types = new Set(entries.map((e) => e.drink_type).filter(Boolean));
-
-  const memberSince = new Date(targetUser.createdAt).toLocaleDateString("en-GB", {
-    month: "long",
-    year: "numeric",
-  });
-
-  // activeWeeks needs tz, which nothing else on this specific fetch does —
-  // pulled in only here rather than widening the Promise.all above.
+  // buildProfileStats needs tz, which nothing else on this specific fetch
+  // does — pulled in only here rather than widening the Promise.all above.
   const tz = await getUserTimeZone();
-  const weeks = activeWeeks(sessions, tz);
 
   return (
     <ProfileHead
@@ -95,15 +84,10 @@ async function PublicProfileMain({
       username={targetUser.username}
       avatarUrl={targetUser.avatarUrl}
       isDeveloper={targetUser.isDeveloper}
-      memberSince={memberSince}
+      memberSince={formatMemberSince(targetUser.createdAt)}
       followers={followerCount}
       following={followingCount}
-      stats={{
-        sessions: sessions.length,
-        venues: venues.size,
-        types: types.size,
-        activeWeeks: weeks.current,
-      }}
+      stats={buildProfileStats(entries, tz)}
       followersHref={`/profile/${targetUser.username}/followers`}
       followingHref={`/profile/${targetUser.username}/following`}
       action={

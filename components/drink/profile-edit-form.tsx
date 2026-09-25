@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { updateProfileUsername } from "@/lib/controllers/profileController";
 import { PhotoUploadPreparer, PhotoUploader, PhotoMetadataStripFailedError } from "@/modules/photo-upload/client";
 import { AVATAR_MAX_DIMENSION, avatarUploadEndpoints } from "@/lib/avatarPhotoConfig";
-import { avatarSrc } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-pill";
+import { Avatar } from "@/components/ui/avatar";
+import { FieldError } from "@/components/ui/field-error";
 
 // Canvas-encode quality (0-1) is a client-only concern — the server's WebP
 // quality (0-100, lib/avatarPhoto.ts) is a different encoder/scale.
@@ -21,7 +22,7 @@ interface ProfileEditFormProps {
 
 /**
  * Moved here from the old click-to-edit affordances directly on /profile
- * (components/drink/profile-client.tsx's ProfileHead) — /profile is now
+ * (components/drink/profile-head.tsx's ProfileHead) — /profile is now
  * read-only for your own account too, same rendering as viewing someone
  * else's, and this dedicated /settings/profile screen owns editing instead.
  */
@@ -104,12 +105,7 @@ export function ProfileEditForm({ userId, username, avatarUrl, supportsDirectUpl
               opacity: avatarUploading ? 0.6 : 1,
             }}
           >
-            {avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarSrc(userId)} alt={username} />
-            ) : (
-              username.slice(0, 2).toUpperCase()
-            )}
+            <Avatar userId={userId} username={username} avatarUrl={avatarUrl} />
           </div>
           <span
             aria-hidden
@@ -146,7 +142,7 @@ export function ProfileEditForm({ userId, username, avatarUrl, supportsDirectUpl
           onChange={(e) => setUsernameValue(e.target.value)}
         />
       </div>
-      {error && <p style={{ color: "var(--destructive)", fontSize: 13, margin: "-8px 0 14px" }}>{error}</p>}
+      {error && <FieldError style={{ margin: "-8px 0 14px" }}>{error}</FieldError>}
 
       <button className="btn btn-primary" disabled={saving || unchanged} onClick={handleSave}>
         {saving ? "Saving…" : "Save"}

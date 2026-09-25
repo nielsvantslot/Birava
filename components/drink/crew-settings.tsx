@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   setCrewVisibility,
@@ -10,9 +10,9 @@ import {
 } from "@/lib/controllers/groupController";
 import { showToast } from "@/components/ui/toast-pill";
 import { confirmModal } from "@/components/ui/confirm-modal";
-import { avatarSrc } from "@/lib/utils";
 import { invalidateCachedPages } from "@/lib/swCache";
-import { DevBadge } from "@/components/ui/dev-badge";
+import { Avatar } from "@/components/ui/avatar";
+import { UsernameLabel } from "@/components/ui/username-label";
 
 type CrewRole = "OWNER" | "ADMIN" | "MEMBER";
 
@@ -58,6 +58,10 @@ export function CrewSettingsPanel({
 
   const isOwner = viewerRole === "OWNER";
   const isAdmin = viewerRole === "ADMIN";
+  const otherMembers = useMemo(
+    () => members.filter((m) => m.userId !== viewerId && m.role !== "OWNER"),
+    [members, viewerId]
+  );
   if (!isOwner && !isAdmin) return null;
 
   const run = (key: string, action: () => Promise<ActionResult>) => {
@@ -73,8 +77,6 @@ export function CrewSettingsPanel({
       router.refresh();
     });
   };
-
-  const otherMembers = members.filter((m) => m.userId !== viewerId && m.role !== "OWNER");
 
   return (
     <div className="section">
@@ -111,18 +113,10 @@ export function CrewSettingsPanel({
         return (
           <div className="row" key={m.userId} style={{ padding: "10px 0" }}>
             <div className="avatar">
-              {m.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarSrc(m.userId)} alt={m.username} />
-              ) : (
-                m.username.slice(0, 2).toUpperCase()
-              )}
+              <Avatar userId={m.userId} username={m.username} avatarUrl={m.avatarUrl} />
             </div>
             <div className="grow">
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <b>{m.username}</b>
-                {m.isDeveloper && <DevBadge />}
-              </div>
+              <UsernameLabel as="div" block name={<b>{m.username}</b>} isDeveloper={m.isDeveloper} />
               <span>{m.role === "ADMIN" ? "Admin" : "Member"}</span>
             </div>
             {isOwner && (
@@ -173,17 +167,15 @@ export function CrewSettingsPanel({
           {bannedMembers.map((b) => (
             <div className="row" key={b.userId} style={{ padding: "10px 0" }}>
               <div className="avatar">
-                {b.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarSrc(b.userId)} alt={b.username} />
-                ) : (
-                  b.username.slice(0, 2).toUpperCase()
-                )}
+                <Avatar userId={b.userId} username={b.username} avatarUrl={b.avatarUrl} />
               </div>
-              <div className="grow" style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <b>{b.username}</b>
-                {b.isDeveloper && <DevBadge />}
-              </div>
+              <UsernameLabel
+                as="div"
+                className="grow"
+                block
+                name={<b>{b.username}</b>}
+                isDeveloper={b.isDeveloper}
+              />
               <button
                 className="btn btn-ghost"
                 disabled={busyKey === `unban-${b.userId}`}

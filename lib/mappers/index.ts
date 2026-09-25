@@ -6,3 +6,4 @@ export * from "./notification/notificationPreferencesMapper";
 export * from "./user/profileMapper";
 export * from "./user/sessionUserMapper";
 export * from "./user/userSummaryMapper";
+export * from "./venue/venueGeo";

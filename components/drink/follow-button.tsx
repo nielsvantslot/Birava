@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { UserCheck, UserPlus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { followUser, unfollowUser } from "@/lib/controllers/socialController";
 
 interface FollowButtonProps {
@@ -40,10 +40,9 @@ export function FollowButton({
   };
 
   return (
-    <Button
-      size="sm"
-      variant={isFollowing ? "secondary" : "default"}
-      className={className}
+    <button
+      type="button"
+      className={cn("btn", isFollowing ? "btn-ghost" : "btn-primary", className)}
       onClick={handleClick}
       disabled={isPending}
     >
@@ -58,6 +57,6 @@ export function FollowButton({
           Follow
         </>
       )}
-    </Button>
+    </button>
   );
 }

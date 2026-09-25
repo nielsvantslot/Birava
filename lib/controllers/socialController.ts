@@ -48,6 +48,19 @@ import {
   UserSummaryDTO,
 } from "@/lib/dtos";
 
+/** F9: the follower/following counts render on the public profile too — refresh it along with the rest, which the old path list missed. */
+function revalidateFollowPaths(): void {
+  revalidatePath("/dashboard");
+  revalidatePath("/people");
+  revalidatePath("/profile/[username]", "page");
+  revalidatePath("/profile");
+}
+
+function revalidateSessionInteractionPaths(): void {
+  revalidatePath("/dashboard");
+  revalidatePath("/sessions", "layout");
+}
+
 export async function followUser(input: FollowUserDTO): Promise<void> {
   const user = await getCurrentUser();
   if (!user) throwNotAuthenticated();
@@ -57,12 +70,7 @@ export async function followUser(input: FollowUserDTO): Promise<void> {
     avatarUrl: user.avatarUrl,
   });
 
-  revalidatePath("/dashboard");
-  revalidatePath("/people");
-  // F9: the follower/following counts render on the public profile — refresh
-  // it too, which the old path list missed.
-  revalidatePath("/profile/[username]", "page");
-  revalidatePath("/profile");
+  revalidateFollowPaths();
 }
 
 export async function unfollowUser(input: UnfollowUserDTO): Promise<void> {
@@ -71,10 +79,7 @@ export async function unfollowUser(input: UnfollowUserDTO): Promise<void> {
 
   await unfollowUserCommand(user.id, input);
 
-  revalidatePath("/dashboard");
-  revalidatePath("/people");
-  revalidatePath("/profile/[username]", "page");
-  revalidatePath("/profile");
+  revalidateFollowPaths();
 }
 
 export async function getFollowCounts(input: FollowCountsQueryDTO): Promise<FollowCountsDTO> {
@@ -119,10 +124,7 @@ export async function toggleCheer(input: ToggleCheerDTO): Promise<ToggleCheerRes
     username: user.username,
     avatarUrl: user.avatarUrl,
   });
-  if (!result.error) {
-    revalidatePath("/dashboard");
-    revalidatePath("/sessions", "layout");
-  }
+  if (!result.error) revalidateSessionInteractionPaths();
   return result;
 }
 
@@ -141,10 +143,7 @@ export async function createComment(input: CreateCommentDTO): Promise<CreateComm
   if (!user) return { error: "Not authenticated" };
 
   const result = await createCommentCommand(user.id, input.sessionId, input.body);
-  if (!result.error) {
-    revalidatePath("/dashboard");
-    revalidatePath("/sessions", "layout");
-  }
+  if (!result.error) revalidateSessionInteractionPaths();
   return result;
 }
 
@@ -153,10 +152,7 @@ export async function deleteComment(input: DeleteCommentDTO): Promise<DeleteComm
   if (!user) return { error: "Not authenticated" };
 
   const result = await deleteCommentCommand(user.id, input.commentId);
-  if (!result.error) {
-    revalidatePath("/dashboard");
-    revalidatePath("/sessions", "layout");
-  }
+  if (!result.error) revalidateSessionInteractionPaths();
   return result;
 }
 

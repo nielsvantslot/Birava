@@ -1,5 +1,6 @@
 import type { CompressConfig } from "./CompressConfig";
 import type { IImageCompressor } from "./IImageCompressor";
+import { FileNameUtil } from "../../FileNameUtil";
 
 /** Re-encoding at original size and this quality is close to lossless — used purely to strip metadata, not to shrink. */
 const STRIP_ONLY_QUALITY = 0.95;
@@ -56,7 +57,7 @@ export class ImageCompressor implements IImageCompressor {
       );
     });
 
-    const baseName = fileName.replace(/\.[^./\\]+$/, "") || "photo";
+    const baseName = FileNameUtil.stripExtension(fileName);
     return new File([outBlob], `${baseName}.jpg`, { type: "image/jpeg" });
   }
 }

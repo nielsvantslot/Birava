@@ -100,10 +100,7 @@ function buildSession(checkins: DrinkEntry[]): DrinkSession {
     userId: first.user_id,
     username: first.profiles?.username ?? "",
     avatarUrl: first.profiles?.avatar_url ?? null,
-    // groupIntoSessions() only feeds aggregate-only screens (see CLAUDE.md) —
-    // none render this derived session's identity fields directly, so there's
-    // no real badge signal to carry through Profile (lib/types.ts), which
-    // predates this flag.
+    // Aggregate-only screens never render identity fields — see CLAUDE.md.
     isDeveloper: false,
     start: first.created_at,
     end: last.created_at,
@@ -325,4 +322,24 @@ export function activeWeeks(
   }
 
   return { current, best, strip };
+}
+
+export type ProfileStats = {
+  sessions: number;
+  venues: number;
+  types: number;
+  activeWeeks: number;
+};
+
+/** The stat tiles on a profile head (own profile and public profile both render the same four) — all derived from one raw entries array, so there's one place that decides what counts as a distinct venue/type. */
+export function buildProfileStats(entries: DrinkEntry[], tz: string): ProfileStats {
+  const sessions = groupIntoSessions(entries);
+  const venues = new Set(entries.map((e) => e.venue?.trim()).filter((v): v is string => !!v));
+  const types = new Set(entries.map((e) => e.drink_type).filter(Boolean));
+  return {
+    sessions: sessions.length,
+    venues: venues.size,
+    types: types.size,
+    activeWeeks: activeWeeks(sessions, tz).current,
+  };
 }

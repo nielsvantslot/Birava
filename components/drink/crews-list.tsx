@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { OrdinalFormatter } from "@/lib/format/ordinalFormatter";
+import { PluralFormatter } from "@/lib/format/pluralFormatter";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { CrewSummary } from "@/lib/queries/groupQueries";
 
 interface CrewsListProps {
@@ -9,11 +11,7 @@ interface CrewsListProps {
 /** The current user's crew memberships — same row shape as user-list.tsx. */
 export function CrewsList({ crews }: CrewsListProps) {
   if (crews.length === 0) {
-    return (
-      <p style={{ fontSize: 14, color: "var(--ink-dim)" }}>
-        No crews yet — start one below or join with a code.
-      </p>
-    );
+    return <EmptyState>No crews yet — start one below or join with a code.</EmptyState>;
   }
 
   return (
@@ -32,7 +30,7 @@ export function CrewsList({ crews }: CrewsListProps) {
           <div className="grow">
             <b>{crew.name}</b>
             <span>
-              {crew.memberCount} member{crew.memberCount === 1 ? "" : "s"}
+              {crew.memberCount} member{PluralFormatter.suffix(crew.memberCount)}
               {crew.closed ? " · Closed" : ""}
               {crew.rank ? ` · you're ${OrdinalFormatter.format(crew.rank)} since you joined` : ""}
             </span>

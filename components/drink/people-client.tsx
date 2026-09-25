@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useTransition, useCallback, useEffect, useRef } from "react";
+import { useState, useTransition, useCallback, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { FollowButton } from "@/components/drink/follow-button";
-import { DevBadge } from "@/components/ui/dev-badge";
+import { Avatar } from "@/components/ui/avatar";
+import { UsernameLabel } from "@/components/ui/username-label";
 import { searchUsers } from "@/lib/controllers/socialController";
-import { avatarSrc } from "@/lib/utils";
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -63,7 +63,7 @@ export function PeopleClient({
     }, SEARCH_DEBOUNCE_MS);
   }, []);
 
-  const followingSet = new Set(followingIds);
+  const followingSet = useMemo(() => new Set(followingIds), [followingIds]);
 
   return (
     <>
@@ -104,17 +104,15 @@ export function PeopleClient({
             prefetch={false}
           >
             <div className="avatar">
-              {u.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarSrc(u.id)} alt={u.username} loading="lazy" decoding="async" />
-              ) : (
-                u.username.slice(0, 2).toUpperCase()
-              )}
+              <Avatar userId={u.id} username={u.username} avatarUrl={u.avatarUrl} lazy />
             </div>
-            <div className="grow" style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <b>{u.username}</b>
-              {u.isDeveloper && <DevBadge />}
-            </div>
+            <UsernameLabel
+              as="div"
+              className="grow"
+              block
+              name={<b>{u.username}</b>}
+              isDeveloper={u.isDeveloper}
+            />
           </Link>
           {u.id !== currentUserId && (
             <FollowButton
