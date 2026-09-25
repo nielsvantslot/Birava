@@ -4,6 +4,7 @@ import { hashPassword } from "@/lib/auth/password";
 import { avatarPhotoService } from "@/lib/avatarPhoto";
 import { drinkPhotoService } from "@/lib/photoUpload";
 import { deleteGroup } from "@/lib/commands/groupCommands";
+import { VISIBLE_USER_WHERE } from "@/lib/queries/userVisibility";
 import {
   AccountPurgeResultDTO,
   ActionResultDTO,
@@ -174,7 +175,7 @@ async function releaseOwnedCrews(userId: string): Promise<void> {
 
   for (const group of ownedGroups) {
     const successor = await db.groupMember.findFirst({
-      where: { groupId: group.id, userId: { not: userId }, user: { deletionRequestedAt: null } },
+      where: { groupId: group.id, userId: { not: userId }, user: VISIBLE_USER_WHERE },
       orderBy: { joinedAt: "asc" },
     });
 

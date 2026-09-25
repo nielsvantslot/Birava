@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { sessionTitle } from "@/lib/sessions";
 import { formatDate, timeAgo } from "@/lib/dates";
-import { avatarSrc } from "@/lib/utils";
+import { PluralFormatter } from "@/lib/format/pluralFormatter";
 import { CrewLeaderboard } from "@/components/drink/crew-leaderboard";
 import { CopyCodeChip } from "@/components/drink/crews-forms";
-import { DevBadge } from "@/components/ui/dev-badge";
+import { Avatar } from "@/components/ui/avatar";
+import { UsernameLabel } from "@/components/ui/username-label";
 import type { CrewDetail } from "@/lib/queries/groupQueries";
 
 /**
@@ -69,7 +70,7 @@ export function CrewDetailView({
               }}
             >
               {crew.memberCount} member
-              {crew.memberCount === 1 ? "" : "s"}
+              {PluralFormatter.suffix(crew.memberCount)}
               {/* A closed crew stops accepting new members, so the code that
                   no longer works shouldn't be offered here either. */}
               {canInvite && !isClosed && (
@@ -89,12 +90,7 @@ export function CrewDetailView({
           <div className="members">
             {scores.slice(0, 5).map((s) => (
               <div className="avatar" key={s.userId}>
-                {s.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarSrc(s.userId)} alt={s.username} />
-                ) : (
-                  s.username.slice(0, 2).toUpperCase()
-                )}
+                <Avatar userId={s.userId} username={s.username} avatarUrl={s.avatarUrl} />
               </div>
             ))}
             {scores.length > 5 && (
@@ -144,23 +140,22 @@ export function CrewDetailView({
               prefetch={false}
             >
               <div className="avatar">
-                {session.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarSrc(session.userId)} alt={session.username} />
-                ) : (
-                  (usernameById.get(session.userId) ?? session.username)
-                    .slice(0, 2)
-                    .toUpperCase()
-                )}
+                <Avatar
+                  userId={session.userId}
+                  username={usernameById.get(session.userId) ?? session.username}
+                  avatarUrl={session.avatarUrl}
+                  alt={session.username}
+                />
               </div>
               <div className="grow">
                 <b>
-                  {/* .row span forces 13px/ink-dim — nest a bold span here
-                      instead, inline-styled, so the username stays bold. */}
-                  <b style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                    {session.userId === currentUserId ? "You" : session.username}
-                    {session.isDeveloper && <DevBadge />}
-                  </b>{" "}
+                  {/* .row span forces 13px/ink-dim — nest a bold element here
+                      instead so the username stays bold. */}
+                  <UsernameLabel
+                    as="b"
+                    name={session.userId === currentUserId ? "You" : session.username}
+                    isDeveloper={session.isDeveloper}
+                  />{" "}
                   logged a session
                 </b>
                 <span>

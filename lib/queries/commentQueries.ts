@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { CommentMapper } from "@/lib/mappers";
 import type { CommentDTO } from "@/lib/dtos";
+import { AUTHOR_SELECT } from "@/lib/queries/authorSelect";
 
 /** Comment counts for a set of session ids, in one grouped query. */
 export async function getCommentCounts(
@@ -29,7 +30,7 @@ export async function getSessionComments(
   const rows = await db.comment.findMany({
     where: { sessionId: { in: sessionIds } },
     orderBy: { createdAt: "asc" },
-    include: { user: { select: { username: true, avatarUrl: true, isDeveloper: true } } },
+    include: { user: AUTHOR_SELECT },
   });
 
   const map = new Map<string, CommentDTO[]>();

@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createComment, deleteComment } from "@/lib/controllers/socialController";
 import { showToast } from "@/components/ui/toast-pill";
-import { DevBadge } from "@/components/ui/dev-badge";
+import { Avatar } from "@/components/ui/avatar";
+import { UsernameLabel } from "@/components/ui/username-label";
 import { timeAgo } from "@/lib/dates";
-import { avatarSrc } from "@/lib/utils";
 import type { CommentDTO } from "@/lib/dtos";
 
 /** The session detail page's comment thread: list + composer. */
@@ -96,22 +96,12 @@ export function CommentsSection({
                   (next.config.ts), so prefetching every commenter's profile
                   on render is pure waste. */}
               <Link className="avatar" href={`/profile/${c.username}`} prefetch={false}>
-                {c.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarSrc(c.userId)} alt={c.username} />
-                ) : (
-                  c.username.slice(0, 2).toUpperCase()
-                )}
+                <Avatar userId={c.userId} username={c.username} avatarUrl={c.avatarUrl} />
               </Link>
               <div className="grow">
                 <div className="comment-meta">
-                  <Link
-                    href={`/profile/${c.username}`}
-                    prefetch={false}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
-                  >
-                    <b>{c.username}</b>
-                    {c.isDeveloper && <DevBadge />}
+                  <Link href={`/profile/${c.username}`} prefetch={false}>
+                    <UsernameLabel name={<b>{c.username}</b>} isDeveloper={c.isDeveloper} />
                   </Link>
                   <span>{timeAgo(new Date(c.createdAt), tz)}</span>
                 </div>

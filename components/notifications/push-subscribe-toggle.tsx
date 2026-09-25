@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import { subscribeToPush, unsubscribeFromPush } from "@/lib/controllers/notificationController";
 import { showToast } from "@/components/ui/toast-pill";
+import { Switch } from "@/components/ui/switch";
 
 type Status = "checking" | "unsupported" | "denied" | "off" | "on";
 
@@ -192,23 +194,18 @@ export function PushSubscribeToggle({ onStatusChange }: { onStatusChange?: (enab
           </p>
         </div>
         {status !== "unsupported" && status !== "denied" && (
-          <button
-            role="switch"
-            aria-checked={status === "on"}
-            aria-label="Push notifications"
-            className={`switch${status === "on" ? " on" : ""}`}
-            disabled={busy}
+          <Switch
+            on={status === "on"}
             onClick={status === "on" ? handleDisable : handleEnable}
+            disabled={busy}
+            label="Push notifications"
           />
         )}
       </div>
       {timedOut && (
         <div className="callout warn" style={{ marginTop: 14 }}>
           <div className="mark">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 9v4M12 17h.01"></path>
-              <path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"></path>
-            </svg>
+            <AlertTriangle size={20} strokeWidth={1.8} />
           </div>
           <div>
             <b>This is taking longer than expected</b>

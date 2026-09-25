@@ -64,6 +64,18 @@ async function revalidateDrinkPaths(userId: string, sessionPaths: string[]): Pro
   return DRINK_PATHS;
 }
 
+/** Applies revalidateDrinkPaths' server-side revalidation and folds its paths into `result.revalidatedPaths`, shared by every command below that returns a plain `{error?, revalidatedPaths?}`-shaped result. */
+async function applyDrinkRevalidation<T extends { error?: string; revalidatedPaths?: string[] }>(
+  userId: string,
+  result: T
+): Promise<T> {
+  if (!result.error) {
+    const sessionPaths = result.revalidatedPaths ?? [];
+    result.revalidatedPaths = [...sessionPaths, ...(await revalidateDrinkPaths(userId, sessionPaths))];
+  }
+  return result;
+}
+
 export async function addDrink(input: CreateDrinkEntryDTO): Promise<AddDrinkResultDTO> {
   const user = await getCurrentUser();
   if (!user) return NOT_AUTHENTICATED;
@@ -72,11 +84,7 @@ export async function addDrink(input: CreateDrinkEntryDTO): Promise<AddDrinkResu
     username: user.username,
     avatarUrl: user.avatarUrl,
   });
-  if (!result.error) {
-    const sessionPaths = result.revalidatedPaths ?? [];
-    result.revalidatedPaths = [...sessionPaths, ...(await revalidateDrinkPaths(user.id, sessionPaths))];
-  }
-  return result;
+  return applyDrinkRevalidation(user.id, result);
 }
 
 export async function editDrink(input: UpdateDrinkEntryDTO): Promise<ActionResultDTO> {
@@ -84,11 +92,7 @@ export async function editDrink(input: UpdateDrinkEntryDTO): Promise<ActionResul
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await updateDrinkEntry(user.id, input);
-  if (!result.error) {
-    const sessionPaths = result.revalidatedPaths ?? [];
-    result.revalidatedPaths = [...sessionPaths, ...(await revalidateDrinkPaths(user.id, sessionPaths))];
-  }
-  return result;
+  return applyDrinkRevalidation(user.id, result);
 }
 
 export async function deleteDrink(input: DeleteDrinkEntryDTO): Promise<ActionResultDTO> {
@@ -96,11 +100,7 @@ export async function deleteDrink(input: DeleteDrinkEntryDTO): Promise<ActionRes
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await deleteDrinkEntry(user.id, input);
-  if (!result.error) {
-    const sessionPaths = result.revalidatedPaths ?? [];
-    result.revalidatedPaths = [...sessionPaths, ...(await revalidateDrinkPaths(user.id, sessionPaths))];
-  }
-  return result;
+  return applyDrinkRevalidation(user.id, result);
 }
 
 export async function renameSession(input: RenameSessionDTO): Promise<ActionResultDTO> {
@@ -108,11 +108,7 @@ export async function renameSession(input: RenameSessionDTO): Promise<ActionResu
   if (!user) return NOT_AUTHENTICATED;
 
   const result = await renameSessionCommand(user.id, input);
-  if (!result.error) {
-    const sessionPaths = result.revalidatedPaths ?? [];
-    result.revalidatedPaths = [...sessionPaths, ...(await revalidateDrinkPaths(user.id, sessionPaths))];
-  }
-  return result;
+  return applyDrinkRevalidation(user.id, result);
 }
 
 // The reads below return the legacy `DrinkEntry` shape (not DrinkEntryDTO)

@@ -2,6 +2,9 @@ import { db } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth/password";
 import { ProfileMapper, UserSummaryMapper } from "@/lib/mappers";
 import { ProfileDTO, UserSummaryDTO } from "@/lib/dtos";
+import { AUTHOR_FIELDS } from "@/lib/queries/authorSelect";
+import { VISIBLE_USER_WHERE } from "@/lib/queries/userVisibility";
+import { ViewableUrlResolver } from "@/lib/queries/viewableUrl/ViewableUrlResolver";
 
 // A real bcrypt hash of an arbitrary fixed string (not any actual user's
 // password) — compared against on the not-found path below purely so that
@@ -29,24 +32,16 @@ export async function getProfileByUsername(username: string): Promise<ProfileDTO
   return user && !user.deletionRequestedAt ? ProfileMapper.toDTO(user) : null;
 }
 
-const USER_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /**
- * Resolve a user's avatar storage URL for serving — mirrors
- * getViewableDrinkPhotoUrl (lib/queries/drinkEntryQueries.ts). No per-viewer
- * visibility gate: an avatar is shown to every other user throughout the app
- * (header, comments, crew leaderboards, sessions, …), so any authenticated
- * viewer can see any user's avatar — the avatars route still requires a
- * logged-in user via requireUser.
+ * Resolve a user's avatar storage URL for serving — shares ViewableUrlResolver
+ * with getViewableDrinkPhotoUrl (lib/queries/drinkEntryQueries.ts). No
+ * per-viewer visibility gate: an avatar is shown to every other user
+ * throughout the app (header, comments, crew leaderboards, sessions, …), so
+ * any authenticated viewer can see any user's avatar — the avatars route
+ * still requires a logged-in user via requireUser.
  */
 export async function getViewableAvatarUrl(userId: string): Promise<string | null> {
-  if (!USER_ID_PATTERN.test(userId)) return null;
-
-  const user = await db.user.findUnique({
-    where: { id: userId },
-    select: { avatarUrl: true },
-  });
-  return user?.avatarUrl ?? null;
+  return ViewableUrlResolver.forAvatar().resolve(userId);
 }
 
 export async function searchUsers(excludeUserId: string, query: string): Promise<UserSummaryDTO[]> {
@@ -54,9 +49,9 @@ export async function searchUsers(excludeUserId: string, query: string): Promise
     where: {
       username: { contains: query.trim(), mode: "insensitive" },
       id: { not: excludeUserId },
-      deletionRequestedAt: null,
+      ...VISIBLE_USER_WHERE,
     },
-    select: { id: true, username: true, avatarUrl: true, isDeveloper: true },
+    select: AUTHOR_FIELDS,
     take: 20,
   });
 

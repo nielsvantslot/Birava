@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { FollowButton } from "@/components/drink/follow-button";
-import { DevBadge } from "@/components/ui/dev-badge";
-import { avatarSrc } from "@/lib/utils";
+import { Avatar } from "@/components/ui/avatar";
+import { UsernameLabel } from "@/components/ui/username-label";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { UserSummaryDTO } from "@/lib/dtos";
 
 interface UserListProps {
@@ -14,11 +15,7 @@ interface UserListProps {
 /** Shared row rendering for followers/following lists — same look as the search results in people-client.tsx. */
 export function UserList({ users, currentUserId, followingIds, emptyMessage }: UserListProps) {
   if (users.length === 0) {
-    return (
-      <p style={{ fontSize: 14, color: "var(--ink-dim)", padding: "14px 0" }}>
-        {emptyMessage}
-      </p>
-    );
+    return <EmptyState>{emptyMessage}</EmptyState>;
   }
 
   return (
@@ -42,17 +39,15 @@ export function UserList({ users, currentUserId, followingIds, emptyMessage }: U
             prefetch={false}
           >
             <div className="avatar">
-              {u.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarSrc(u.id)} alt={u.username} loading="lazy" decoding="async" />
-              ) : (
-                u.username.slice(0, 2).toUpperCase()
-              )}
+              <Avatar userId={u.id} username={u.username} avatarUrl={u.avatarUrl} lazy />
             </div>
-            <div className="grow" style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <b>{u.username}</b>
-              {u.isDeveloper && <DevBadge />}
-            </div>
+            <UsernameLabel
+              as="div"
+              className="grow"
+              block
+              name={<b>{u.username}</b>}
+              isDeveloper={u.isDeveloper}
+            />
           </Link>
           {u.id !== currentUserId && (
             <FollowButton

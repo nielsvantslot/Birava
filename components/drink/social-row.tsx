@@ -7,6 +7,7 @@ import { toggleCheer } from "@/lib/controllers/socialController";
 import { showToast } from "@/components/ui/toast-pill";
 import { BeerGlassIcon } from "@/components/drink/beer-glass-icon";
 import { cn } from "@/lib/utils";
+import { PluralFormatter } from "@/lib/format/pluralFormatter";
 import type { ShareImageDTO } from "@/lib/dtos";
 import type { ShareVariant } from "@/components/drink/share-sheet";
 
@@ -172,7 +173,7 @@ export function SocialActs({
         <svg viewBox="0 0 24 24">
           <path d="M4 5h16v11H9l-5 4z"></path>
         </svg>
-        <span>{commentCount}</span> comment{commentCount === 1 ? "" : "s"}
+        <span>{commentCount}</span> comment{PluralFormatter.suffix(commentCount)}
       </Link>
       <button className="act share" onClick={handleShare} aria-label="Share session">
         <svg viewBox="0 0 24 24">

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { avatarSrc, cn } from "@/lib/utils";
-import { DevBadge } from "@/components/ui/dev-badge";
+import { useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
+import { PluralFormatter } from "@/lib/format/pluralFormatter";
+import { Avatar } from "@/components/ui/avatar";
+import { UsernameLabel } from "@/components/ui/username-label";
 
 export type LeaderboardRow = {
   userId: string;
@@ -21,10 +23,14 @@ export type LeaderboardRow = {
 export function CrewLeaderboard({ rows }: { rows: LeaderboardRow[] }) {
   const [metric, setMetric] = useState<"sessions" | "drinks">("sessions");
 
-  const ranked = [...rows].sort((a, b) =>
-    metric === "sessions"
-      ? b.sessions - a.sessions || b.drinks - a.drinks
-      : b.drinks - a.drinks || b.sessions - a.sessions
+  const ranked = useMemo(
+    () =>
+      [...rows].sort((a, b) =>
+        metric === "sessions"
+          ? b.sessions - a.sessions || b.drinks - a.drinks
+          : b.drinks - a.drinks || b.sessions - a.sessions
+      ),
+    [rows, metric]
   );
 
   return (
@@ -48,21 +54,18 @@ export function CrewLeaderboard({ rows }: { rows: LeaderboardRow[] }) {
           <div className={cn("lr", row.you && "you")} key={row.userId}>
             <div className={cn("rank", i === 0 && "top")}>{i + 1}</div>
             <div className="avatar">
-              {row.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarSrc(row.userId)} alt={row.username} />
-              ) : (
-                row.username.slice(0, 2).toUpperCase()
-              )}
+              <Avatar userId={row.userId} username={row.username} avatarUrl={row.avatarUrl} />
             </div>
             <div className="grow">
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <b>{row.you ? "You" : row.username}</b>
-                {row.isDeveloper && <DevBadge />}
-              </div>
+              <UsernameLabel
+                as="div"
+                block
+                name={<b>{row.you ? "You" : row.username}</b>}
+                isDeveloper={row.isDeveloper}
+              />
               <span>
-                {row.sessions} session{row.sessions === 1 ? "" : "s"} ·{" "}
-                {row.drinks} drink{row.drinks === 1 ? "" : "s"}
+                {row.sessions} session{PluralFormatter.suffix(row.sessions)} ·{" "}
+                {row.drinks} drink{PluralFormatter.suffix(row.drinks)}
               </span>
             </div>
             <div className="score">

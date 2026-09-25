@@ -1,11 +1,11 @@
+import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { toDrinkEntry } from "@/lib/mappers";
 import { VENUE_SELECT } from "@/lib/queries/venueSelect";
 import { LOCAL_LEGEND_WINDOW_MS } from "@/lib/sessions";
 import type { DrinkEntry } from "@/lib/types";
-
-const ENTRY_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { ViewableUrlResolver } from "@/lib/queries/viewableUrl/ViewableUrlResolver";
 
 /**
  * Resolve the storage URL of a check-in's photo for serving, without reading
@@ -20,16 +20,8 @@ const ENTRY_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a
  * 404'd for non-followers, which read as broken. The photos route still
  * requires a logged-in user via requireUser.
  */
-export async function getViewableDrinkPhotoUrl(
-  entryId: string
-): Promise<string | null> {
-  if (!ENTRY_ID_PATTERN.test(entryId)) return null;
-
-  const entry = await db.drinkEntry.findUnique({
-    where: { id: entryId },
-    select: { photoUrl: true },
-  });
-  return entry?.photoUrl ?? null;
+export async function getViewableDrinkPhotoUrl(entryId: string): Promise<string | null> {
+  return ViewableUrlResolver.forDrinkPhoto().resolve(entryId);
 }
 
 export function drinkHistoryTag(userId: string): string {
@@ -46,8 +38,13 @@ export function drinkHistoryTag(userId: string): string {
  * The full history can't be paginated (streaks/achievements need every row), so
  * it's cached per user instead: `revalidateTag(drinkHistoryTag(userId))` fires
  * from drinkController's mutation actions, with a 60s revalidate as a backstop.
+ * Wrapped in React's `cache()` on top of that — a profile page's several
+ * independently-streaming Suspense sections (head, achievements strip) can
+ * each call this with the same userId within one request; without the wrap,
+ * every one of them can race the `unstable_cache` population and each pay
+ * its own DB round-trip instead of sharing the first result.
  */
-export async function getDrinkHistory(userId: string): Promise<DrinkEntry[]> {
+export const getDrinkHistory = cache(async function getDrinkHistory(userId: string): Promise<DrinkEntry[]> {
   return unstable_cache(
     async () => {
       const entries = await db.drinkEntry.findMany({
@@ -60,7 +57,7 @@ export async function getDrinkHistory(userId: string): Promise<DrinkEntry[]> {
     ["drink-history", userId],
     { tags: [drinkHistoryTag(userId)], revalidate: 60 }
   )();
-}
+});
 
 /**
  * Just the last LOCAL_LEGEND_WINDOW_MS (90 days) of check-ins, for the

@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import convert from "heic-convert";
 import { HeicFileDetector } from "../HeicFileDetector";
+import { FileNameUtil } from "../FileNameUtil";
 import { PhotoTooLargeError } from "../Errors/PhotoTooLargeError";
 import { UnreadablePhotoError } from "../Errors/UnreadablePhotoError";
 import type { ProcessedImage } from "../Models";
@@ -96,7 +97,7 @@ export class SharpImageProcessor implements IImageProcessor {
       throw new UnreadablePhotoError("Couldn't read that photo. Try a different file.");
     }
 
-    const baseName = fileName.replace(/\.[^./\\]+$/, "") || "photo";
+    const baseName = FileNameUtil.stripExtension(fileName);
     return {
       file: new File([Uint8Array.from(outputBuffer)], `${baseName}.${ext}`, { type: mime }),
       lqip: lqipBuffer ? `data:image/jpeg;base64,${lqipBuffer.toString("base64")}` : null,
