@@ -11,6 +11,7 @@ import {
 } from "@/lib/offline/pendingCheckins";
 
 let flushing = false;
+let rerunRequested = false;
 
 // Neither PhotoUploader.upload nor the addDrink server action carry their own
 // timeout — a genuinely hung network request (a stalled connection to Blob
@@ -118,7 +119,42 @@ function uploadPhotos(
  * immediate post-submit call, the auto-sync-on-reconnect component, and the
  * pending panel's manual "Retry now" button.
  *
- * Two phases, not one combined pass: photo uploads for every queued entry
+ * Coalesces overlapping calls instead of just deduping them: a call that
+ * arrives while a pass is already running doesn't get to see whatever
+ * changed since that pass took its queue snapshot (a check-in queued
+ * mid-pass, a manual retry flipping a failed entry back to "queued"), so
+ * dropping it outright would strand that change until the next external
+ * trigger (online, tab-visibility, PendingCheckinsSync's poll) — on an
+ * otherwise-healthy connection, that reads as a check-in stuck in "Queued"
+ * for no reason. `rerunRequested` makes the in-flight call run one more full
+ * pass immediately after it finishes instead, so overlapping calls still
+ * never run concurrently but their work never just gets lost either.
+ */
+export async function flushPendingCheckins(
+  userId: string,
+  supportsDirectUpload: boolean,
+  options: { silent?: boolean } = {}
+): Promise<void> {
+  if (flushing) {
+    rerunRequested = true;
+    return;
+  }
+  flushing = true;
+
+  try {
+    do {
+      rerunRequested = false;
+      await runOnePass(userId, supportsDirectUpload, options);
+    } while (rerunRequested);
+  } finally {
+    flushing = false;
+  }
+}
+
+/**
+ * One pass over the current queue snapshot.
+ *
+ * Two phases, not one combined loop: photo uploads for every queued entry
  * run concurrently first (uploadPhotos, above), then addDrink calls run one
  * at a time in original order. Parallelizing the addDrink leg too wouldn't
  * actually save wall-clock time — they're already serialized server-side by
@@ -143,82 +179,75 @@ function uploadPhotos(
  * leave it on, since that's the only confirmation the user gets that
  * something recovered from being stuck.
  */
-export async function flushPendingCheckins(
+async function runOnePass(
   userId: string,
   supportsDirectUpload: boolean,
-  options: { silent?: boolean } = {}
+  options: { silent?: boolean }
 ): Promise<void> {
-  if (flushing) return;
-  flushing = true;
+  const allEntries = await getAllPendingCheckins(userId);
+  const entries = allEntries.filter((entry) => entry.status !== "failed");
+  if (entries.length === 0) return;
 
-  try {
-    const allEntries = await getAllPendingCheckins(userId);
-    const entries = allEntries.filter((entry) => entry.status !== "failed");
-    if (entries.length === 0) return;
+  await Promise.all(entries.map((entry) => updatePendingCheckin(entry.id, { status: "syncing" })));
+  const photoResults = await uploadPhotos(entries, userId, supportsDirectUpload);
 
-    await Promise.all(entries.map((entry) => updatePendingCheckin(entry.id, { status: "syncing" })));
-    const photoResults = await uploadPhotos(entries, userId, supportsDirectUpload);
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    const photoResult = photoResults[i];
 
-    for (let i = 0; i < entries.length; i++) {
-      const entry = entries[i];
-      const photoResult = photoResults[i];
-
-      if (photoResult.status === "rejected") {
-        const err = photoResult.reason;
-        // Three distinct cases: a timeout means the upload was genuinely in
-        // flight for the full window (retrying immediately would likely
-        // just hang again); a non-retryable rejection means the server
-        // already gave a definitive "no" to this exact file (wrong
-        // format, too large) that retrying won't change; anything else
-        // (a plain thrown network error, or a retryable rejection) is
-        // requeued so the next trigger can retry it.
-        if (err instanceof SyncTimeoutError) {
-          await updatePendingCheckin(entry.id, { status: "failed", lastError: err.message });
-        } else if (err instanceof PhotoUploadRejectedError && !err.retryable) {
-          await updatePendingCheckin(entry.id, { status: "failed", lastError: err.message });
-        } else {
-          await updatePendingCheckin(entry.id, { status: "queued" });
-        }
-        continue;
-      }
-
-      try {
-        const { url: photoUrl, lqip: photoLqip } = photoResult.value;
-        const result = await withTimeout(
-          addDrink({ ...entry.payload, photoUrl, photoLqip, createdAt: entry.createdAt, clientId: entry.id }),
-          SYNC_STEP_TIMEOUT_MS
-        );
-        if (result.error) {
-          await updatePendingCheckin(entry.id, { status: "failed", lastError: result.error });
-          continue;
-        }
-
-        await removePendingCheckin(entry.id);
-        if (result.achievementUnlocked) triggerConfetti();
-        if (!options.silent) showToast("Check-in synced");
-      } catch (err) {
-        // A timeout is distinct from an immediate failure (e.g. genuinely
-        // offline): it means the request was actually in flight for the full
-        // timeout window, not instantly rejected, so retrying the very next
-        // trigger event would likely just hang again. Surface it as a
-        // "failed" entry with Retry/Cancel instead of silently requeuing it
-        // into another unattended hang, and let the pass continue to other
-        // entries rather than stopping the whole batch on one stuck upload.
-        if (err instanceof SyncTimeoutError) {
-          await updatePendingCheckin(entry.id, { status: "failed", lastError: err.message });
-          continue;
-        }
-        // Not a timeout — a genuine throw (fetch/network failure). Requeue
-        // this entry and keep going: if the device is truly offline, the
-        // remaining entries will throw the same way and get requeued too, no
-        // worse off than stopping early; but if this was a one-off failure
-        // on just this entry, the rest of the batch still gets a chance to
-        // sync in this same pass instead of waiting for the next trigger.
+    if (photoResult.status === "rejected") {
+      const err = photoResult.reason;
+      // Three distinct cases: a timeout means the upload was genuinely in
+      // flight for the full window (retrying immediately would likely
+      // just hang again); a non-retryable rejection means the server
+      // already gave a definitive "no" to this exact file (wrong
+      // format, too large) that retrying won't change; anything else
+      // (a plain thrown network error, or a retryable rejection) is
+      // requeued so the next trigger can retry it.
+      if (err instanceof SyncTimeoutError) {
+        await updatePendingCheckin(entry.id, { status: "failed", lastError: err.message });
+      } else if (err instanceof PhotoUploadRejectedError && !err.retryable) {
+        await updatePendingCheckin(entry.id, { status: "failed", lastError: err.message });
+      } else {
         await updatePendingCheckin(entry.id, { status: "queued" });
+      }
+      continue;
+    }
+
+    try {
+      const { url: photoUrl, lqip: photoLqip } = photoResult.value;
+      const result = await withTimeout(
+        addDrink({ ...entry.payload, photoUrl, photoLqip, createdAt: entry.createdAt, clientId: entry.id }),
+        SYNC_STEP_TIMEOUT_MS
+      );
+      if (result.error) {
+        await updatePendingCheckin(entry.id, { status: "failed", lastError: result.error });
         continue;
       }
+
+      await removePendingCheckin(entry.id);
+      if (result.achievementUnlocked) triggerConfetti();
+      if (!options.silent) showToast("Check-in synced");
+    } catch (err) {
+      // A timeout is distinct from an immediate failure (e.g. genuinely
+      // offline): it means the request was actually in flight for the full
+      // timeout window, not instantly rejected, so retrying the very next
+      // trigger event would likely just hang again. Surface it as a
+      // "failed" entry with Retry/Cancel instead of silently requeuing it
+      // into another unattended hang, and let the pass continue to other
+      // entries rather than stopping the whole batch on one stuck upload.
+      if (err instanceof SyncTimeoutError) {
+        await updatePendingCheckin(entry.id, { status: "failed", lastError: err.message });
+        continue;
+      }
+      // Not a timeout — a genuine throw (fetch/network failure). Requeue
+      // this entry and keep going: if the device is truly offline, the
+      // remaining entries will throw the same way and get requeued too, no
+      // worse off than stopping early; but if this was a one-off failure
+      // on just this entry, the rest of the batch still gets a chance to
+      // sync in this same pass instead of waiting for the next trigger.
+      await updatePendingCheckin(entry.id, { status: "queued" });
+      continue;
     }
-  } finally {
-    flushing = false;
   }
 }
