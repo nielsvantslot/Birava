@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 import { ControllerChangeReloadGate } from "@/lib/swControllerReload";
+import { FormDirtyTracker } from "@/lib/serviceWorkerUpdate/FormDirtyTracker";
+import { UpdateAvailableSignal } from "@/lib/serviceWorkerUpdate/UpdateAvailableSignal";
 
 export function ServiceWorkerRegistration() {
   useEffect(() => {
@@ -44,7 +46,21 @@ export function ServiceWorkerRegistration() {
     // the gate only ever returns true once regardless.
     const reloadGate = new ControllerChangeReloadGate(Boolean(navigator.serviceWorker.controller));
     navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (reloadGate.onControllerChange()) window.location.reload();
+      if (!reloadGate.onControllerChange()) return;
+      // A hard reload here would silently discard whatever the user is
+      // mid-typing (drink name, a picked photo) on /log — this event fires
+      // on every deploy that lands while the tab is open, not just rare
+      // ones, since registration.update() below is forced on every
+      // visibility change. Defer to UpdateAvailableBanner instead of
+      // reloading out from under them; FormDirtyTracker.onceClean() finishes
+      // the reload itself the moment it's actually safe to (submitted,
+      // cleared, or navigated away).
+      if (FormDirtyTracker.isDirty()) {
+        UpdateAvailableSignal.markPending();
+        FormDirtyTracker.onceClean(() => window.location.reload());
+      } else {
+        window.location.reload();
+      }
     });
 
     navigator.serviceWorker

@@ -12,7 +12,9 @@ import { ToastPill } from "@/components/ui/toast-pill";
 import { ConfirmModalHost } from "@/components/ui/confirm-modal";
 import { TimezoneSync } from "@/components/timezone-sync";
 import { OfflineBanner } from "@/components/offline-banner";
+import { UpdateAvailableBanner } from "@/components/update-available-banner";
 import { PendingCheckinsSync } from "@/components/drink/pending-checkins-sync";
+import { PendingCheckinsIndicator } from "@/components/drink/pending-checkins-indicator";
 import { drinkPhotoService } from "@/lib/photoUpload";
 
 export default function AppLayout({
@@ -23,6 +25,10 @@ export default function AppLayout({
   return (
     <div className="flex flex-col min-h-screen bg-[var(--bg)]">
       <OfflineBanner />
+      <UpdateAvailableBanner />
+      <Suspense fallback={null}>
+        <PendingCheckinsIndicatorLoader />
+      </Suspense>
       {/* usePathname reads request data — must sit inside Suspense under cacheComponents.
           Fixed to the viewport edge, outside the centered block below. */}
       <Suspense fallback={null}>
@@ -67,6 +73,19 @@ async function PendingCheckinsSyncLoader() {
   if (!user) return null;
 
   return <PendingCheckinsSync userId={user.id} supportsDirectUpload={drinkPhotoService.supportsDirectUpload} />;
+}
+
+// Same user-scoping as PendingCheckinsSyncLoader above, kept as its own
+// loader (rather than rendering both from one) so this indicator — which
+// renders visible UI at the top of every page — isn't gated behind the same
+// Suspense boundary as the sync effect, which renders nothing.
+async function PendingCheckinsIndicatorLoader() {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  return (
+    <PendingCheckinsIndicator userId={user.id} supportsDirectUpload={drinkPhotoService.supportsDirectUpload} />
+  );
 }
 
 async function AppHeaderLoader() {
