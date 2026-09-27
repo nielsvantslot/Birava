@@ -15,6 +15,7 @@ import { addPendingCheckin } from "@/lib/offline/pendingCheckins";
 import type { PendingCheckinPhoto } from "@/lib/offline/pendingCheckins";
 import { flushPendingCheckins } from "@/lib/offline/syncPendingCheckins";
 import { invalidateCachedPages } from "@/lib/swCache";
+import { FormDirtyTracker } from "@/lib/serviceWorkerUpdate/FormDirtyTracker";
 
 type Coords = { lat: number; lng: number };
 
@@ -272,6 +273,25 @@ export function CheckinForm({
       if (photoPreview?.startsWith("blob:")) URL.revokeObjectURL(photoPreview);
     };
   }, [photoPreview]);
+
+  // Lets ServiceWorkerRegistration defer a deploy's reload instead of
+  // silently discarding this — see FormDirtyTracker's own comment. Two
+  // separate effects deliberately: the unmount cleanup must only fire once,
+  // on a real unmount, not on every keystroke — a cleanup keyed to
+  // [name, venue, photoFile] would mark clean (and could fire a deferred
+  // reload) between every re-render, the instant before the same effect's
+  // own body reasserts dirty.
+  useEffect(() => {
+    const dirty = Boolean(name.trim() || venue.trim() || photoFile);
+    if (dirty) FormDirtyTracker.markDirty();
+    else FormDirtyTracker.markClean();
+  }, [name, venue, photoFile]);
+  useEffect(() => {
+    // Navigating away from /log already loses whatever was typed here the
+    // same way React unmounting always does, so a reload after that point
+    // isn't destroying anything the user hasn't already left.
+    return () => FormDirtyTracker.markClean();
+  }, []);
 
   const [error, setError] = useState<string | null>(null);
   const [coords, setCoords] = useState<Coords | null>(
