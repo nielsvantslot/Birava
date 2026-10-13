@@ -46,8 +46,10 @@ jobs:
 
       # The service Postgres above is already a fresh, isolated container
       # for this run — no separate test database needed in CI.
-      - name: Integration tests
-        run: npx vitest run --project integration
+      # Runs unit + integration together so coverage covers both, and fails
+      # if a floor in vitest.config.ts is breached.
+      - name: Integration tests and coverage
+        run: npx vitest run --coverage
 
       - name: Build
         run: npm run build
