@@ -1,5 +1,6 @@
 import { sendSessionReminders } from "@/lib/commands/sessionReminderCommands";
 import { verifyCronRequest } from "@/lib/auth/verifyCronRequest";
+import { CronRunLogger } from "@/lib/logging/CronRunLogger";
 
 // Invoked every 15 min by .github/workflows/session-reminders.yml — not
 // Vercel Cron, since the Hobby plan only allows once-a-day schedules there
@@ -11,6 +12,6 @@ export async function GET(request: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const { sent } = await sendSessionReminders();
+  const { sent } = await CronRunLogger.run("session-reminders", sendSessionReminders);
   return Response.json({ sent });
 }
