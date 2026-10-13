@@ -5,6 +5,7 @@ import { VercelBlobDirectUploadCoordinator } from "@/modules/photo-upload/adapte
 import type { IStorageAdapter } from "@/modules/photo-upload/adapters/IStorageAdapter";
 import type { IDirectUploadCoordinator } from "@/modules/photo-upload/adapters/IDirectUploadCoordinator";
 import { PRIVATE_BLOB_ACCESS } from "@/lib/blobAccess";
+import { Env } from "@/lib/env/Env";
 
 /**
  * The env-branching storage decision every composition root in this app
@@ -20,7 +21,7 @@ import { PRIVATE_BLOB_ACCESS } from "@/lib/blobAccess";
  */
 export class StorageAdapterFactory {
   static create(): IStorageAdapter {
-    if (process.env.NODE_ENV === "production") {
+    if (Env.isProduction) {
       return new VercelBlobStorageAdapter({ access: PRIVATE_BLOB_ACCESS });
     }
     return new LocalDiskStorageAdapter({
@@ -33,6 +34,6 @@ export class StorageAdapterFactory {
     // Local disk has no direct-upload capability — only wire this up where it
     // exists. Without it, the raw file travels through the request body even
     // in production, where Vercel Functions cap that at ~4.5MB.
-    return process.env.NODE_ENV === "production" ? new VercelBlobDirectUploadCoordinator() : undefined;
+    return Env.isProduction ? new VercelBlobDirectUploadCoordinator() : undefined;
   }
 }
