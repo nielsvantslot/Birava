@@ -275,6 +275,16 @@ Signup (`app/(auth)/signup/page.tsx`) auto-logs the new account in, then redirec
 
 Skipping lands on `/dashboard` (whose existing empty state already nudges toward logging a first drink); finishing the last step's own CTA goes straight to `/log` — clicking through to the end signals more intent than skipping does, so it gets the more decisive send-off.
 
+## Configuration, logging and observability (added 2026-10-13, v2 phase 0)
+
+Three cross-cutting pieces every layer above relies on:
+
+- **Configuration (`lib/env/`).** `ServerEnvParser` (zod) validates `process.env` once; `Env.server` is the only server-side reader (an ESLint rule bans `process.env` in `app/`, `components/`, `lib/` and `modules/` outside `lib/env`). Only `DATABASE_URL` is required locally; on any Vercel deployment (`VERCEL_ENV` set) `CRON_SECRET` and `BLOB_READ_WRITE_TOKEN` are required too, and the `VAPID_*` trio is all-or-none. `PublicEnv` holds the `NEXT_PUBLIC_*` values client code may read (literal property reads, so Next inlines them). `instrumentation.ts` touches `Env.server` at boot so a bad config fails startup with every problem listed at once.
+- **Logging (`lib/logging/`).** `LoggerFactory.create("<module>")` returns a JSON-lines `ILogger` that redacts secret-looking fields and serialises errors. Middleware (`lib/auth/proxy-session.ts`) stamps an `x-request-id` header on every request and response; `RequestContext` reads it so every line logged during a request carries it. Cron routes run through `CronRunLogger` (start, finish with duration and result, failure), and `requireUser`-wrapped handlers log and rethrow.
+- **Error and trace capture (`instrumentation.ts`).** Next's `onRequestError` hook logs every unhandled server error with stack, request id, route and render source (query strings are dropped, since they can carry invite codes). `@vercel/otel` instruments route handlers, server components and fetches; it exports only when an OTLP endpoint is configured or the host collects it, so it is vendor-neutral.
+
+**Decision (2026-10-13): no third-party error tracker yet.** Sentry's free-tier quotas could not be confirmed when this was decided, and `onRequestError` plus structured logs already satisfy "see a server failure without a user report" at no cost. The `ClientErrorLog` table stays for browser errors. Revisit when log search proves too slow to triage; Sentry (or any OTLP backend) can be added without touching call sites, because errors already funnel through one hook.
+
 ## Key boundaries to preserve
 
 - **Prisma models never cross the `lib/queries` / `lib/commands` boundary un-mapped.** Every query/command returns a `lib/dtos/*` class (see `lib/mappers/*` for the conversion), not a raw Prisma row — the one intentional, documented exception is `lib/controllers/drinkController.ts`'s read functions, which still return the legacy `DrinkEntry`/`DrinkSession` shape (`lib/types.ts`/`lib/sessions.ts`) the session-grouping engine is built on.
