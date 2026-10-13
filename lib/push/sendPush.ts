@@ -1,6 +1,7 @@
 import { WebPushError } from "web-push";
 import { db } from "@/lib/db";
 import { getWebPushClient } from "@/lib/push/webPushClient";
+import { LoggerFactory } from "@/lib/logging/LoggerFactory";
 
 export type PushPayload = {
   title: string;
@@ -12,6 +13,8 @@ export type PushPayload = {
   // Notification.openedAt (SESSION_REMINDER's engagement cap).
   id?: string;
 };
+
+const logger = LoggerFactory.create("push");
 
 /** Best-effort push to every device the user has subscribed from. Silently drops dead subscriptions. */
 export async function sendPushToUser(userId: string, payload: PushPayload): Promise<void> {
@@ -43,7 +46,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
         // signal — a systemic failure here would silently drop 100% of push
         // notifications with nothing in any log to notice it by. Not a dead
         // subscription, so it's left in place to retry on the next send.
-        console.error("sendPushToUser: push send failed", err);
+        logger.error("push send failed", { userId, error: err });
       }
     })
   );

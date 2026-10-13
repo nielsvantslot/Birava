@@ -3,6 +3,7 @@ import { SessionUserMapper } from "@/lib/mappers";
 import { SessionUserDTO } from "@/lib/dtos";
 import { NextResponse, type NextRequest } from "next/server";
 import { ContentSecurityPolicyBuilder } from "@/lib/security/ContentSecurityPolicyBuilder";
+import { RequestContext } from "@/lib/logging/RequestContext";
 
 /**
  * Carries the already-validated session user from middleware to the RSC render,
@@ -107,8 +108,10 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
+  const requestId = RequestContext.resolve(request.headers.get(RequestContext.HEADER));
   const requestHeaders = new Headers(request.headers);
   requestHeaders.delete(TRUSTED_USER_HEADER);
+  requestHeaders.set(RequestContext.HEADER, requestId);
   if (dto) {
     requestHeaders.set(TRUSTED_USER_HEADER, JSON.stringify(dto));
   }
@@ -120,5 +123,6 @@ export async function updateSession(request: NextRequest) {
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", csp);
+  response.headers.set(RequestContext.HEADER, requestId);
   return response;
 }

@@ -1,5 +1,6 @@
 import { cleanupOrphanedBlobs } from "@/lib/commands/photoCleanupCommands";
 import { verifyCronRequest } from "@/lib/auth/verifyCronRequest";
+import { CronRunLogger } from "@/lib/logging/CronRunLogger";
 
 // sharp isn't involved, but @vercel/blob's list()/del() need Node, not edge.
 export const runtime = "nodejs";
@@ -19,6 +20,6 @@ export async function GET(request: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const result = await cleanupOrphanedBlobs();
+  const result = await CronRunLogger.run("cleanup-orphaned-blobs", cleanupOrphanedBlobs);
   return Response.json(result);
 }
