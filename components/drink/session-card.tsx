@@ -193,7 +193,7 @@ export function SessionCard({
       {lone && (
         <div className="checkin-line">
           <span className="meta">
-            {[checkins[0].drink_type, checkins[0].venue]
+            {[checkins[0]!.drink_type, checkins[0]!.venue]
               .filter(Boolean)
               .join(" · ")}
           </span>

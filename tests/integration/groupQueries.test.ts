@@ -73,8 +73,8 @@ describe("getCrewDetailForViewer", () => {
     const detail = await getCrewDetailForViewer(group.id, owner.id);
     expect(detail).not.toBeNull();
     expect(detail!.recentSessions).toHaveLength(1);
-    expect(detail!.recentSessions[0].id).toBe(anchor.sessionId);
-    expect(detail!.recentSessions[0].id).not.toBe(backdated.id);
+    expect(detail!.recentSessions[0]!.id).toBe(anchor.sessionId);
+    expect(detail!.recentSessions[0]!.id).not.toBe(backdated.id);
   });
 
   it("counts distinct venues per member (venue relation included in the scoring query)", async () => {

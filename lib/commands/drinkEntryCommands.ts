@@ -493,25 +493,26 @@ async function reclusterSessionAfterDelete(
   }
   clusters.push(current);
 
-  const [first, ...rest] = clusters;
+  // Every cluster is non-empty and `clusters` has at least one entry.
+  const [first, ...rest] = clusters as [typeof remaining, ...(typeof remaining)[]];
   await tx.drinkSession.update({
     where: { id: sessionId },
     data: {
-      startedAt: first[0].createdAt,
-      endedAt: first[first.length - 1].createdAt,
+      startedAt: first[0]!.createdAt,
+      endedAt: first[first.length - 1]!.createdAt,
       ...CLEAR_SHARE_IMAGE_CACHE,
     },
   });
 
   for (const cluster of rest) {
-    const newSessionId = cluster[0].id;
+    const newSessionId = cluster[0]!.id;
     // A freshly created row — no cache to invalidate.
     await tx.drinkSession.create({
       data: {
         id: newSessionId,
         userId,
-        startedAt: cluster[0].createdAt,
-        endedAt: cluster[cluster.length - 1].createdAt,
+        startedAt: cluster[0]!.createdAt,
+        endedAt: cluster[cluster.length - 1]!.createdAt,
       },
     });
     await tx.drinkEntry.updateMany({

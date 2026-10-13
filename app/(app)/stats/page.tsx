@@ -64,7 +64,7 @@ function SessionsPerWeekChart({
       </g>
       <circle
         cx={x(counts.length - 1)}
-        cy={y(counts[counts.length - 1])}
+        cy={y(counts[counts.length - 1]!)}
         r="5.5"
         fill="#A9C641"
         stroke="#EEF2E7"

@@ -41,7 +41,7 @@ describe("scoreCrew", () => {
     ];
 
     const board = scoreCrew(members, rows);
-    expect(board.scores[0].sessions).toBe(1);
+    expect(board.scores[0]!.sessions).toBe(1);
   });
 
   it("ignores rows from users who aren't crew members", () => {
@@ -50,7 +50,7 @@ describe("scoreCrew", () => {
     const rows = [row({ userId: "someone-else", createdAt: new Date("2026-02-01T00:00:00.000Z") })];
 
     const board = scoreCrew(members, rows);
-    expect(board.scores[0].sessions).toBe(0);
+    expect(board.scores[0]!.sessions).toBe(0);
     expect(board.recentSessions).toHaveLength(0);
   });
 
@@ -68,10 +68,10 @@ describe("scoreCrew", () => {
 
     const board = scoreCrew(members, rows);
     // bob has more sessions (2 vs 1), so ranks first despite fewer venues.
-    expect(board.scores[0].userId).toBe("bob");
-    expect(board.scores[0].sessions).toBe(2);
-    expect(board.scores[1].userId).toBe("alice");
-    expect(board.scores[1].venues).toBe(2);
+    expect(board.scores[0]!.userId).toBe("bob");
+    expect(board.scores[0]!.sessions).toBe(2);
+    expect(board.scores[1]!.userId).toBe("alice");
+    expect(board.scores[1]!.venues).toBe(2);
   });
 
   it("breaks a sessions tie by total drinks, not venues", () => {
@@ -87,10 +87,10 @@ describe("scoreCrew", () => {
     ];
 
     const board = scoreCrew(members, rows);
-    expect(board.scores[0].userId).toBe("alice");
-    expect(board.scores[0].drinks).toBe(3);
-    expect(board.scores[1].userId).toBe("bob");
-    expect(board.scores[1].drinks).toBe(1);
+    expect(board.scores[0]!.userId).toBe("alice");
+    expect(board.scores[0]!.drinks).toBe(3);
+    expect(board.scores[1]!.userId).toBe("bob");
+    expect(board.scores[1]!.drinks).toBe(1);
   });
 
   it("returns an empty board for a crew with no members", () => {
@@ -107,6 +107,6 @@ describe("scoreCrew", () => {
     ];
 
     const board = scoreCrew(members, rows, closedAt);
-    expect(board.scores[0].sessions).toBe(1);
+    expect(board.scores[0]!.sessions).toBe(1);
   });
 });

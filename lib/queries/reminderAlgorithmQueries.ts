@@ -41,8 +41,8 @@ export async function getIntraSessionGapsForUsers(userIds: string[]): Promise<Ma
     const gaps: number[] = [];
     for (const session of sessions) {
       for (let i = 1; i < session.checkins.length; i++) {
-        const prev = new Date(session.checkins[i - 1].created_at).getTime();
-        const curr = new Date(session.checkins[i].created_at).getTime();
+        const prev = new Date(session.checkins[i - 1]!.created_at).getTime();
+        const curr = new Date(session.checkins[i]!.created_at).getTime();
         gaps.push(curr - prev);
       }
     }
@@ -77,7 +77,7 @@ export async function getIntraSessionGapsBySessionId(sessionIds: string[]): Prom
   for (const [sessionId, timestamps] of timestampsBySession) {
     const gaps: number[] = [];
     for (let i = 1; i < timestamps.length; i++) {
-      gaps.push(timestamps[i].getTime() - timestamps[i - 1].getTime());
+      gaps.push(timestamps[i]!.getTime() - timestamps[i - 1]!.getTime());
     }
     gapsBySession.set(sessionId, gaps);
   }

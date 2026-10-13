@@ -26,7 +26,7 @@ export async function getLatestBackup(): Promise<BackupBlob> {
   if (backups.length === 0) {
     throw new Error(`No backups found under ${BACKUP_PREFIX}.`);
   }
-  return backups[0];
+  return backups[0]!;
 }
 
 export async function downloadBackup(blob: BackupBlob, destPath: string): Promise<void> {

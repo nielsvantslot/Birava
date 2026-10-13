@@ -32,7 +32,8 @@ export class PostgresRateLimiter implements IRateLimiter {
       RETURNING count, "windowStart"
     `;
 
-    const row = rows[0];
+    // An upsert with RETURNING always yields exactly one row.
+    const row = rows[0]!;
     const allowed = row.count <= limit;
     return {
       allowed,

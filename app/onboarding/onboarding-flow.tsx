@@ -72,7 +72,7 @@ export function OnboardingFlow({
   const [stepIndex, setStepIndex] = useState(0);
   const [isPending, startTransition] = useTransition();
   const isLastStep = stepIndex === STEPS.length - 1;
-  const step = STEPS[stepIndex];
+  const step = STEPS[stepIndex]!;
   const Icon = step.icon;
 
   const finish = (destination: "/dashboard" | "/log") => {

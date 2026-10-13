@@ -49,7 +49,7 @@ describe("PhotoUploader.upload (direct mode)", () => {
 
     expect(result).toEqual({ url: "https://cdn/final.jpg", lqip: "abc" });
     expect(fetch).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(fetch).mock.calls[0][0]).toBe("/finalize");
+    expect(vi.mocked(fetch).mock.calls[0]![0]).toBe("/finalize");
   });
 
   it("falls back to the server route once the direct upload passes the timeout, when a fallback is configured", async () => {
