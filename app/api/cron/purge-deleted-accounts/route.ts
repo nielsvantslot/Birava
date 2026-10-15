@@ -1,5 +1,5 @@
 import { purgeExpiredDeletedAccounts } from "@/modules/identity";
-import { verifyCronRequest } from "@/modules/identity/server/verifyCronRequest";
+import { gateway } from "@/modules/identity/server/gateway";
 import { CronRunLogger } from "@/lib/logging/CronRunLogger";
 
 // @vercel/blob's del() (via drinkPhotoService/avatarPhotoService) needs Node, not edge.
@@ -17,11 +17,7 @@ export const maxDuration = 60;
 // cleanup-orphaned-blobs, rather than vercel.json's native cron, so every
 // scheduled job lives on one platform. Guarded by CRON_SECRET (same value
 // already used by the other cron routes).
-export async function GET(request: Request) {
-  if (!verifyCronRequest(request)) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-
+export const GET = gateway.route.cron({ name: "cron.purge-deleted-accounts" }, async () => {
   const result = await CronRunLogger.run("purge-deleted-accounts", purgeExpiredDeletedAccounts);
   return Response.json(result);
-}
+});

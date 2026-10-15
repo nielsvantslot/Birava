@@ -1,6 +1,6 @@
 import { pruneClientErrorLogs } from "@/modules/diagnostics";
 import { RateLimitBucketPruner } from "@/lib/rateLimit/RateLimitBucketPruner";
-import { verifyCronRequest } from "@/modules/identity/server/verifyCronRequest";
+import { gateway } from "@/modules/identity/server/gateway";
 import { CronRunLogger } from "@/lib/logging/CronRunLogger";
 
 // Invoked once daily by .github/workflows/prune-client-error-logs.yml —
@@ -9,11 +9,7 @@ import { CronRunLogger } from "@/lib/logging/CronRunLogger";
 // used by the other cron routes). Also prunes RateLimitBucket — sharing this
 // cron's schedule rather than standing up a second one for another small,
 // unrelated table.
-export async function GET(request: Request) {
-  if (!verifyCronRequest(request)) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-
+export const GET = gateway.route.cron({ name: "cron.prune-client-error-logs" }, async () => {
   const result = await CronRunLogger.run("prune-client-error-logs", async () => {
     const [clientErrorLogResult, rateLimitBucketsDeleted] = await Promise.all([
       pruneClientErrorLogs(),
@@ -22,4 +18,4 @@ export async function GET(request: Request) {
     return { ...clientErrorLogResult, rateLimitBucketsDeleted };
   });
   return Response.json(result);
-}
+});

@@ -6,6 +6,7 @@
 
 * [Backend architecture](architecture.md)
 * [ADR 0001: Module map and dependency rules](adr/0001-module-map-and-dependency-rules.md)
+* [ADR 0002: One gateway for every Route Handler and Server Action](adr/0002-gateway.md)
 
 ## Audit reports
 

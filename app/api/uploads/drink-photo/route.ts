@@ -1,15 +1,21 @@
-import { PhotoUploadRouteFactory } from "@/modules/photo-upload/PhotoUploadRouteFactory";
+import { PhotoUploadRouteHandlers } from "@/modules/photo-upload/PhotoUploadRouteHandlers";
 import { drinkPhotoService } from "@/modules/media/server/photoUpload";
-import { getCurrentUser } from "@/modules/identity/server/session";
+import { UploadErrorMapper } from "@/modules/media/server/UploadErrorMapper";
+import { uploadFileForm, uploadUrlInput } from "@/modules/media/contract/uploadContract";
+import { gateway } from "@/modules/identity/server/gateway";
 
 // Local dev only (disk storage has no direct-upload capability) — production
 // uploads straight to Blob via blob-token/ + finalize/.
-export const POST = PhotoUploadRouteFactory.createUploadRoute<RouteContext<"/api/uploads/drink-photo">>(
-  drinkPhotoService,
-  async () => getCurrentUser()
+export const POST = gateway.route.authed(
+  { name: "uploads.drink-photo.create", form: uploadFileForm },
+  ({ request, user, input }) =>
+    UploadErrorMapper.run(() =>
+      PhotoUploadRouteHandlers.upload(drinkPhotoService, { file: input.form.file, request, ownerId: user.id })
+    )
 );
 
-export const DELETE = PhotoUploadRouteFactory.createDeleteRoute<RouteContext<"/api/uploads/drink-photo">>(
-  drinkPhotoService,
-  async () => getCurrentUser()
+export const DELETE = gateway.route.authed(
+  { name: "uploads.drink-photo.delete", body: uploadUrlInput },
+  ({ user, input }) =>
+    UploadErrorMapper.run(() => PhotoUploadRouteHandlers.remove(drinkPhotoService, { url: input.body.url, ownerId: user.id }))
 );

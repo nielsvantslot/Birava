@@ -1,8 +1,13 @@
-import { PhotoUploadRouteFactory } from "@/modules/photo-upload/PhotoUploadRouteFactory";
+import { PhotoUploadRouteHandlers } from "@/modules/photo-upload/PhotoUploadRouteHandlers";
 import { drinkPhotoService } from "@/modules/media/server/photoUpload";
-import { getCurrentUser } from "@/modules/identity/server/session";
+import { UploadErrorMapper } from "@/modules/media/server/UploadErrorMapper";
+import { directUploadTokenInput } from "@/modules/media/contract/uploadContract";
+import { gateway } from "@/modules/identity/server/gateway";
 
-export const POST = PhotoUploadRouteFactory.createDirectUploadTokenRoute<RouteContext<"/api/uploads/drink-photo/blob-token">>(
-  drinkPhotoService,
-  async () => getCurrentUser()
+export const POST = gateway.route.authed(
+  { name: "uploads.drink-photo.token", body: directUploadTokenInput },
+  ({ request, user, input }) =>
+    UploadErrorMapper.run(() =>
+      PhotoUploadRouteHandlers.createDirectUploadToken(drinkPhotoService, { requestBody: input.body, request, ownerId: user.id })
+    )
 );

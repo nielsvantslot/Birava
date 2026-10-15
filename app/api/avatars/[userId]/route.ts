@@ -1,5 +1,7 @@
+import { z } from "zod";
 import crypto from "crypto";
-import { requireUser } from "@/modules/identity/server/requireUser";
+import { ApiError } from "@/lib/gateway/ApiError";
+import { gateway } from "@/modules/identity/server/gateway";
 import { avatarPhotoService } from "@/modules/media/server/avatarPhoto";
 import { getViewableAvatarUrl } from "@/modules/identity/server/userQueries";
 
@@ -13,12 +15,13 @@ import { getViewableAvatarUrl } from "@/modules/identity/server/userQueries";
 // instead of `immutable` silently serving a stale cached avatar for a year.
 const CACHE_CONTROL = "private, no-cache";
 
-export const GET = requireUser<RouteContext<"/api/avatars/[userId]">>(
-  async (request, _user, { params }) => {
-    const { userId } = await params;
+export const GET = gateway.route.authed(
+  { name: "avatars.get", params: z.object({ userId: z.string().min(1) }) },
+  async ({ request, input }) => {
+    const { userId } = input.params;
 
     const avatarUrl = await getViewableAvatarUrl(userId);
-    if (!avatarUrl) return new Response("Not found", { status: 404 });
+    if (!avatarUrl) throw ApiError.notFound();
 
     const etag = `"${crypto.createHash("sha1").update(avatarUrl).digest("hex")}"`;
     if (request.headers.get("if-none-match") === etag) {
@@ -29,7 +32,7 @@ export const GET = requireUser<RouteContext<"/api/avatars/[userId]">>(
     }
 
     const photo = await avatarPhotoService.read(avatarUrl);
-    if (!photo) return new Response("Not found", { status: 404 });
+    if (!photo) throw ApiError.notFound();
 
     return new Response(photo.stream, {
       headers: {

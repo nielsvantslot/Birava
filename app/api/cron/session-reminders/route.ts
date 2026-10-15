@@ -1,5 +1,5 @@
 import { sendSessionReminders } from "@/modules/notifications";
-import { verifyCronRequest } from "@/modules/identity/server/verifyCronRequest";
+import { gateway } from "@/modules/identity/server/gateway";
 import { CronRunLogger } from "@/lib/logging/CronRunLogger";
 
 // Invoked every 15 min by .github/workflows/session-reminders.yml — not
@@ -7,11 +7,7 @@ import { CronRunLogger } from "@/lib/logging/CronRunLogger";
 // (see vercel.json's git history). Guarded by CRON_SECRET (must match the
 // same value in the Vercel project's env vars and this repo's Actions
 // secrets) so this can't be triggered by anyone who finds the URL.
-export async function GET(request: Request) {
-  if (!verifyCronRequest(request)) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-
+export const GET = gateway.route.cron({ name: "cron.session-reminders" }, async () => {
   const { sent } = await CronRunLogger.run("session-reminders", sendSessionReminders);
   return Response.json({ sent });
-}
+});
