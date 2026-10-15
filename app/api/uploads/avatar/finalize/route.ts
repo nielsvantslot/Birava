@@ -3,6 +3,7 @@ import { ApiError } from "@/lib/gateway/ApiError";
 import { gateway } from "@/modules/identity/server/gateway";
 import { finalizeAvatarUpload } from "@/modules/identity";
 import { PhotoUploadError } from "@/modules/photo-upload/Errors/PhotoUploadError";
+import { LoggerFactory } from "@/lib/logging/LoggerFactory";
 import { UploadErrorMapper } from "@/modules/media/server/UploadErrorMapper";
 import { uploadUrlInput } from "@/modules/media/contract/uploadContract";
 
@@ -13,14 +14,17 @@ export const runtime = "nodejs";
 // the generic store/return-url contract, not this app's avatar-specific side
 // effect of also pointing User.avatarUrl at the result. Mirrors ./route.ts's
 // plain-upload path, which needs the exact same step.
+const logger = LoggerFactory.create("avatar-upload");
+
 export const POST = gateway.route.authed(
-  { name: "uploads.avatar.finalize", body: uploadUrlInput },
+  { name: "uploads.avatar.finalize", body: uploadUrlInput, invalidMessage: "Invalid upload." },
   ({ request, user, input }) =>
     UploadErrorMapper.run(async () => {
       if (request.signal.aborted) throw new ApiError("CLIENT_CLOSED", "Upload cancelled.");
 
       const result = await finalizeAvatarUpload(user.id, input.body.url).catch((error: unknown) => {
         if (error instanceof PhotoUploadError) throw error;
+        logger.error("avatar finalize failed", { userId: user.id, error });
         throw ApiError.validation("Failed to process photo.");
       });
       if (result.error) throw new ApiError("INTERNAL", result.error);

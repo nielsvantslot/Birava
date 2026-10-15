@@ -52,6 +52,23 @@ describe("PhotoUploader.upload (direct mode)", () => {
     expect(vi.mocked(fetch).mock.calls[0]![0]).toBe("/finalize");
   });
 
+  it("reads an envelope error and treats a rate limit as retryable but a rejected file as final", async () => {
+    const transport = immediateTransport("https://blob/raw.jpg");
+    const endpoints = { ...baseEndpoints, transport };
+    const reply = (status: number, message: string) =>
+      vi.mocked(fetch).mockResolvedValueOnce({
+        ok: false,
+        status,
+        json: async () => ({ error: { code: "X", message } }),
+      } as Response);
+
+    reply(429, "Too many requests. Try again shortly.");
+    expect(await PhotoUploader.upload(makeFile(), endpoints)).toEqual({ error: "Too many requests. Try again shortly.", retryable: true });
+
+    reply(400, "That photo can't be read.");
+    expect(await PhotoUploader.upload(makeFile(), endpoints)).toEqual({ error: "That photo can't be read.", retryable: false });
+  });
+
   it("falls back to the server route once the direct upload passes the timeout, when a fallback is configured", async () => {
     vi.mocked(fetch).mockResolvedValue({
       ok: true,

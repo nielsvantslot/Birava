@@ -10,6 +10,7 @@ export const DEFAULT_USER_RATE_LIMIT: RateLimitSpec = {
   windowMs: 60 * 1000,
   scope: "user",
   message: "Too many requests. Try again shortly.",
+  failOpen: true,
 };
 
 export class RateLimitGuard {
@@ -20,8 +21,8 @@ export class RateLimitGuard {
 
   /**
    * Counts one attempt against `spec`, throwing RATE_LIMITED (with Retry-After) when over. `subject` is the IP or user id.
-   * The default limit is a safety net, not a security control, so when the limiter itself is down it lets the request
-   * through (and logs) rather than failing every mutation. An endpoint's own explicit limit (login, signup) fails closed.
+   * A limit marked `failOpen` (the default, and best-effort endpoints like the error beacon) lets the request through
+   * when the limiter itself is down, and logs it. An endpoint's own abuse control (login, signup) fails closed.
    */
   async consume(spec: RateLimitSpec, name: string, subject: string): Promise<void> {
     const key = `${spec.bucket === "default" ? `${name}` : spec.bucket}:${subject}`;
@@ -29,7 +30,7 @@ export class RateLimitGuard {
     try {
       result = await this.limiter.consume(key, spec.limit, spec.windowMs);
     } catch (error) {
-      if (spec !== DEFAULT_USER_RATE_LIMIT) throw error;
+      if (!spec.failOpen) throw error;
       this.logger.warn("rate limiter unavailable, allowing request", { key, error });
       return;
     }

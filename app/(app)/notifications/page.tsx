@@ -2,11 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { getCurrentUser } from "@/modules/identity/server/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import {
-  getMyNotifications,
-  getMyHasPushSubscription,
-  getMyUnreadNotificationCount,
-} from "@/modules/notifications/actions/notificationController";
+import { getMyNotifications, getMyHasPushSubscription, getMyUnreadNotificationCount } from "@/modules/notifications/server/notificationReads";
 import { timeAgo } from "@/lib/dates";
 import { avatarSrc, cn } from "@/lib/utils";
 import { MarkReadOnView } from "@/components/notifications/mark-read-on-view";

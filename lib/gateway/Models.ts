@@ -9,6 +9,8 @@ export type RateLimitSpec = {
   scope: "ip" | "user";
   /** Shown to the caller when the limit is hit. */
   message?: string;
+  /** When the limiter itself is down, let the request through (for a best-effort endpoint) instead of failing it. */
+  failOpen?: boolean;
 };
 
 /** A limit for an endpoint with no signed-in user: always counted per IP (a per-user bucket would be one shared bucket for everyone). */

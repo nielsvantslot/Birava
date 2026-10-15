@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/modules/identity/server/session";
 import { getUserTimeZone } from "@/lib/timezone";
 import { getLocalLegendVenue } from "@/modules/sessions/domain/sessions";
-import { getMyFeedSessions, getMyRecentDrinkHistoryForLegend } from "@/modules/checkins/actions/drinkController";
+import { getMyFeedSessions, getMyRecentDrinkHistoryForLegend } from "@/modules/checkins/server/drinkReads";
 import { ScreenTabs } from "@/components/ui/screen-tabs";
 import { DashboardFeed } from "@/components/drink/dashboard-feed";
 import { SessionCardSkeleton } from "@/components/ui/skeleton";

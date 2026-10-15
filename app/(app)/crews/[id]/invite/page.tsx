@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/modules/identity/server/session";
-import { getCrewInviteCandidates } from "@/modules/crews/actions/groupController";
+import { getCrewInviteCandidates } from "@/modules/crews/server/crewReads";
 import { CrewInvitePage } from "@/components/drink/crew-invite-page";
 
 export default async function CrewInvitePageRoute({

@@ -1,10 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getCurrentUser, clearUserSession } from "@/modules/identity/server/session";
-import { NOT_AUTHENTICATED } from "@/modules/identity/server/authErrors";
+import { gateway } from "@/modules/identity/server/gateway";
+import { clearUserSession } from "@/modules/identity/server/session";
 import { requestAccountDeletion as requestAccountDeletionCommand } from "@/modules/identity/application/userCommands";
-import { ActionResultDTO } from "@/lib/dtos";
 
 /**
  * Starts the GDPR-erasure grace period for the current user (see
@@ -14,10 +13,7 @@ import { ActionResultDTO } from "@/lib/dtos";
  * cookie, so without this the current tab would still look logged in until
  * its next auth check.
  */
-export async function requestAccountDeletion(): Promise<ActionResultDTO> {
-  const user = await getCurrentUser();
-  if (!user) return NOT_AUTHENTICATED;
-
+export const requestAccountDeletion = gateway.action.authed({ name: "identity.request-account-deletion" }, async ({ user }) => {
   const result = await requestAccountDeletionCommand(user.id);
   if (!result.error) {
     await clearUserSession();
@@ -27,4 +23,4 @@ export async function requestAccountDeletion(): Promise<ActionResultDTO> {
     revalidatePath("/crews", "layout");
   }
   return result;
-}
+});

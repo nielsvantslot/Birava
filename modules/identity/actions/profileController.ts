@@ -1,26 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getCurrentUser } from "@/modules/identity/server/session";
-import { NOT_AUTHENTICATED } from "@/modules/identity/server/authErrors";
+import { gateway } from "@/modules/identity/server/gateway";
 import { updateProfileUsername as updateProfileUsernameCommand } from "@/modules/identity/application/userCommands";
-import { getProfileByUsername as getProfileByUsernameQuery } from "@/modules/identity/server/userQueries";
-import { ActionResultDTO, GetProfileByUsernameDTO, ProfileDTO, UpdateProfileDTO } from "@/lib/dtos";
+import { updateUsernameInput } from "@/modules/identity/contract/accountContract";
 
-export async function updateProfileUsername(input: UpdateProfileDTO): Promise<ActionResultDTO> {
-  const user = await getCurrentUser();
-  if (!user) return NOT_AUTHENTICATED;
+// Mutations only: the profile read lives in modules/identity/server/profileReads.ts (a Server Action is a public POST endpoint).
 
-  const result = await updateProfileUsernameCommand(user.id, input);
-  if (!result.error) {
-    revalidatePath("/profile");
-    revalidatePath(`/profile/${input.username.trim()}`);
+export const updateProfileUsername = gateway.action.authed(
+  { name: "identity.update-username", input: updateUsernameInput },
+  async ({ user, input }) => {
+    const result = await updateProfileUsernameCommand(user.id, input);
+    if (!result.error) {
+      revalidatePath("/profile");
+      revalidatePath(`/profile/${input.username.trim()}`);
+    }
+    return result;
   }
-  return result;
-}
-
-export async function getProfileByUsername(
-  input: GetProfileByUsernameDTO
-): Promise<ProfileDTO | null> {
-  return getProfileByUsernameQuery(input.username);
-}
+);

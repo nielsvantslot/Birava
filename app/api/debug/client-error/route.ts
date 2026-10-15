@@ -29,7 +29,7 @@ export const POST = gateway.route.public(
     name: "debug.client-error",
     body: reportClientErrorInput,
     // 120 reports / minute / IP: a crash loop is worth seeing, a flood is not.
-    rateLimit: { bucket: "client-error", limit: 120, windowMs: 60 * 1000, scope: "ip" },
+    rateLimit: { bucket: "client-error", limit: 120, windowMs: 60 * 1000, scope: "ip", failOpen: true },
   },
   async ({ input }) => {
     const body = input.body;

@@ -80,8 +80,8 @@ describe("drinkController revalidation scope", () => {
     updateDrinkEntry.mockResolvedValue({ revalidatedPaths: ["/sessions/session-2"] });
     deleteDrinkEntry.mockResolvedValue({ revalidatedPaths: ["/sessions/session-3"] });
 
-    await editDrink({ id: "entry-2", drinkName: "IPA", drinkType: "Beer", venue: null, lat: null, lng: null, photoUrl: null, photoLqip: null });
-    await deleteDrink({ id: "entry-3" });
+    await editDrink({ id: "00000000-0000-4000-8000-000000000002", drinkName: "IPA", drinkType: "Beer", venue: null, lat: null, lng: null, photoUrl: null, photoLqip: null });
+    await deleteDrink({ id: "00000000-0000-4000-8000-000000000003" });
 
     expect(revalidatePath).toHaveBeenCalledWith("/sessions/session-2");
     expect(revalidatePath).toHaveBeenCalledWith("/sessions/session-3");
@@ -92,7 +92,7 @@ describe("drinkController revalidation scope", () => {
     getGroupIdsForUser.mockResolvedValue([]);
     renameSession.mockResolvedValue({ revalidatedPaths: ["/sessions/session-4"] });
 
-    await renameSessionAction({ id: "session-4", name: "Big night" });
+    await renameSessionAction({ id: "00000000-0000-4000-8000-000000000004", name: "Big night" });
 
     expect(revalidatePath).toHaveBeenCalledWith("/sessions/session-4");
     expect(revalidatePath).not.toHaveBeenCalledWith(expect.stringMatching(/^\/crews\//));

@@ -142,6 +142,19 @@ describe("flushPendingCheckins", () => {
     expect(removePendingCheckin).toHaveBeenCalledWith("next");
   });
 
+  it("keeps an entry queued (not failed) when the gateway says the limiter or an upstream service said not now", async () => {
+    getAllPendingCheckins.mockResolvedValue([entry({ id: "limited" })]);
+    addDrinkMock.mockResolvedValueOnce({ error: "Too many requests. Try again shortly.", code: "RATE_LIMITED" });
+
+    await flushPendingCheckins("user-1", true, { silent: true });
+
+    expect(updatePendingCheckin).toHaveBeenCalledWith("limited", {
+      status: "queued",
+      lastError: "Too many requests. Try again shortly.",
+    });
+    expect(removePendingCheckin).not.toHaveBeenCalled();
+  });
+
   it("skips entries already marked failed without calling addDrink", async () => {
     getAllPendingCheckins.mockResolvedValue([entry({ id: "already-failed", status: "failed" })]);
 
