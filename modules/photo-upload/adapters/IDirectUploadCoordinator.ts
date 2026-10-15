@@ -20,7 +20,7 @@ export interface HandleTokenRequestInput {
  * have this shape.
  *
  * The request/response shape is provider-specific and passed through
- * opaquely — `PhotoUploadRouteFactory` (`PhotoUploadRouteFactory.ts`) just forwards it.
+ * opaquely — `PhotoUploadRouteHandlers` (`PhotoUploadRouteHandlers.ts`) just forwards it.
  */
 export interface IDirectUploadCoordinator {
   handleTokenRequest(input: HandleTokenRequestInput): Promise<Json>;

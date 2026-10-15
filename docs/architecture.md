@@ -289,6 +289,20 @@ Three cross-cutting pieces every layer above relies on:
 
 Feature code is organised into modules (`modules/<name>/{contract,domain,application,infrastructure}` plus an `index.ts`), with `lib/` as the platform and shared kernel. The module map and the import rules are in [ADR 0001](adr/0001-module-map-and-dependency-rules.md). They are enforced by `.dependency-cruiser.cjs` (`npm run depcruise`, a CI step) and, for editor feedback, ESLint `no-restricted-imports`. Domain code cannot import Prisma, Next or React; other modules and the UI reach a module only through its index, `contract/` or `domain/`.
 
+## Gateway (added 2026-10-15, v2 phase 2)
+
+Everything the outside world can call is built through one gateway: `gateway.route.authed|public|cron` for Route Handlers and `gateway.action.authed|public` for Server Actions (`lib/gateway`, composed in `modules/identity/server/gateway.ts`; decision in [ADR 0002](adr/0002-gateway.md)). Each call runs the same steps: origin check (mutating routes), authentication, rate limit, zod input validation (`modules/<name>/contract`), the handler, then error mapping to `{ error: { code, message, fields? } }`.
+
+```mermaid
+flowchart LR
+    Req["Request / action call"] --> Origin["Origin check<br/>(mutating routes)"]
+    Origin --> Auth["Authenticate<br/>session or cron secret"]
+    Auth --> Limit["Rate limit<br/>per user or IP"]
+    Limit --> Parse["Validate input<br/>zod contract"]
+    Parse --> Handler["Handler"]
+    Handler --> Map["Map ApiError to envelope<br/>log anything unexpected"]
+```
+
 ## Key boundaries to preserve
 
 - **Prisma models never cross the `modules/*/server` / `modules/*/application` boundary un-mapped.** Every query/command returns a `lib/dtos/*` class (see `lib/mappers/*` for the conversion), not a raw Prisma row — the one intentional, documented exception is `modules/checkins/actions/drinkController.ts`'s read functions, which still return the legacy `DrinkEntry`/`DrinkSession` shape (`lib/types.ts`/`modules/sessions/domain/sessions.ts`) the session-grouping engine is built on.
