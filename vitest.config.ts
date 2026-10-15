@@ -5,6 +5,28 @@ const alias = { "@": path.resolve(__dirname, ".") };
 
 export default defineConfig({
   test: {
+    coverage: {
+      provider: "v8",
+      // Coverage is measured over the server-side logic only; UI components
+      // and route files are covered by Playwright, not by line coverage.
+      include: ["lib/**/*.ts", "modules/**/*.ts"],
+      exclude: ["**/*.test.ts", "lib/dtos/**", "**/*.d.ts"],
+      reporter: ["text-summary", "json-summary"],
+      reportsDirectory: "coverage",
+      // Floors, not targets: set just below the values measured when this
+      // was introduced (2026-10), so coverage can only ratchet up. Raise a
+      // floor in the same PR that raises the coverage behind it. UI code
+      // deliberately has none.
+      thresholds: {
+        // Pure domain rules — the Birava 2.0 invariants live here.
+        "lib/{sessions,achievements,crews,dates,sessionReminderAlgorithm,mapProjection,venueMatching,backupRetention}.ts": {
+          lines: 92,
+          branches: 88,
+        },
+        "lib/commands/**": { lines: 35, branches: 32 },
+        "lib/queries/**": { lines: 55, branches: 35 },
+      },
+    },
     projects: [
       {
         resolve: { alias },

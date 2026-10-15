@@ -27,6 +27,7 @@
     "db:test:down": "docker compose --profile test rm -sf db-test",
     "test:unit": "vitest run --project unit",
     "test:integration": "dotenv -e .env.test -o -- npx prisma migrate deploy && dotenv -e .env.test -o -- vitest run --project integration",
+    "test:coverage": "dotenv -e .env.test -o -- vitest run --coverage",
     "test:e2e": "playwright test",
     "test": "npm run test:unit && npm run test:integration && npm run test:e2e"
   },
@@ -65,6 +66,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
+    "@vitest/coverage-v8": "^4.1.10",
     "dotenv": "^16.4.5",
     "dotenv-cli": "^7.4.4",
     "eslint": "^9",
