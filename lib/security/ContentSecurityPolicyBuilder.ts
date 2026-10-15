@@ -31,7 +31,9 @@ import { Env } from "@/lib/env/Env";
  * modules/checkins/client/syncPendingCheckins.ts). The store id is per-project and not
  * knowable at build time, hence the wildcard; CI never caught this because
  * it always exercises the local-disk storage path (same-origin), never the
- * direct-to-Blob one.
+ * direct-to-Blob one. The v2 SDK's client upload also calls Vercel's blob API at
+ * `https://vercel.com/api/blob/` (observed on staging 2026-10-15: CSP refused it, so
+ * every direct upload hung until the 15s fallback to the server route), hence that entry.
  * `upgrade-insecure-requests` is scoped to production for the same reason
  * as 'unsafe-eval' is scoped away from it: local dev (and CI, which runs
  * against a plain `next dev`) serves everything over plain HTTP on
@@ -59,7 +61,7 @@ export class ContentSecurityPolicyBuilder {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' blob: data: https://*.basemaps.cartocdn.com",
       "font-src 'self'",
-      "connect-src 'self' https://nominatim.openstreetmap.org https://*.blob.vercel-storage.com data: blob:",
+      "connect-src 'self' https://nominatim.openstreetmap.org https://*.blob.vercel-storage.com https://vercel.com/api/blob/ data: blob:",
       "worker-src 'self'",
       "manifest-src 'self'",
       "object-src 'none'",
