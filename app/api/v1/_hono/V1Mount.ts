@@ -1,3 +1,4 @@
+import { Env } from "@/lib/env/Env";
 import { ClientIpResolver } from "@/lib/rateLimit/ClientIpResolver";
 import { LoggerFactory } from "@/lib/logging/LoggerFactory";
 import { gatewayServices } from "@/modules/identity/server/gateway";
@@ -14,6 +15,8 @@ export class V1Mount {
       idempotency: gatewayServices.idempotency,
       logger: LoggerFactory.create("api-v1"),
       clientIp: (request) => ClientIpResolver.resolve(request),
+      // Public API clients read the committed document; production does not hand out a map of every endpoint.
+      exposeDocument: Env.server.VERCEL_ENV !== "production",
     });
     return V1Mount.instance;
   }

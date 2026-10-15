@@ -2,8 +2,8 @@
  * Generates the /api/v1 OpenAPI document from the route definitions
  * (npm run openapi:generate) and, with --check, fails if the committed copy
  * (docs/api/openapi.v1.json) is out of date (run in CI). The same document is
- * served live at /api/v1/openapi.json, so a native client can read it from the
- * running app or from the repository.
+ * served live at /api/v1/openapi.json on dev and staging (not production, where
+ * the committed copy is the reference).
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -21,6 +21,7 @@ const { app } = V1AppFactory.create({
   idempotency: { begin: never, complete: never, abandon: never },
   logger: { debug() {}, info() {}, warn() {}, error() {}, child() { return this; } },
   clientIp: () => "0.0.0.0",
+  exposeDocument: true,
 });
 
 const generated = `${JSON.stringify(V1AppFactory.document(app), null, 2)}\n`;
