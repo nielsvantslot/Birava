@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { ContentSecurityPolicyResult } from "@/lib/security/Models";
+import { Env } from "@/lib/env/Env";
 
 /**
  * Nonce-based CSP, generated fresh per request. `script-src` uses
@@ -10,7 +11,7 @@ import { ContentSecurityPolicyResult } from "@/lib/security/Models";
  * attributes throughout — nonces don't cover style attributes, only
  * `<style>` elements, so there's no equivalent lockdown available there.
  * `img-src` allowlists the CARTO tile subdomains the session map renders as
- * direct `<image>` hrefs (lib/mapProjection.ts), plus blob:/data: for
+ * direct `<image>` hrefs (modules/sessions/domain/mapProjection.ts), plus blob:/data: for
  * client-side photo previews and base64 LQIP placeholders. `connect-src`
  * allowlists Nominatim, which log-drink-form.tsx calls directly from the
  * browser for reverse geocoding, plus data:/blob: — social-row.tsx's
@@ -27,7 +28,7 @@ import { ContentSecurityPolicyResult } from "@/lib/security/Models";
  * Vercel's ~4.5MB serverless body limit — without this, that upload is
  * silently CSP-blocked and the check-in never leaves "queued" (every
  * check-in flushes through the same path, see
- * lib/offline/syncPendingCheckins.ts). The store id is per-project and not
+ * modules/checkins/client/syncPendingCheckins.ts). The store id is per-project and not
  * knowable at build time, hence the wildcard; CI never caught this because
  * it always exercises the local-disk storage path (same-origin), never the
  * direct-to-Blob one.
@@ -49,7 +50,7 @@ export class ContentSecurityPolicyBuilder {
     // Next's dev-mode Fast Refresh runtime evals code to apply hot updates —
     // production never does this, so 'unsafe-eval' is scoped to dev only.
     const scriptSrc =
-      process.env.NODE_ENV === "production"
+      Env.isProduction
         ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`
         : `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval'`;
     const directives = [
@@ -66,7 +67,7 @@ export class ContentSecurityPolicyBuilder {
       "form-action 'self'",
       "frame-ancestors 'none'",
     ];
-    if (process.env.NODE_ENV === "production") {
+    if (Env.isProduction) {
       directives.push("upgrade-insecure-requests");
     }
 

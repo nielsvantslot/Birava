@@ -1,5 +1,5 @@
-import { cleanupOrphanedBlobs } from "@/lib/commands/photoCleanupCommands";
-import { verifyCronRequest } from "@/lib/auth/verifyCronRequest";
+import { gateway } from "@/modules/identity/server/gateway";
+import { jobRunner, jobs } from "@/modules/jobs/server/jobs";
 
 // sharp isn't involved, but @vercel/blob's list()/del() need Node, not edge.
 export const runtime = "nodejs";
@@ -14,11 +14,4 @@ export const maxDuration = 60;
 // scheduled through GitHub Actions, same as session-reminders, rather than
 // vercel.json's native cron, so every scheduled job lives on one platform.
 // Guarded by CRON_SECRET (same value already used by session-reminders).
-export async function GET(request: Request) {
-  if (!verifyCronRequest(request)) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  const result = await cleanupOrphanedBlobs();
-  return Response.json(result);
-}
+export const GET = gateway.route.cron({ name: "cron.cleanup-orphaned-blobs" }, () => jobRunner.run(jobs.cleanupOrphanedBlobs));

@@ -2,15 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  createGroup,
-  joinGroupByInvite,
-  leaveGroup,
-  closeGroup,
-  deleteGroup,
-  renameGroup,
-  regenerateInviteCode,
-} from "@/lib/controllers/groupController";
+import { createGroup, joinGroupByInvite, leaveGroup, closeGroup, deleteGroup, renameGroup, regenerateInviteCode } from "@/modules/crews/actions/groupController";
 import { showToast } from "@/components/ui/toast-pill";
 import { confirmModal, ConfirmModalOptions } from "@/components/ui/confirm-modal";
 import { FieldError } from "@/components/ui/field-error";

@@ -24,7 +24,7 @@ test("a slow request that never finishes before the tab closes still lands the c
   // Throttle the server action's own POST so it never completes in the
   // window before we close the page — simulates a real slow connection
   // rather than a hard offline cut, which is the scenario that used to lose
-  // the entry (see lib/offline/syncPendingCheckins.ts).
+  // the entry (see modules/checkins/client/syncPendingCheckins.ts).
   await page.route("**/log", async (route) => {
     if (route.request().method() === "POST") {
       await new Promise((resolve) => setTimeout(resolve, 15000));

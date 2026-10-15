@@ -1,10 +1,10 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser } from "@/modules/identity/server/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { getMyDrinkHistory } from "@/lib/controllers/drinkController";
-import { groupIntoSessions, activeWeeks } from "@/lib/sessions";
-import { computeAchievements, sortByRelevance } from "@/lib/achievements";
+import { getMyDrinkHistory } from "@/modules/checkins/server/drinkReads";
+import { groupIntoSessions, activeWeeks } from "@/modules/sessions/domain/sessions";
+import { computeAchievements, sortByRelevance } from "@/modules/achievements/domain/achievements";
 import { weekIndex } from "@/lib/dates";
 import { DRINK_TYPES } from "@/lib/types";
 import { AchievementGlyph } from "@/components/drink/achievement-icon";
@@ -64,7 +64,7 @@ function SessionsPerWeekChart({
       </g>
       <circle
         cx={x(counts.length - 1)}
-        cy={y(counts[counts.length - 1])}
+        cy={y(counts[counts.length - 1]!)}
         r="5.5"
         fill="#A9C641"
         stroke="#EEF2E7"

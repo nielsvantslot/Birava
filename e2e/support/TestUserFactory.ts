@@ -1,5 +1,6 @@
 import type { APIRequestContext } from "@playwright/test";
 import type { ITestUserFactory, TestUserCredentials } from "./ITestUserFactory";
+import { ErrorEnvelope } from "../../lib/gateway/ErrorEnvelope";
 
 const FIXED_CREDENTIALS: TestUserCredentials = {
   username: "e2e_test_user",
@@ -11,7 +12,7 @@ const FIXED_CREDENTIALS: TestUserCredentials = {
  * A second fixed account, distinct from FIXED_CREDENTIALS — for specs that
  * need two real, independent users interacting (e.g. a follow/cheer
  * notification, which the app never creates for your own actions —
- * lib/notify.ts's queueNotifications filters userId === actorId).
+ * modules/notifications/server/notify.ts's queueNotifications filters userId === actorId).
  */
 export const SECONDARY_CREDENTIALS: TestUserCredentials = {
   username: "e2e_test_user_2",
@@ -40,8 +41,8 @@ export class TestUserFactory implements ITestUserFactory {
     });
 
     if (!response.ok()) {
-      const body = await response.json().catch(() => ({}) as { error?: unknown });
-      const alreadyExists = typeof body.error === "string" && /already|taken|exists/i.test(body.error);
+      const body: unknown = await response.json().catch(() => ({}));
+      const alreadyExists = /already|taken|exists/i.test(ErrorEnvelope.messageFrom(body, ""));
       if (!alreadyExists) {
         throw new Error(`Failed to ensure the E2E test user: ${response.status()} ${JSON.stringify(body)}`);
       }

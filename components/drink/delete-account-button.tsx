@@ -2,13 +2,13 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { requestAccountDeletion } from "@/lib/controllers/accountController";
+import { requestAccountDeletion } from "@/modules/identity/actions/accountController";
 import { queueToast, showToast } from "@/components/ui/toast-pill";
 import { confirmModal } from "@/components/ui/confirm-modal";
 import { clearSessionCaches } from "@/lib/swCache";
 
 /**
- * Starts the GDPR-erasure grace period (see lib/commands/userCommands.ts's
+ * Starts the GDPR-erasure grace period (see modules/identity/application/userCommands.ts's
  * requestAccountDeletion doc comment) — modeled directly on DeleteCrewButton
  * (components/drink/crews-forms.tsx), same typed-confirmation pattern. Uses
  * queueToast, not showToast, since the redirect below leaves this layout

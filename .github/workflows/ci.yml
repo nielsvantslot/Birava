@@ -2,6 +2,10 @@ name: CI
 
 on:
   pull_request:
+  # Also gate direct pushes to the long-lived branches, so a push that skips
+  # a pull request can't bypass lint/typecheck/tests.
+  push:
+    branches: [dev, staging, main]
   workflow_dispatch:
 
 jobs:
@@ -37,7 +41,24 @@ jobs:
 
       - run: npm ci
 
-      # Fastest, no DB needed — fail fast before anything else.
+      # Cheapest checks first — no DB needed, fail fast before anything else.
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Module boundaries
+        run: npm run depcruise
+
+      # public/sw.js is bundled from sw/ and committed; it must be what the source produces.
+      - name: Service worker bundle is current
+        run: npx tsx scripts/build-sw.ts --check
+
+      # The OpenAPI document is generated from the route definitions; the committed copy must match.
+      - name: OpenAPI document is current
+        run: npx tsx scripts/generate-openapi.ts --check
+
       - name: Unit tests
         run: npm run test:unit
 
@@ -46,11 +67,17 @@ jobs:
 
       # The service Postgres above is already a fresh, isolated container
       # for this run — no separate test database needed in CI.
-      - name: Integration tests
-        run: npx vitest run --project integration
+      # Runs unit + integration together so coverage covers both, and fails
+      # if a floor in vitest.config.ts is breached.
+      - name: Integration tests and coverage
+        run: npx vitest run --coverage
 
       - name: Build
         run: npm run build
+
+      # Per-route gzipped JS against perf-budgets.json; fails if a page got heavier than agreed.
+      - name: JavaScript budgets
+        run: npm run budgets:check
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium webkit

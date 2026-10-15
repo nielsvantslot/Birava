@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { createDrinkEntry } from "@/lib/commands/drinkEntryCommands";
-import { getMyFeedSessions } from "@/lib/controllers/drinkController";
+import { createDrinkEntry } from "@/modules/checkins/application/drinkEntryCommands";
+import { getMyFeedSessions } from "@/modules/checkins/server/drinkReads";
 import { loginAs } from "./support/loginAs";
 
 const HOUR = 60 * 60 * 1000;
@@ -33,7 +33,7 @@ describe("getMyFeedSessions", () => {
     });
     await loginAs(user.id);
 
-    // Within MAX_BACKDATE_MS's 7-day trust window (lib/sessions.ts) — anything
+    // Within MAX_BACKDATE_MS's 7-day trust window (modules/sessions/domain/sessions.ts) — anything
     // older gets silently clamped to now() by createDrinkEntry, which would
     // collapse every one of these into a single same-instant session instead
     // of FEED_PAGE_SIZE + 1 distinct ones.
@@ -56,7 +56,7 @@ describe("getMyFeedSessions", () => {
       beforeId: page1.nextCursor!.id,
     });
     expect(page2.sessions).toHaveLength(1);
-    expect(page2.sessions[0].id).toBe(entries[0].sessionId);
+    expect(page2.sessions[0]!.id).toBe(entries[0]!.sessionId);
     expect(page2.nextCursor).toBeNull();
   });
 
@@ -76,11 +76,11 @@ describe("getMyFeedSessions", () => {
 
     const following = await getMyFeedSessions({ onlyOwn: false });
     expect(following.sessions.map((s) => s.id).sort()).toEqual(
-      [ownEntry.sessionId, followedEntry.sessionId].sort()
+      [ownEntry!.sessionId, followedEntry!.sessionId].sort()
     );
 
     const onlyOwn = await getMyFeedSessions({ onlyOwn: true });
-    expect(onlyOwn.sessions.map((s) => s.id)).toEqual([ownEntry.sessionId]);
+    expect(onlyOwn.sessions.map((s) => s.id)).toEqual([ownEntry!.sessionId]);
   });
 
   it("bundles cheer state and comment counts for the viewer", async () => {
@@ -89,20 +89,20 @@ describe("getMyFeedSessions", () => {
     });
     const [entry] = await createSessionsFor(owner.id, 1, Date.now() - DAY);
 
-    await db.cheer.create({ data: { sessionId: entry.sessionId, userId: owner.id } });
+    await db.cheer.create({ data: { sessionId: entry!.sessionId, userId: owner.id } });
     await db.comment.createMany({
       data: [
-        { sessionId: entry.sessionId, userId: owner.id, body: "nice" },
-        { sessionId: entry.sessionId, userId: owner.id, body: "again" },
+        { sessionId: entry!.sessionId, userId: owner.id, body: "nice" },
+        { sessionId: entry!.sessionId, userId: owner.id, body: "again" },
       ],
     });
 
     await loginAs(owner.id);
     const page = await getMyFeedSessions({ onlyOwn: true });
 
-    const cheerEntry = page.cheers.find(([id]) => id === entry.sessionId);
+    const cheerEntry = page.cheers.find(([id]) => id === entry!.sessionId);
     expect(cheerEntry?.[1]).toEqual({ count: 1, on: true });
-    const commentEntry = page.commentCounts.find(([id]) => id === entry.sessionId);
+    const commentEntry = page.commentCounts.find(([id]) => id === entry!.sessionId);
     expect(commentEntry?.[1]).toBe(2);
   });
 });

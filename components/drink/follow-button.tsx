@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { UserCheck, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { followUser, unfollowUser } from "@/lib/controllers/socialController";
+import { followUser, unfollowUser } from "@/modules/social/actions/socialController";
 
 interface FollowButtonProps {
   targetUserId: string;

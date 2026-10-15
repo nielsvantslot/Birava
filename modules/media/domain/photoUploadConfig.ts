@@ -1,0 +1,44 @@
+/**
+ * Plain config shared between the server pipeline (modules/media/server/photoUpload.ts) and
+ * the client upload form (components/drink/log-drink-form.tsx) — no `sharp`,
+ * `fs`, or other server-only imports here, since this also gets bundled into
+ * the client.
+ */
+import { PRIVATE_BLOB_ACCESS } from "@/modules/media/domain/blobAccess";
+
+/** Longest edge, in px, check-in photos are capped to — client pre-resize and server processing agree on this so the server rarely has to downscale further. */
+export const DRINK_PHOTO_MAX_DIMENSION = 1600;
+
+/** Client rejects an oversized file before attempting an upload; server enforces the same cap regardless. */
+export const DRINK_PHOTO_MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+
+/** Storage layout + ownership convention for a given user's check-in photos — shared so the client's direct-upload pathname matches what the server validates against. */
+export function drinkPhotoKeyPrefix(userId: string): string {
+  return `entries-photos/${userId}`;
+}
+
+/**
+ * Picks the upload endpoints a `PhotoUploader.upload` call needs for check-in
+ * photos — shared between the log form (uploading fresh) and the offline
+ * sync flush (uploading a queued photo later), so both agree on routes.
+ */
+export function drinkPhotoUploadEndpoints(userId: string, supportsDirectUpload: boolean) {
+  return supportsDirectUpload
+    ? {
+        mode: "direct" as const,
+        tokenUrl: "/api/uploads/drink-photo/blob-token",
+        finalizeUrl: "/api/uploads/drink-photo/finalize",
+        keyPrefix: drinkPhotoKeyPrefix(userId),
+        access: PRIVATE_BLOB_ACCESS,
+        // A browser that can reach this app's own server fine but not the
+        // storage provider's separate domain (confirmed live: a direct
+        // upload hanging indefinitely with a valid token already issued)
+        // falls back to routing the file through this server instead. Photos
+        // are already resized/compressed client-side well under Vercel's
+        // ~4.5MB request-body cap by the time this ever fires, so the whole
+        // reason direct upload exists (routing around that cap) isn't at
+        // stake for the fallback path.
+        fallbackUploadUrl: "/api/uploads/drink-photo",
+      }
+    : { mode: "server" as const, uploadUrl: "/api/uploads/drink-photo" };
+}

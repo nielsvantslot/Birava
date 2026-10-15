@@ -1,0 +1,132 @@
+import crypto from "crypto";
+import { cookies, headers } from "next/headers";
+import { cache } from "react";
+import { sessionRepository } from "@/modules/identity/server/sessionRepository";
+import { TRUSTED_USER_HEADER } from "@/modules/identity/server/proxy-session";
+import { SessionUserDTO } from "@/lib/dtos";
+import { SessionUserMapper } from "@/lib/mappers";
+import { Env } from "@/lib/env/Env";
+
+const SESSION_COOKIE = "birava_session";
+const SESSION_TTL_DAYS = 30;
+
+// `middleware.ts`/`proxy-session.ts` strip this header from every incoming
+// request before setting it themselves, so it isn't attacker-reachable — but
+// JSON.parse's result is still untyped, and this is the standard, correct
+// pattern for proving a parsed value's shape at runtime rather than trusting
+// a bare cast. A future SessionUserDTO field change that isn't mirrored here
+// fails closed (falls through to the real session lookup) instead of
+// silently shipping a malformed session.
+function isSessionUserDTO(value: unknown): value is SessionUserDTO {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    typeof value.id === "string" &&
+    "username" in value &&
+    typeof value.username === "string" &&
+    "avatarUrl" in value &&
+    (value.avatarUrl === null || typeof value.avatarUrl === "string") &&
+    "createdAt" in value &&
+    typeof value.createdAt === "string" &&
+    "email" in value &&
+    typeof value.email === "string" &&
+    "isDeveloper" in value &&
+    typeof value.isDeveloper === "boolean"
+  );
+}
+
+function expiryDate() {
+  const expires = new Date();
+  expires.setDate(expires.getDate() + SESSION_TTL_DAYS);
+  return expires;
+}
+
+async function readSessionToken() {
+  const store = await cookies();
+  return store.get(SESSION_COOKIE)?.value ?? null;
+}
+
+/**
+ * Starts a session without touching cookies: the opaque token a native client
+ * keeps and sends as `Authorization: Bearer <token>`. It is a row in the same
+ * Session table a browser's cookie points at, so every way of ending sessions
+ * (logout, logout everywhere, account deletion) covers both kinds.
+ */
+export async function issueSessionToken(userId: string): Promise<{ token: string; expiresAt: Date }> {
+  const token = crypto.randomUUID();
+  const expiresAt = expiryDate();
+  await sessionRepository.create({ userId, sessionToken: token, expiresAt });
+  return { token, expiresAt };
+}
+
+/** Ends one session by its token (cookie or bearer alike). */
+export async function revokeSessionToken(token: string): Promise<void> {
+  await sessionRepository.deleteByToken(token);
+}
+
+/** Ends every session a user has, on every device and in every client. */
+export async function revokeAllSessions(userId: string): Promise<void> {
+  await sessionRepository.deleteAllForUser(userId);
+}
+
+/** The bearer token a request carries, if any. */
+async function readBearerToken(): Promise<string | null> {
+  const header = (await headers()).get("authorization");
+  const match = header ? /^Bearer\s+([\w-]{16,128})$/i.exec(header) : null;
+  return match?.[1] ?? null;
+}
+
+export async function createUserSession(userId: string) {
+  const { token, expiresAt } = await issueSessionToken(userId);
+
+  const store = await cookies();
+  store.set(SESSION_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: Env.isProduction,
+    path: "/",
+    expires: expiresAt,
+  });
+}
+
+export async function clearUserSession() {
+  const token = await readSessionToken();
+  if (token) {
+    await sessionRepository.deleteByToken(token);
+  }
+
+  const store = await cookies();
+  store.set(SESSION_COOKIE, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: Env.isProduction,
+    path: "/",
+    expires: new Date(0),
+  });
+}
+
+export const getCurrentUser = cache(async (): Promise<SessionUserDTO | null> => {
+  // middleware.ts already validated this request's session and attached the
+  // result here — reuse it instead of paying a second Session lookup on every
+  // page render. Routes outside the middleware matcher (api/*) fall through.
+  const trusted = (await headers()).get(TRUSTED_USER_HEADER);
+  if (trusted) {
+    const parsed = JSON.parse(trusted);
+    if (isSessionUserDTO(parsed)) return parsed;
+  }
+
+  const token = (await readSessionToken()) ?? (await readBearerToken());
+  if (!token) return null;
+
+  const session = await sessionRepository.findWithUser(token);
+
+  if (!session) return null;
+
+  if (session.expiresAt.getTime() <= Date.now()) {
+    await sessionRepository.deleteByToken(token);
+    return null;
+  }
+
+  return SessionUserMapper.toDTO(session.user);
+});

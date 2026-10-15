@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
+import { Env } from "@/lib/env/Env";
 
-const isStaging = process.env.VERCEL_ENV === "preview";
+const isStaging = Env.isStaging;
 const iconBase = isStaging ? "/icons/staging" : "/icons";
 
 export default function manifest(): MetadataRoute.Manifest {

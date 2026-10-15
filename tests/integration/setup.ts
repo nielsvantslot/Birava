@@ -40,6 +40,7 @@ import { FakeCookieStore } from "./support/FakeCookieStore";
 // vi.hoisted is required here since vi.mock's factory is hoisted above this
 // module's own top-level code, so it can't close over a plain `let` declared
 // below it (the factory would run before that declaration executed).
+const headerState = vi.hoisted(() => ({ current: {} as Record<string, string> }));
 const cookieState = vi.hoisted(() => ({ store: undefined as unknown as InstanceType<typeof FakeCookieStore> }));
 
 // Tracks in-flight after() callbacks (below) so beforeEach can wait for the
@@ -54,10 +55,11 @@ const afterState = vi.hoisted(() => ({ pending: [] as Promise<unknown>[] }));
 // Next.js request, which none of these direct function-call tests have.
 vi.mock("next/headers", () => ({
   cookies: async () => cookieState.store,
-  headers: async () => new Headers(),
+  // Empty by default; a test that needs request headers (an Authorization bearer) sets them with withRequestHeaders().
+  headers: async () => new Headers(headerState.current),
 }));
 
-// lib/notify.ts defers notification writes via next/server's after(), also
+// modules/notifications/server/notify.ts defers notification writes via next/server's after(), also
 // real only inside a request — just run the callback immediately instead,
 // tracking its promise so beforeEach can await it before the next reset.
 vi.mock("next/server", async (importOriginal) => ({
@@ -74,6 +76,10 @@ vi.mock("next/server", async (importOriginal) => ({
 // outright.
 vi.mock("next/cache", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/cache")>()),
+  // Revalidation only means something inside a real request; the actions call
+  // it after every mutation, so make it a no-op rather than throw.
+  revalidatePath: () => {},
+  revalidateTag: () => {},
   unstable_cache:
     <T extends (...args: never[]) => unknown>(fn: T) =>
     (...args: Parameters<T>) =>
@@ -91,9 +97,21 @@ export async function flushAfterCallbacks(): Promise<void> {
   afterState.pending.length = 0;
 }
 
+/** Runs `work` with these headers visible to next/headers's headers(), as they would be inside a real request. */
+export async function withRequestHeaders<T>(requestHeaders: Record<string, string>, work: () => Promise<T>): Promise<T> {
+  const previous = headerState.current;
+  headerState.current = requestHeaders;
+  try {
+    return await work();
+  } finally {
+    headerState.current = previous;
+  }
+}
+
 const reset = new PostgresDatabaseReset(db);
 
 beforeEach(async () => {
+  headerState.current = {};
   cookieState.store = new FakeCookieStore();
   await Promise.allSettled(afterState.pending);
   afterState.pending.length = 0;

@@ -1,7 +1,9 @@
+import { z } from "zod";
 import crypto from "crypto";
-import { requireUser } from "@/lib/auth/requireUser";
-import { avatarPhotoService } from "@/lib/avatarPhoto";
-import { getViewableAvatarUrl } from "@/lib/queries/userQueries";
+import { ApiError } from "@/lib/gateway/ApiError";
+import { gateway } from "@/modules/identity/server/gateway";
+import { avatarPhotoService } from "@/modules/media/server/avatarPhoto";
+import { getViewableAvatarUrl } from "@/modules/identity/server/userQueries";
 
 // Avatars are stored private (mirrors check-in photos, /api/photos/[entryId])
 // — a browser can't fetch a private blob directly, so every <img> renders
@@ -13,12 +15,13 @@ import { getViewableAvatarUrl } from "@/lib/queries/userQueries";
 // instead of `immutable` silently serving a stale cached avatar for a year.
 const CACHE_CONTROL = "private, no-cache";
 
-export const GET = requireUser<RouteContext<"/api/avatars/[userId]">>(
-  async (request, _user, { params }) => {
-    const { userId } = await params;
+export const GET = gateway.route.authed(
+  { name: "avatars.get", params: z.object({ userId: z.string().min(1) }) },
+  async ({ request, input }) => {
+    const { userId } = input.params;
 
     const avatarUrl = await getViewableAvatarUrl(userId);
-    if (!avatarUrl) return new Response("Not found", { status: 404 });
+    if (!avatarUrl) throw ApiError.notFound();
 
     const etag = `"${crypto.createHash("sha1").update(avatarUrl).digest("hex")}"`;
     if (request.headers.get("if-none-match") === etag) {
@@ -29,7 +32,7 @@ export const GET = requireUser<RouteContext<"/api/avatars/[userId]">>(
     }
 
     const photo = await avatarPhotoService.read(avatarUrl);
-    if (!photo) return new Response("Not found", { status: 404 });
+    if (!photo) throw ApiError.notFound();
 
     return new Response(photo.stream, {
       headers: {

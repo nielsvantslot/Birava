@@ -2,9 +2,9 @@ import type { IDirectUploadTransport } from "./services/IDirectUploadTransport";
 
 export interface DirectUploadEndpoints {
   readonly mode: "direct";
-  /** Route created with `PhotoUploadRouteFactory.createDirectUploadTokenRoute`. */
+  /** Route created with `PhotoUploadRouteHandlers.createDirectUploadToken`. */
   readonly tokenUrl: string;
-  /** Route created with `PhotoUploadRouteFactory.createFinalizeRoute`. */
+  /** Route created with `PhotoUploadRouteHandlers.finalize`. */
   readonly finalizeUrl: string;
   /** Must match the service's `keyPrefix(ownerId)` for this caller. */
   readonly keyPrefix: string;
@@ -13,7 +13,7 @@ export interface DirectUploadEndpoints {
   /** @default new VercelBlobDirectUploadTransport() — swap for a different provider's transport. */
   readonly transport?: IDirectUploadTransport;
   /**
-   * A `PhotoUploadRouteFactory.createUploadRoute` route to fall back to if the
+   * A `PhotoUploadRouteHandlers.upload` route to fall back to if the
    * direct upload fails — the direct path travels straight from this browser
    * to storage, over a network the app has no control over, whereas this
    * fallback only needs the browser to reach this app's own server (which the
@@ -30,7 +30,7 @@ export interface DirectUploadEndpoints {
 
 export interface ServerUploadEndpoints {
   readonly mode: "server";
-  /** Route created with `PhotoUploadRouteFactory.createUploadRoute`. */
+  /** Route created with `PhotoUploadRouteHandlers.upload`. */
   readonly uploadUrl: string;
 }
 

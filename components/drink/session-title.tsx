@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Check, Pencil, X } from "lucide-react";
-import { renameSession } from "@/lib/controllers/drinkController";
+import { renameSession } from "@/modules/checkins/actions/drinkController";
 import { showToast } from "@/components/ui/toast-pill";
 import { invalidateCachedPages } from "@/lib/swCache";
 

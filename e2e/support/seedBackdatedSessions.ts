@@ -15,7 +15,7 @@ const HOUR = 60 * 60 * 1000;
  * which a Playwright test's own Node process never has.
  *
  * drinkName doubles as the visible marker: a lone check-in's session title
- * is its drinkName (see sessionTitle in lib/sessions.ts), so each seeded
+ * is its drinkName (see sessionTitle in modules/sessions/domain/sessions.ts), so each seeded
  * session is locatable on the dashboard by its exact `${labelPrefix} ${i}`
  * text. Returns the names oldest-first — the last one is the newest.
  */

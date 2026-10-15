@@ -1,12 +1,12 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser } from "@/modules/identity/server/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { buildProfileStats } from "@/lib/sessions";
-import { computeAchievements, sortByRelevance } from "@/lib/achievements";
+import { buildProfileStats } from "@/modules/sessions/domain/sessions";
+import { computeAchievements, sortByRelevance } from "@/modules/achievements/domain/achievements";
 import { formatMemberSince } from "@/lib/dates";
-import { getMyDrinkHistory, getRecentSessionsForUser } from "@/lib/controllers/drinkController";
-import { getFollowCounts } from "@/lib/controllers/socialController";
+import { getMyDrinkHistory, getRecentSessionsForUser } from "@/modules/checkins/server/drinkReads";
+import { getFollowCounts } from "@/modules/social/server/socialReads";
 import { ProfileHead, ProfileActions } from "@/components/drink/profile-head";
 import { AchievementBadgeStrip } from "@/components/drink/achievement-badge-strip";
 import { RecentSessionsList } from "@/components/drink/recent-sessions-list";

@@ -44,13 +44,13 @@ Implement the **Birava 2.0** redesign end-to-end from the claude.ai/design proje
 All uncommitted on `feature/frontend-redesign` (~70 changed paths, on top of the earlier uncommitted redesign work). `tsc --noEmit` clean; eslint has only the 2 pre-existing `input.tsx`/`textarea.tsx` errors; every screen verified live in Chrome as `designtest` (see What worked).
 
 Core / data:
-- `lib/sessions.ts` — REWRITTEN: `groupIntoSessions` now splits per user on **>4h inactivity gap** (locked rule; was per-calendar-day), `DrinkSession` (id = first check-in id → `/sessions/[id]`), `sessionTitle` (lone check-in titled by drink; else Morning/Afternoon/Evening/Late session in user TZ), `findSessionWithCheckin`, `activeWeeks` (current/best/12-week strip; one rest week survives, 2+ consecutive end the run — my interpretation of the spec's ambiguity, flagged below), `getLocalLegendVenue` kept
+- `modules/sessions/domain/sessions.ts` — REWRITTEN: `groupIntoSessions` now splits per user on **>4h inactivity gap** (locked rule; was per-calendar-day), `DrinkSession` (id = first check-in id → `/sessions/[id]`), `sessionTitle` (lone check-in titled by drink; else Morning/Afternoon/Evening/Late session in user TZ), `findSessionWithCheckin`, `activeWeeks` (current/best/12-week strip; one rest week survives, 2+ consecutive end the run — my interpretation of the spec's ambiguity, flagged below), `getLocalLegendVenue` kept
 - `lib/dates.ts` — NEW: all TZ-aware day/week math (`localParts`, `dayNumber`, `weekIndex` Monday-based, `relativeDay(Time)`, `formatTime`, `timeAgo`) — consolidates the 4 divergent streak/day implementations the audit flagged
 - `lib/timezone.ts` + `components/timezone-sync.tsx` — NEW: browser TZ → `birava_tz` cookie (client sets + refreshes once), server reads it so SSR renders in the *user's* TZ (fixes the audit's server-TZ bug; first-ever request falls back to UTC)
 - `prisma/schema.prisma` + migrations `20260709120000_add_drink_type` (`BeerEntry.drinkType` default 'Beer') and `20260709121000_add_proost` (`Proost` table keyed `[entryId, userId]`, entryId = session anchor check-in) — **both applied**, client regenerated in container
 - `lib/actions/beer.ts` — `addBeer/editBeer/deleteBeer` → `logCheckin/updateCheckin/deleteCheckin` (drink_name/drink_type/venue/coords/photo; no rating/style/amount); update cleans replaced photo files; achievement-unlock diff via `earnedIds` before/after
-- `lib/achievements.ts` — REWRITTEN: variety badges only (First Round, Range, Cartographer, Local Legend, Chronicler, Regular) with progress/goal/progressText; count-based ACHIEVEMENTS deleted; confetti recolored to brand
-- `lib/crews.ts` — NEW: `getCrewBoard` — **since-joined scoring** (entries before a member's joinedAt never count), sessions + venues metrics, recent crew sessions
+- `modules/achievements/domain/achievements.ts` — REWRITTEN: variety badges only (First Round, Range, Cartographer, Local Legend, Chronicler, Regular) with progress/goal/progressText; count-based ACHIEVEMENTS deleted; confetti recolored to brand
+- `modules/crews/domain/crews.ts` — NEW: `getCrewBoard` — **since-joined scoring** (entries before a member's joinedAt never count), sessions + venues metrics, recent crew sessions
 - `lib/proost.ts` (read helper) + `toggleProost` server action in `lib/actions/social.ts`; `getSocialFeed/getPublicProfile/getPublicRecentEntries/toFeedEntry` + dead types (`FeedEntry`, `PublicProfile`, `Achievement`, `LeaderboardEntry`, `Group`, `GroupMember`) deleted
 - `lib/types.ts` — slimmed; added `DRINK_TYPES = ["Beer","Wine","Cocktail","Other"]`, `BeerEntry.drink_type`
 
@@ -81,7 +81,7 @@ Test data: designtest gained 1 Wine ("Barolo 2018" · Da Vinci, logged live) and
 - `next dev` compiles routes lazily — first hit on a brand-new route (`/crews/[id]`) can bounce back to the referrer while "Compiling…"; just retry the click
 
 **Open questions / decisions needed**
-- **Active-weeks streak semantics**: spec says a rest week doesn't break the streak but "Best = longest run" implies runs end. Implemented: one rest week = grace (run survives), 2+ consecutive rest weeks end it; only active weeks count toward the number. Confirm with Niels or adjust `activeWeeks()` in `lib/sessions.ts`
+- **Active-weeks streak semantics**: spec says a rest week doesn't break the streak but "Best = longest run" implies runs end. Implemented: one rest week = grace (run survives), 2+ consecutive rest weeks end it; only active weeks count toward the number. Confirm with Niels or adjust `activeWeeks()` in `modules/sessions/domain/sessions.ts`
 - **Countries/Passport/Globetrotter**: mockups show Countries stats + Passport/Globetrotter badges, but there's no country data (only lat/lng). I substituted "Types tried" on You/stats and omitted both badges rather than fake them. Options: reverse-geocode country at log time (nominatim already used for venue) and add a `country` column, or drop permanently
 - **Comments**: mock shows counts; no thread UI was designed → left as "Comments — soon" toast (proost is real)
 - Dropped 1.0 leftovers now fully orphaned: recharts/`@radix-ui/react-progress`/`-separator`/`-toast` deps (already unused per tech audit) — `npm uninstall` when convenient
@@ -205,7 +205,7 @@ Theme / shell:
 - Deleted: `top-bar.tsx`, `add-beer-fab.tsx`, `stats-charts.tsx`, `last-24h-recap.tsx` (orphaned by redesign; recharts + 24h-recap/share-image features dropped with them)
 
 Screens:
-- `app/(app)/dashboard/page.tsx` — Home: Strava-style session cards (own + followed users' entries grouped per user per day via NEW `lib/sessions.ts`), Local Legend callout (top venue ≥3 check-ins/90d), photo mosaic (`SessionPhotos`: 1=full-bleed, odd=full-width lead, >4=+N overlay), route map, ?tab=you filter
+- `app/(app)/dashboard/page.tsx` — Home: Strava-style session cards (own + followed users' entries grouped per user per day via NEW `modules/sessions/domain/sessions.ts`), Local Legend callout (top venue ≥3 check-ins/90d), photo mosaic (`SessionPhotos`: 1=full-bleed, odd=full-width lead, >4=+N overlay), route map, ?tab=you filter
 - `app/(app)/feed/page.tsx` — design cards (accent @user, ×N/style/★ chips, venue·date meta, big rounded photos); **feed now includes own entries** (`getSocialFeed` prepends user.id)
 - `app/(app)/stats/page.tsx` — this-week flat stats, 12-week SVG line chart (no recharts), month streak calendar, clipboard Share recap (`components/beer/stats-share.tsx`)
 - `app/(app)/log/` — NEW page + `components/beer/log-beer-form.tsx`: name, "Snap your beer" photo area (moved up, camera-first), style chips, 5-star rating w/ captions, venue + "Use my location", ×1-4 amount, Recent list; `loading.tsx` present
@@ -260,11 +260,11 @@ Finish the Supabase→Prisma migration properly. Copilot's original migration di
 All uncommitted, nothing broken. Verified end-to-end (see What worked).
 
 - `lib/mappers.ts` — NEW: `toBeerEntry` / `toFeedEntry` map Prisma rows to the snake_case DTO types in `lib/types.ts` that all components consume
-- `lib/auth/proxy-session.ts` — NEW: session-cookie check moved here verbatim from deleted `lib/supabase/middleware.ts`; `proxy.ts` now imports it
+- `modules/identity/server/proxy-session.ts` — NEW: session-cookie check moved here verbatim from deleted `lib/supabase/middleware.ts`; `proxy.ts` now imports it
 - `lib/actions/beer.ts` — direct Prisma; dropped the "ensure profile exists" block (User row is the profile now, always exists)
 - `lib/actions/groups.ts` — direct Prisma; `createGroup` uses one nested create (group + owner membership, transactional) instead of insert + rollback-rpc
 - `lib/actions/social.ts` — direct Prisma; all former `rpc()` functions (feed, follow counts, public profile) ported inline
-- `lib/actions/profile.ts` — `getUser` → `getCurrentUser` from `lib/auth/session`
+- `lib/actions/profile.ts` — `getUser` → `getCurrentUser` from `modules/identity/server/session`
 - 10 pages in `app/(app)/` — direct Prisma; `layout.tsx` and `profile/page.tsx` no longer query "profiles" at all since `getCurrentUser()` already returns username/avatar_url/created_at
 - Deleted (staged via `git rm`): `lib/supabase/` (client/middleware/server), `supabase/` (old SQL migrations + config), `middleware.ts` (replaced by `proxy.ts`, Node runtime — this is what fixes Niels's edge-runtime PrismaClientValidationError)
 - `.env` and `.env.example` — just `DATABASE_URL` (host port **5433**) + `NEXT_PUBLIC_APP_URL`; removed `supabase` from `.dockerignore`
@@ -272,7 +272,7 @@ All uncommitted, nothing broken. Verified end-to-end (see What worked).
 **What worked**
 - `docker exec birava-app npx tsc --noEmit` — 0 errors
 - After `docker restart birava-app`: all 9 authenticated pages (dashboard, history, stats, feed, people, leaderboard, leaderboard/friends, profile, profile/[username]) return 200 with a real session cookie and render seeded DB content; auth redirects both ways (307) work; no errors in container logs. Test user/session/entry created via Prisma in the container, then deleted.
-- `getCurrentUser()` (React-cached, `lib/auth/session.ts`) is the one auth entry point for pages/actions; `lib/auth/proxy-session.ts` is the proxy's cheap session check.
+- `getCurrentUser()` (React-cached, `modules/identity/server/session.ts`) is the one auth entry point for pages/actions; `modules/identity/server/proxy-session.ts` is the proxy's cheap session check.
 - Repo greps clean: `grep -rin supabase` over app/components/lib/prisma/config finds nothing (except this file).
 
 **What didn't work (and why)**

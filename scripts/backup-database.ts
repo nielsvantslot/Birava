@@ -1,6 +1,6 @@
 /**
  * Uploads an already-dumped, already-GPG-encrypted production backup to
- * Vercel Blob and prunes anything outside lib/backupRetention.ts's window.
+ * Vercel Blob and prunes anything outside lib/backup/backupRetention.ts's window.
  * Invoked by .github/workflows/db-backup.yml, which does the pg_dump +
  * encrypt in shell steps beforehand (a `docker run postgres:18-alpine`,
  * matching Neon's actual server version, gives a version-matched pg_dump
@@ -12,8 +12,8 @@
  */
 import { put, del } from "@vercel/blob";
 import { readFileSync } from "node:fs";
-import { partitionBackupsForRetention } from "../lib/backupRetention";
-import { BACKUP_PREFIX, listBackups } from "../lib/backupBlobs";
+import { partitionBackupsForRetention } from "../lib/backup/backupRetention";
+import { BACKUP_PREFIX, listBackups } from "../lib/backup/backupBlobs";
 
 async function main() {
   const filePath = process.argv[2];

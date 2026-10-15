@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { renameSession } from "@/lib/commands/drinkSessionCommands";
+import { renameSession } from "@/modules/sessions/application/drinkSessionCommands";
 import { DrinkEntryFixtureFactory } from "./fixtures/DrinkEntryFixtureFactory";
 
 const fixtures = new DrinkEntryFixtureFactory(db);

@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { PushSubscribeToggle } from "@/components/notifications/push-subscribe-toggle";
 import { LocationPermissionToggle } from "@/components/location/location-permission-toggle";
 import { PeopleClient } from "@/components/drink/people-client";
-import { completeOnboarding } from "@/lib/controllers/onboardingController";
+import { completeOnboarding } from "@/modules/identity/actions/onboardingController";
 
 type Step = {
   icon: typeof Beer;
@@ -72,7 +72,7 @@ export function OnboardingFlow({
   const [stepIndex, setStepIndex] = useState(0);
   const [isPending, startTransition] = useTransition();
   const isLastStep = stepIndex === STEPS.length - 1;
-  const step = STEPS[stepIndex];
+  const step = STEPS[stepIndex]!;
   const Icon = step.icon;
 
   const finish = (destination: "/dashboard" | "/log") => {

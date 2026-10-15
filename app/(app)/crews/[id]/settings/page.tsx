@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth/session";
-import { getCrew } from "@/lib/controllers/groupController";
+import { getCurrentUser } from "@/modules/identity/server/session";
+import { getCrew } from "@/modules/crews/server/crewReads";
 import {
   LeaveCrewButton,
   CloseCrewButton,

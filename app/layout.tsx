@@ -5,6 +5,7 @@ import "./globals.css";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import { SwRevalidateListener } from "@/components/sw-revalidate-listener";
 import { ClientErrorReporter } from "@/components/client-error-reporter";
+import { Env } from "@/lib/env/Env";
 
 const archivo = Archivo({
   subsets: ["latin"],
@@ -17,7 +18,7 @@ const sourceSerif = Source_Serif_4({
   variable: "--font-source-serif",
 });
 
-const isStaging = process.env.VERCEL_ENV === "preview";
+const isStaging = Env.isStaging;
 const appleIconPath = isStaging
   ? "/icons/staging/icon-192x192.png"
   : "/icons/icon-192x192.png";

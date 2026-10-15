@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { createDrinkEntry, deleteDrinkEntry } from "@/lib/commands/drinkEntryCommands";
+import { createDrinkEntry, deleteDrinkEntry } from "@/modules/checkins/application/drinkEntryCommands";
 import { DrinkEntryFixtureFactory } from "./fixtures/DrinkEntryFixtureFactory";
 
 const fixtures = new DrinkEntryFixtureFactory(db);
@@ -139,10 +139,10 @@ describe("createDrinkEntry session placement", () => {
     expect(cheers.map((c) => c.userId).sort()).toEqual([alice.id, bob.id].sort());
 
     expect(comments).toHaveLength(1);
-    expect(comments[0].sessionId).toBe(survivorId);
+    expect(comments[0]!.sessionId).toBe(survivorId);
 
     expect(notifications).toHaveLength(1);
-    expect(notifications[0].entryId).toBe(survivorId);
+    expect(notifications[0]!.entryId).toBe(survivorId);
   });
 
   it("dedupes a cheer when the same user cheered both sessions being merged", async () => {
@@ -163,11 +163,11 @@ describe("createDrinkEntry session placement", () => {
 
     const cheers = await db.cheer.findMany({ where: { userId: alice.id } });
     expect(cheers).toHaveLength(1);
-    expect(cheers[0].sessionId).toBe(survivorId);
+    expect(cheers[0]!.sessionId).toBe(survivorId);
   });
 
   it("handles a colliding cheer and a clear cheer in the same merge without either interfering with the other", async () => {
-    // Regression test for the parallelized merge (lib/commands/drinkEntryCommands.ts):
+    // Regression test for the parallelized merge (modules/checkins/application/drinkEntryCommands.ts):
     // the collision-delete and clear-reassign now run concurrently via
     // Promise.all since they target disjoint user-id sets — this pins that
     // both branches still land correctly when a single merge needs both at once.
@@ -325,11 +325,11 @@ describe("deleteDrinkEntry session recomputation", () => {
       [a, b, d, e].map((entry) => db.drinkEntry.findUniqueOrThrow({ where: { id: entry.id } }))
     );
 
-    expect(aAfter.sessionId).toBe(sharedSessionId);
-    expect(bAfter.sessionId).toBe(sharedSessionId);
-    expect(dAfter.sessionId).toBe(d.id);
-    expect(eAfter.sessionId).toBe(e.id);
-    expect(new Set([aAfter.sessionId, bAfter.sessionId, dAfter.sessionId, eAfter.sessionId]).size).toBe(3);
+    expect(aAfter!.sessionId).toBe(sharedSessionId);
+    expect(bAfter!.sessionId).toBe(sharedSessionId);
+    expect(dAfter!.sessionId).toBe(d.id);
+    expect(eAfter!.sessionId).toBe(e.id);
+    expect(new Set([aAfter!.sessionId, bAfter!.sessionId, dAfter!.sessionId, eAfter!.sessionId]).size).toBe(3);
 
     const sessions = await db.drinkSession.findMany({
       where: { id: { in: [sharedSessionId, d.id, e.id] } },
