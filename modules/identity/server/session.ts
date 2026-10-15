@@ -116,5 +116,8 @@ export const getCurrentUser = cache(async (): Promise<SessionUserDTO | null> => 
   // this cheap.
   const token = (await readSessionToken()) ?? (await readBearerToken());
   if (!token) return null;
-  return resolveSessionUser(token);
+  const user = await resolveSessionUser(token);
+  // An unknown or expired token: drop its row (a no-op for an unknown one) so an expired session does not linger.
+  if (!user) await sessionRepository.deleteByToken(token);
+  return user;
 });
