@@ -40,6 +40,11 @@ Feature code lives in `modules/<name>/` (checkins, sessions, venues, crews, soci
 
 `/api/v1` (Hono + zod-openapi, `app/api/v1/_hono`, ADR 0003) serves native clients with bearer tokens (rows in the `Session` table; `getCurrentUser()` accepts a cookie or `Authorization: Bearer`). Handlers call the web actions and reads, never the db. **Adding an endpoint = a `createRoute` in `routes/*Routes.ts` + an entry in `tests/integration/api-v1/V1Fixtures.ts`** (the contract suite fails without it), then `npm run openapi:generate` and commit `docs/api/openapi.v1.json` (CI checks it is current). Additive changes stay in v1; breaking ones are `/api/v2`. Quirk: passing `security` inside `createRoute` breaks the handler's request typing, so attach it with `V1Security.any/bearer(createRoute({...}))`.
 
+## Service worker and offline outbox (v2 phase 4, 2026-10-15)
+
+- **The service worker is TypeScript**: edit `sw/sw.ts` (pure decisions in `sw/RequestClassifier.ts`, cache names in `sw/CacheNames.ts`, both unit tested), then `npm run sw:build` and commit the regenerated `public/sw.js`. CI fails if the committed file is not what the source builds (`scripts/build-sw.ts --check`), and `npm run typecheck` checks `sw/` with the webworker lib (`sw/tsconfig.json`). A new byte-different build reaches users through the existing update-banner flow; bump `CacheNames.VERSION` only to force-evict caches.
+- **The offline outbox flush has no browser dependency**: `modules/checkins/domain/outbox/OutboxFlusher.ts` takes storage, photo uploader, sender and notifier as ports (`IOutboxStorage`, `IOutboxPhotoUploader`, `ICheckinSender`, `IOutboxNotifier`); the web implementations are in `modules/checkins/client/OutboxAdapters.ts` (IndexedDB, the browser upload client, the `addDrink` action, toasts). A native client writes its own (SQLite or MMKV, `POST /api/v1/checkins`) and reuses the flusher. A unit test keeps `domain/outbox` free of `window`, `indexedDB`, `File`, `fetch` and framework imports.
+
 ## Auth architecture (custom, not Supabase / NextAuth)
 
 The repo was migrated off Supabase to direct Prisma. Auth is a hand-rolled session-cookie system:

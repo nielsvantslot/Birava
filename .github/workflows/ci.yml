@@ -51,6 +51,10 @@ jobs:
       - name: Module boundaries
         run: npm run depcruise
 
+      # public/sw.js is bundled from sw/ and committed; it must be what the source produces.
+      - name: Service worker bundle is current
+        run: npx tsx scripts/build-sw.ts --check
+
       # The OpenAPI document is generated from the route definitions; the committed copy must match.
       - name: OpenAPI document is current
         run: npx tsx scripts/generate-openapi.ts --check
