@@ -39,6 +39,7 @@ modules/<name>/
 | `notifications` | in-app notifications, web push, session reminders and their cadence |
 | `achievements` | achievement rules and the award ledger |
 | `diagnostics` | client error log |
+| `jobs` | scheduled work: named job classes, the recorded run history, the health report |
 
 `modules/photo-upload` is the portable, Birava-agnostic upload engine. It is a library, not a feature module: it imports nothing Birava-specific and keeps its current layout.
 
@@ -69,7 +70,8 @@ The index is server-side only on purpose: a barrel that mixes Prisma-backed comm
 1. Tooling lands first (#345). Before any file moves, the rules are satisfied vacuously, so the baseline is empty and CI fails on any violation from day one. If a move introduces a violation that cannot be fixed in the same change, it is recorded in a `.dependency-cruiser-known-violations.json` baseline and burnt down.
 2. Files move module by module with `git mv`, no logic changes (#346).
 3. Pure code moves into `domain/` and is lint-enforced framework-free (#347).
-4. The baseline is burnt down to zero; phase gate: zero violations on `main`.
+4. Repository interfaces (ports) live in `domain/`, so `infrastructure/` can implement them without importing `application/` (first used by `modules/jobs`).
+5. The baseline is burnt down to zero; phase gate: zero violations on `main`.
 
 ## Consequences
 
