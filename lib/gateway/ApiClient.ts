@@ -32,6 +32,8 @@ export class ApiClient {
           : undefined;
       throw new ApiRequestError(ErrorEnvelope.messageFrom(body, "Request failed."), response.status, code);
     }
+    // A 200 that isn't JSON (an offline page from the service worker or a CDN) is not an answer.
+    if (body === null) throw new ApiRequestError("Unexpected response.", response.status);
     return body as T;
   }
 }

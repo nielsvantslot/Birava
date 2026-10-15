@@ -31,8 +31,13 @@ export const updateCheckinInput = z.object({ id, ...checkinFields });
 export const deleteCheckinInput = z.object({ id });
 
 /** `GET /api/feed`: one page of the dashboard feed. Both cursor halves are set, or neither. */
-export const feedQuery = z.object({
-  onlyOwn: z.enum(["true", "false"]).transform((v) => v === "true"),
-  beforeEndedAt: z.iso.datetime({ offset: true }).optional(),
-  beforeId: id.optional(),
-});
+export const feedQuery = z
+  .object({
+    onlyOwn: z.enum(["true", "false"]).transform((v) => v === "true"),
+    beforeEndedAt: z.iso.datetime({ offset: true }).optional(),
+    beforeId: id.optional(),
+  })
+  .refine((v) => (v.beforeEndedAt === undefined) === (v.beforeId === undefined), {
+    message: "beforeEndedAt and beforeId go together",
+    path: ["beforeId"],
+  });

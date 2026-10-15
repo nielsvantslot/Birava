@@ -1,3 +1,4 @@
+import { ErrorEnvelope } from "@/lib/gateway/ErrorEnvelope";
 import { PhotoUploader } from "@/modules/photo-upload/client";
 import { drinkPhotoUploadEndpoints } from "@/modules/media/domain/photoUploadConfig";
 import { addDrink } from "@/modules/checkins/actions/drinkController";
@@ -222,7 +223,9 @@ async function runOnePass(
         SYNC_STEP_TIMEOUT_MS
       );
       if (result.error) {
-        await updatePendingCheckin(entry.id, { status: "failed", lastError: result.error });
+        // The limiter or an upstream service said "not now", not "no": keep it queued for the next trigger.
+        const status = ErrorEnvelope.isTransient(result) ? "queued" : "failed";
+        await updatePendingCheckin(entry.id, { status, lastError: result.error });
         continue;
       }
 

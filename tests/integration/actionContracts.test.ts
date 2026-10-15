@@ -203,7 +203,7 @@ describe("notification and profile actions", () => {
     const user = await signedInUser();
 
     expect((await completeOnboarding()).error).toBeUndefined();
-    expect((await db.user.findUniqueOrThrow({ where: { id: user.id } })).onboardedAt).not.toBeNull();
+    expect((await db.user.findUniqueOrThrow({ where: { id: user.id } })).hasCompletedOnboarding).toBe(true);
   });
 
   it("renames a username and refuses one that is taken", async () => {

@@ -1,5 +1,6 @@
 import type { ZodType, z } from "zod";
 import { ApiError } from "./ApiError";
+import { ControlFlow } from "./ControlFlow";
 import { ErrorEnvelope, type ActionFailure } from "./ErrorEnvelope";
 import type { GatewayServices } from "./GatewayServices";
 import { InputParser } from "./InputParser";
@@ -90,6 +91,7 @@ export class ActionGateway<TUser extends { id: string }> {
         return await run(args[0]);
       } catch (error) {
         if (error instanceof ApiError) return ErrorEnvelope.actionFailure(error);
+        if (ControlFlow.isNextControlFlow(error)) throw error;
         this.services.logger.error("server action threw", { action: config.name, error });
         throw error;
       }

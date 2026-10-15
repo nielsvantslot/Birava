@@ -184,6 +184,16 @@ describe("route gateway: a broken rate limiter", () => {
     expect((await route(post({}), ctx)).status).toBe(200);
   });
 
+  it("lets a best-effort endpoint opt in to failing open", async () => {
+    const { gateway } = setup({ brokenLimiter: true });
+    const route = gateway.route.public(
+      { name: "beacon", rateLimit: { bucket: "beacon", limit: 1, windowMs: 1000, scope: "ip", failOpen: true } },
+      async () => ({ ok: true })
+    );
+
+    expect((await route(post({}), ctx)).status).toBe(200);
+  });
+
   it("fails closed on an endpoint's own explicit limit", async () => {
     const { gateway, logger } = setup({ brokenLimiter: true });
     const route = gateway.route.public(
@@ -262,6 +272,33 @@ describe("route gateway: results and errors", () => {
     expect(body.error.code).toBe("INTERNAL");
     expect(JSON.stringify(body)).not.toContain("secret");
     expect(logger.errors).toHaveLength(1);
+  });
+});
+
+describe("Next control flow", () => {
+  const redirectError = Object.assign(new Error("NEXT_REDIRECT"), { digest: "NEXT_REDIRECT;replace;/login;307;" });
+
+  it("is rethrown untouched by a route and by an action, and not logged as a failure", async () => {
+    const { gateway, logger } = setup();
+    const route = gateway.route.authed({ name: "r" }, async () => {
+      throw redirectError;
+    });
+    const action = gateway.action.authed({ name: "a" }, async () => {
+      throw redirectError;
+    });
+
+    await expect(route(new Request("http://app.test/x"), ctx)).rejects.toBe(redirectError);
+    await expect(action()).rejects.toBe(redirectError);
+    expect(logger.errors).toHaveLength(0);
+  });
+});
+
+describe("route gateway: invalid input messages", () => {
+  it("uses the route's own message for a bad body or form", async () => {
+    const { gateway } = setup();
+    const route = gateway.route.authed({ name: "t", body: z.object({ url: z.string() }), invalidMessage: "Invalid upload." }, async () => ({}));
+
+    expect((await errorOf(await route(post({}), ctx))).error.message).toBe("Invalid upload.");
   });
 });
 

@@ -1,5 +1,6 @@
 import type { ZodType } from "zod";
 import { ApiError } from "./ApiError";
+import { ControlFlow } from "./ControlFlow";
 import { ErrorEnvelope } from "./ErrorEnvelope";
 import type { GatewayServices } from "./GatewayServices";
 import { InputParser } from "./InputParser";
@@ -21,6 +22,8 @@ type InputSchemas = {
 type RouteConfig<S extends InputSchemas> = S & {
   /** Names the endpoint in logs and in default rate-limit buckets. */
   name: string;
+  /** What to tell the caller when the body or form is invalid, instead of the generic message. */
+  invalidMessage?: string;
 };
 
 type AuthedRouteConfig<S extends InputSchemas> = RouteConfig<S> & {
@@ -130,13 +133,13 @@ export class RouteGateway<TUser extends { id: string }> {
     }
     if (config.body) {
       const raw = await request.json().catch(() => undefined);
-      if (raw === undefined) throw ApiError.validation("Invalid request body.");
-      parsed.body = InputParser.parse(config.body, raw, "Invalid request body.");
+      if (raw === undefined) throw ApiError.validation(config.invalidMessage ?? "Invalid request body.");
+      parsed.body = InputParser.parse(config.body, raw, config.invalidMessage ?? "Invalid request body.");
     }
     if (config.form) {
       const form = await request.formData().catch(() => null);
-      if (!form) throw ApiError.validation("Invalid form.");
-      parsed.form = InputParser.parse(config.form, Object.fromEntries(form.entries()), "Invalid form.");
+      if (!form) throw ApiError.validation(config.invalidMessage ?? "Invalid form.");
+      parsed.form = InputParser.parse(config.form, Object.fromEntries(form.entries()), config.invalidMessage ?? "Invalid form.");
     }
     return parsed as Parsed<S>;
   }
@@ -154,6 +157,7 @@ export class RouteGateway<TUser extends { id: string }> {
         return Response.json(result);
       } catch (error) {
         if (error instanceof ApiError) return ErrorEnvelope.response(error);
+        if (ControlFlow.isNextControlFlow(error)) throw error;
         logger.error("route handler threw", { url: new URL(request.url).pathname, error });
         return ErrorEnvelope.internalResponse();
       }

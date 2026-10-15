@@ -42,6 +42,12 @@ export class ErrorEnvelope {
     };
   }
 
+  /** True for a failure worth retrying later as is (the limiter or an upstream service said not now), as opposed to a definitive rejection. */
+  static isTransient(result: unknown): boolean {
+    if (typeof result !== "object" || result === null || !("code" in result)) return false;
+    return result.code === "RATE_LIMITED" || result.code === "UPSTREAM_FAILED";
+  }
+
   /** Reads a message out of a parsed error response body, in the envelope shape or the legacy `{ error: string }` one. */
   static messageFrom(body: unknown, fallback: string): string {
     if (typeof body !== "object" || body === null || !("error" in body)) return fallback;
