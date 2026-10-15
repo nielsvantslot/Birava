@@ -402,3 +402,31 @@ model IdempotencyKey {
   @@unique([userId, key, route])
   @@index([createdAt])
 }
+
+enum JobRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+/// One execution of a scheduled job (modules/jobs). GitHub Actions is the
+/// scheduler; this table is what makes each job's last run and outcome
+/// queryable, and what /api/health reads to notice a job that stopped. A row is
+/// written as RUNNING when the job starts and finalized when it ends; a row
+/// still RUNNING long after its start means the process died mid-run. Rows are
+/// pruned after 30 days by the daily prune job.
+model JobRun {
+  id            String       @id @default(uuid()) @db.Uuid
+  job           String
+  status        JobRunStatus @default(RUNNING)
+  startedAt     DateTime     @default(now()) @db.Timestamptz(6)
+  finishedAt    DateTime?    @db.Timestamptz(6)
+  durationMs    Int?
+  rowsProcessed Int?
+  summary       Json?
+  error         String?
+
+  @@index([job, startedAt(sort: Desc)])
+  @@index([startedAt])
+}
+
