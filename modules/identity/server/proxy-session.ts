@@ -1,6 +1,6 @@
-import { db } from "@/lib/db";
-import { SessionUserMapper } from "@/lib/mappers";
 import { SessionUserDTO } from "@/lib/dtos";
+import { SessionResolver } from "@/modules/identity/application/SessionResolver";
+import { sessionRepository } from "@/modules/identity/server/sessionRepository";
 import { NextResponse, type NextRequest } from "next/server";
 import { ContentSecurityPolicyBuilder } from "@/lib/security/ContentSecurityPolicyBuilder";
 import { RequestContext } from "@/lib/logging/RequestContext";
@@ -13,60 +13,11 @@ import { RequestContext } from "@/lib/logging/RequestContext";
  */
 export const TRUSTED_USER_HEADER = "x-birava-session-user";
 
-// Every matched navigation pays this lookup before anything else can render —
-// it's the single highest-frequency query in the app. A short in-memory TTL
-// cache, keyed by token, turns rapid-fire navigation (clicking through
-// several tabs in a few seconds) into cache hits instead of a Postgres round
-// trip each time. Best-effort only: a serverless instance can always come up
-// cold with an empty cache, which just falls through to the DB exactly like
-// today — this can only help, never regress, correctness.
-//
-// Trade-off worth knowing: a logout doesn't proactively evict this cache, so
-// a captured token could still be treated as valid for up to CACHE_TTL_MS
-// after the real session row is deleted elsewhere. Kept deliberately short
-// (a few seconds) so that window stays negligible relative to the token
-// itself being httpOnly and not trivially exfiltrated.
-const CACHE_TTL_MS = 5_000;
-const MAX_CACHE_ENTRIES = 5_000;
-const sessionCache = new Map<string, { dto: SessionUserDTO | null; cachedAt: number }>();
+const sessionResolver = new SessionResolver(sessionRepository);
 
-function cachedSessionUser(token: string): SessionUserDTO | null | undefined {
-  const entry = sessionCache.get(token);
-  if (!entry) return undefined;
-  if (Date.now() - entry.cachedAt > CACHE_TTL_MS) {
-    sessionCache.delete(token);
-    return undefined;
-  }
-  return entry.dto;
-}
-
-function setCachedSessionUser(token: string, dto: SessionUserDTO | null) {
-  if (sessionCache.size >= MAX_CACHE_ENTRIES) {
-    // Cheap unbounded-growth guard, not true LRU: Map iteration order is
-    // insertion order, so this evicts the oldest entry.
-    const oldestKey = sessionCache.keys().next().value;
-    if (oldestKey !== undefined) sessionCache.delete(oldestKey);
-  }
-  sessionCache.set(token, { dto, cachedAt: Date.now() });
-}
-
-/** Exported for direct testing — updateSession() is the only production caller. */
+/** Exported for direct testing — updateSession() is the only production caller. The caching and its trade-offs are explained on SessionResolver. */
 export async function resolveSessionUser(token: string): Promise<SessionUserDTO | null> {
-  const cached = cachedSessionUser(token);
-  if (cached !== undefined) return cached;
-
-  const session = await db.session.findUnique({
-    where: { sessionToken: token },
-    select: {
-      expiresAt: true,
-      user: { select: { id: true, email: true, username: true, avatarUrl: true, createdAt: true, isDeveloper: true } },
-    },
-  });
-
-  const isValid = !!session && session.expiresAt.getTime() > Date.now();
-  const dto = isValid ? SessionUserMapper.toDTO(session.user) : null;
-  setCachedSessionUser(token, dto);
-  return dto;
+  return sessionResolver.resolve(token);
 }
 
 export async function updateSession(request: NextRequest) {

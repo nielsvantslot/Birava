@@ -77,6 +77,14 @@ module.exports = {
       },
     },
     {
+      name: "database-client-only-in-data-layers",
+      severity: "error",
+      comment:
+        "Pages, actions, client code and domain code never touch the database client. It is imported by infrastructure/ (repositories), server/ (composition roots and reads) and application/ (commands), and by lib/. Moving the remaining commands and queries behind repositories is the next step; this keeps the ground gained.",
+      from: { path: ["^app/", "^modules/[^/]+/(domain|actions|client)/"] },
+      to: { path: "^lib/db\.ts$" },
+    },
+    {
       name: "lib-does-not-import-modules",
       severity: "error",
       comment: "lib/ is the platform; features depend on it, never the reverse (pure domain/contract excepted).",
