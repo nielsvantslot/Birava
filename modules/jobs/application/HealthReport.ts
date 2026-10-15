@@ -73,7 +73,7 @@ export class HealthReport {
       if (!latest) return { ok: false, latestAt: null, ageHours: null, error: "no backups found" };
       const ageHours = Math.round(((now.getTime() - latest.getTime()) / 3_600_000) * 10) / 10;
       return { ok: ageHours <= BACKUP_STALE_AFTER_HOURS, latestAt: latest.toISOString(), ageHours };
-    } catch (error) {
+    } catch {
       return { ok: false, latestAt: null, ageHours: null, error: "could not list backups" };
     }
   }
@@ -83,7 +83,7 @@ export class HealthReport {
       const [snapshots, trackingSince] = await Promise.all([this.runs.snapshots(), this.runs.trackingSince()]);
       const byJob = new Map(snapshots.map((snapshot) => [snapshot.job, snapshot]));
       return this.jobs.map((job) => JobHealth.evaluate(job, byJob.get(job.name), now, trackingSince));
-    } catch (error) {
+    } catch {
       // The run table is unreadable (usually the database itself is down, which the database check reports too):
       // say so per job instead of failing the whole report.
       return this.jobs.map((job) => ({
