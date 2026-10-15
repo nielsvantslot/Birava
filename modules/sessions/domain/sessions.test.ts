@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { activeWeeks, defaultSessionTitle, formatPace, formatSessionDuration, groupIntoSessions, sessionMinutes, sessionTitle, SESSION_GAP_MS } from "./sessions";
-import type { DrinkEntry } from "../../../lib/types";
+import type { DrinkEntry } from "@/lib/types";
 
 let idCounter = 0;
 

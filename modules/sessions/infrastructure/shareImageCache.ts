@@ -3,7 +3,7 @@ import { StorageAdapterFactory } from "@/modules/media/server/storageAdapterFact
 
 /**
  * Composition root for caching rendered session share images (see
- * app/api/sessions/[id]/share-image/route.tsx). Reuses the same storage
+ * app/api/sessions/[id]/share-image/route.ts). Reuses the same storage
  * backend as check-in photos (modules/media/server/photoUpload.ts, via StorageAdapterFactory)
  * as its own storage, since share images have none of the resize/HEIC/LQIP
  * needs PhotoUploadService exists for; this just needs put/get/del of an

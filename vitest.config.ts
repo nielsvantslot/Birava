@@ -27,7 +27,7 @@ export default defineConfig({
           branches: 88,
         },
         "modules/*/application/!(password).ts": { lines: 35, branches: 32 },
-        "modules/*/server/*{Queries,Select,Visibility}.ts": { lines: 55, branches: 35 },
+        "modules/*/server/*{Queries,Select,Visibility,Resolver}.ts": { lines: 55, branches: 35 },
       },
     },
     projects: [

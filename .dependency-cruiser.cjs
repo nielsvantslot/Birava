@@ -66,11 +66,15 @@ module.exports = {
       to: { path: PRIVATE_FOLDERS },
     },
     {
-      name: "components-never-reach-the-database-or-auth",
+      name: "components-never-reach-the-database-or-server-code",
       severity: "error",
-      comment: "Components render; data access and sessions belong to pages, actions and routes.",
+      comment:
+        "Components render; data access and sessions belong to pages, actions and routes. Type-only imports from server/ are tolerated until phase 2 moves those types into contract/.",
       from: { path: "^components/" },
-      to: { path: ["^lib/db\.ts$", "^lib/auth/", "^modules/[^/]+/infrastructure/"] },
+      to: {
+        path: ["^lib/db\.ts$", "^modules/[^/]+/(application|infrastructure|server)/"],
+        dependencyTypesNot: ["type-only"],
+      },
     },
     {
       name: "lib-does-not-import-modules",

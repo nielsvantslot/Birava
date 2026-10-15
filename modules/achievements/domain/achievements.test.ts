@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeAchievements, newlyEarnedAchievements } from "./achievements";
-import type { DrinkEntry } from "../../../lib/types";
+import type { DrinkEntry } from "@/lib/types";
 
 let idCounter = 0;
 
