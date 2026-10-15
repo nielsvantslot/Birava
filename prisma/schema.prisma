@@ -230,7 +230,7 @@ model DrinkSession {
   /// Cached rendered share-image variants (modules/sessions/infrastructure/shareImageCache.ts) — storage
   /// keys/URLs, not the bytes themselves. Null means "not cached, or stale":
   /// every command that changes this session's entries or name nulls both
-  /// out, and app/api/sessions/[id]/share-image/route.tsx regenerates and
+  /// out, and app/api/sessions/[id]/share-image/route.ts regenerates and
   /// re-populates them on the next request.
   shareImageOpaqueUrl      String?
   shareImageTransparentUrl String?

@@ -11,6 +11,9 @@ export type RateLimitSpec = {
   message?: string;
 };
 
+/** A limit for an endpoint with no signed-in user: always counted per IP (a per-user bucket would be one shared bucket for everyone). */
+export type IpRateLimitSpec = Omit<RateLimitSpec, "scope"> & { scope: "ip" };
+
 /** Infers a schema's parsed type, or undefined when there is no schema. */
 export type Infer<S extends ZodType | undefined> = S extends ZodType ? z.output<S> : undefined;
 

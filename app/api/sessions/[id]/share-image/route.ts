@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ApiError } from "@/lib/gateway/ApiError";
 import { gateway } from "@/modules/identity/server/gateway";
-import { canRenderShareImage, getShareImageForSession } from "@/modules/sessions";
+import { canRenderShareImage, getShareImageForSession } from "@/modules/sessions/server/shareImageCommands";
 
 // Prisma (getCurrentUser / history) and the storage layer need Node, not edge.
 export const runtime = "nodejs";

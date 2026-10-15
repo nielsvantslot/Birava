@@ -3,7 +3,7 @@ import { ApiError } from "./ApiError";
 import { ErrorEnvelope, type ActionFailure } from "./ErrorEnvelope";
 import type { GatewayServices } from "./GatewayServices";
 import { InputParser } from "./InputParser";
-import type { Infer, RateLimitSpec } from "./Models";
+import type { Infer, IpRateLimitSpec, RateLimitSpec } from "./Models";
 import { DEFAULT_USER_RATE_LIMIT, RateLimitGuard } from "./RateLimitGuard";
 
 type ActionConfig<S extends ZodType | undefined> = {
@@ -20,7 +20,7 @@ type AuthedActionConfig<S extends ZodType | undefined> = ActionConfig<S> & {
 
 type PublicActionConfig<S extends ZodType | undefined> = ActionConfig<S> & {
   /** Required: an action anyone can call must say how it is limited. `false` is an explicit, reviewed opt-out. */
-  rateLimit: RateLimitSpec | false;
+  rateLimit: IpRateLimitSpec | false;
 };
 
 type ActionArgs<S extends ZodType | undefined> = S extends ZodType ? [input: z.input<S>] : [];
@@ -38,7 +38,7 @@ export class ActionGateway<TUser extends { id: string }> {
   private readonly rateLimits: RateLimitGuard;
 
   constructor(private readonly services: GatewayServices<TUser>) {
-    this.rateLimits = new RateLimitGuard(services.rateLimiter);
+    this.rateLimits = new RateLimitGuard(services.rateLimiter, services.logger);
   }
 
   /** An action for signed-in users. */
@@ -62,8 +62,7 @@ export class ActionGateway<TUser extends { id: string }> {
   ): (...args: ActionArgs<S>) => Promise<R | ActionFailure> {
     return this.build<S, R>(config, async (raw) => {
       if (config.rateLimit) {
-        const subject = config.rateLimit.scope === "user" ? "anonymous" : await this.services.clientIpFromHeaders();
-        await this.rateLimits.consume(config.rateLimit, config.name, subject);
+        await this.rateLimits.consume(config.rateLimit, config.name, await this.services.clientIpFromHeaders());
       }
       return handler({ input: this.parse(config, raw) });
     });

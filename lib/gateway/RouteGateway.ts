@@ -3,7 +3,7 @@ import { ApiError } from "./ApiError";
 import { ErrorEnvelope } from "./ErrorEnvelope";
 import type { GatewayServices } from "./GatewayServices";
 import { InputParser } from "./InputParser";
-import type { Part, RateLimitSpec, RouteContextLike } from "./Models";
+import type { IpRateLimitSpec, Part, RateLimitSpec, RouteContextLike } from "./Models";
 import { OriginGuard } from "./OriginGuard";
 import { DEFAULT_USER_RATE_LIMIT, RateLimitGuard } from "./RateLimitGuard";
 
@@ -30,7 +30,7 @@ type AuthedRouteConfig<S extends InputSchemas> = RouteConfig<S> & {
 
 type PublicRouteConfig<S extends InputSchemas> = RouteConfig<S> & {
   /** Required: an endpoint anyone can call must say how it is limited. `false` is an explicit, reviewed opt-out. */
-  rateLimit: RateLimitSpec | false;
+  rateLimit: IpRateLimitSpec | false;
 };
 
 type Parsed<S extends InputSchemas> = {
@@ -62,7 +62,7 @@ export class RouteGateway<TUser extends { id: string }> {
   private readonly rateLimits: RateLimitGuard;
 
   constructor(private readonly services: GatewayServices<TUser>) {
-    this.rateLimits = new RateLimitGuard(services.rateLimiter);
+    this.rateLimits = new RateLimitGuard(services.rateLimiter, services.logger);
   }
 
   /** A route for signed-in users. */
@@ -89,8 +89,7 @@ export class RouteGateway<TUser extends { id: string }> {
     return this.build(config, async (request, context) => {
       OriginGuard.assertSameOrigin(request);
       if (config.rateLimit) {
-        const subject = config.rateLimit.scope === "user" ? "anonymous" : this.services.clientIp(request);
-        await this.rateLimits.consume(config.rateLimit, config.name, subject);
+        await this.rateLimits.consume(config.rateLimit, config.name, this.services.clientIp(request));
       }
       const input = await this.parseInput(request, context, config);
       return handler({ request, input });

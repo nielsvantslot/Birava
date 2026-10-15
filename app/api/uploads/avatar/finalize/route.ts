@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { ApiError } from "@/lib/gateway/ApiError";
 import { gateway } from "@/modules/identity/server/gateway";
 import { finalizeAvatarUpload } from "@/modules/identity";
+import { PhotoUploadError } from "@/modules/photo-upload/Errors/PhotoUploadError";
 import { UploadErrorMapper } from "@/modules/media/server/UploadErrorMapper";
 import { uploadUrlInput } from "@/modules/media/contract/uploadContract";
 
@@ -18,7 +19,10 @@ export const POST = gateway.route.authed(
     UploadErrorMapper.run(async () => {
       if (request.signal.aborted) throw new ApiError("CLIENT_CLOSED", "Upload cancelled.");
 
-      const result = await finalizeAvatarUpload(user.id, input.body.url);
+      const result = await finalizeAvatarUpload(user.id, input.body.url).catch((error: unknown) => {
+        if (error instanceof PhotoUploadError) throw error;
+        throw ApiError.validation("Failed to process photo.");
+      });
       if (result.error) throw new ApiError("INTERNAL", result.error);
       revalidatePath("/profile");
       return result;

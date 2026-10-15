@@ -33,9 +33,15 @@ class CountingLimiter implements IRateLimiter {
   }
 }
 
-function setup(options: { user?: User | null; cronOk?: boolean } = {}) {
+class BrokenLimiter implements IRateLimiter {
+  async consume(): Promise<never> {
+    throw new Error("database unavailable");
+  }
+}
+
+function setup(options: { user?: User | null; cronOk?: boolean; brokenLimiter?: boolean } = {}) {
   const logger = new FakeLogger();
-  const limiter = new CountingLimiter();
+  const limiter: IRateLimiter = options.brokenLimiter ? new BrokenLimiter() : new CountingLimiter();
   const user = options.user === undefined ? { id: "u1" } : options.user;
   const services: GatewayServices<User> = {
     authenticator: { authenticate: async () => user },
@@ -45,7 +51,7 @@ function setup(options: { user?: User | null; cronOk?: boolean } = {}) {
     clientIp: () => "1.2.3.4",
     clientIpFromHeaders: async () => "1.2.3.4",
   };
-  return { gateway: new Gateway(services), logger, limiter };
+  return { gateway: new Gateway(services), logger, limiter: limiter as CountingLimiter };
 }
 
 const ctx = { params: Promise.resolve({}) };
@@ -167,6 +173,26 @@ describe("route gateway: rate limiting", () => {
 
     expect(limiter.keys).toEqual(["login:1.2.3.4", "login:1.2.3.4"]);
     expect((await errorOf(limited)).error.message).toBe("Slow down.");
+  });
+});
+
+describe("route gateway: a broken rate limiter", () => {
+  it("lets a request through on the default limit, because that limit is only a safety net", async () => {
+    const { gateway } = setup({ brokenLimiter: true });
+    const route = gateway.route.authed({ name: "t" }, async () => ({ ok: true }));
+
+    expect((await route(post({}), ctx)).status).toBe(200);
+  });
+
+  it("fails closed on an endpoint's own explicit limit", async () => {
+    const { gateway, logger } = setup({ brokenLimiter: true });
+    const route = gateway.route.public(
+      { name: "login", rateLimit: { bucket: "login", limit: 1, windowMs: 1000, scope: "ip" } },
+      async () => ({ ok: true })
+    );
+
+    expect((await route(post({}), ctx)).status).toBe(500);
+    expect(logger.errors).toHaveLength(1);
   });
 });
 
