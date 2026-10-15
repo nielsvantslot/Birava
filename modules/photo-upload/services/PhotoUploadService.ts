@@ -48,12 +48,31 @@ export class PhotoUploadService implements IPhotoUploadService {
   }
 
   async remove(url: string, ownerId: string): Promise<void> {
-    if (!this.ownsUrl(url, ownerId)) return;
+    if (!this.config.storage.isOwnUrl(url) || !this.ownsUrl(url, ownerId)) return;
     await this.config.storage.del(url);
   }
 
   async read(url: string): Promise<StoredFile | null> {
+    if (!this.config.storage.isOwnUrl(url)) return null;
     return this.config.storage.get(url);
+  }
+
+  /**
+   * Is this a URL the upload pipeline issued to `ownerId`? Used to vet a URL a client
+   * sends back before it is stored on a row: it must live in this storage backend and in
+   * the owner's own key namespace, as its last path segments.
+   */
+  isIssuedUrl(url: string, ownerId: string): boolean {
+    if (!this.config.storage.isOwnUrl(url)) return false;
+    let segments: string[];
+    try {
+      segments = PhotoUploadService.normalizedPathname(url).split("/").filter((s) => s.length > 0);
+    } catch {
+      return false;
+    }
+    const prefix = this.config.keyPrefix(ownerId).split("/").filter((s) => s.length > 0);
+    const tail = segments.slice(-(prefix.length + 1));
+    return tail.length === prefix.length + 1 && prefix.every((seg, i) => tail[i] === seg);
   }
 
   async store(file: File, ownerId: string): Promise<UploadResultDto> {

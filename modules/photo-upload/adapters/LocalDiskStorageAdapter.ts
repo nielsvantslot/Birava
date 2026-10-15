@@ -49,11 +49,24 @@ export class LocalDiskStorageAdapter implements IStorageAdapter {
     }
   }
 
+  isOwnUrl(url: string): boolean {
+    return this.resolvePath(url) !== null;
+  }
+
+  /** Maps a served URL to its file, or null for anything that is not strictly inside rootDir. */
   private resolvePath(url: string): string | null {
-    const parsed = new URL(url, "http://localhost");
-    const pathname = decodeURIComponent(parsed.pathname);
-    if (!pathname.startsWith(this.config.publicPathPrefix)) return null;
-    return path.join(this.config.rootDir, pathname.slice(this.config.publicPathPrefix.length));
+    let pathname: string;
+    try {
+      // Decode before normalising: a %2f must become a real separator before any ".." is judged.
+      pathname = decodeURIComponent(new URL(url, "http://localhost").pathname);
+    } catch {
+      return null;
+    }
+    const prefix = `${this.config.publicPathPrefix}/`;
+    if (!pathname.startsWith(prefix)) return null;
+    const root = path.resolve(this.config.rootDir);
+    const resolved = path.resolve(root, pathname.slice(prefix.length));
+    return resolved.startsWith(root + path.sep) ? resolved : null;
   }
 
   /** Wraps an already-in-memory buffer as a single-chunk stream — no copy, `Buffer` is already a `Uint8Array`. */

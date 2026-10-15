@@ -15,11 +15,10 @@ type CacheEntry = { dto: SessionUserDTO | null; cachedAt: number };
  * cold with an empty cache, which just falls through to the database, so this
  * can only help, never regress, correctness.
  *
- * Trade-off worth knowing: a logout doesn't proactively evict this cache, so
- * a captured token could still be treated as valid for up to `ttlMs` after
- * the real session row is deleted elsewhere. Kept deliberately short (a few
- * seconds) so that window stays negligible relative to the token itself being
- * httpOnly and not trivially exfiltrated.
+ * Trade-off worth knowing: a logout evicts the token on the instance that
+ * handled it, but another serverless instance keeps its own copy for up to
+ * `ttlMs`. Kept deliberately short (a few seconds) so that window stays
+ * negligible relative to the token itself being httpOnly.
  */
 export class SessionResolver {
   private readonly cache = new Map<string, CacheEntry>();
@@ -40,6 +39,12 @@ export class SessionResolver {
     const dto = isValid ? SessionUserMapper.toDTO(session.user) : null;
     this.remember(token, dto);
     return dto;
+  }
+
+  /** Forgets one token (or every token) so a logout takes effect at once on this instance. */
+  evict(token?: string): void {
+    if (token === undefined) this.cache.clear();
+    else this.cache.delete(token);
   }
 
   private cached(token: string): SessionUserDTO | null | undefined {
