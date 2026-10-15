@@ -21,4 +21,8 @@ export class PrismaSessionRepository implements ISessionRepository {
   async deleteByToken(sessionToken: string): Promise<void> {
     await this.db.session.deleteMany({ where: { sessionToken } });
   }
+
+  async deleteAllForUser(userId: string): Promise<void> {
+    await this.db.session.deleteMany({ where: { userId } });
+  }
 }

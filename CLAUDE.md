@@ -36,6 +36,10 @@ npm run lint           # eslint (host is fine for lint)
 
 Feature code lives in `modules/<name>/` (checkins, sessions, venues, crews, social, identity, media, notifications, achievements, diagnostics), each split into `domain/` (pure), `actions/` ("use server"), `server/` (reads), `client/`, `application/` (commands) and `infrastructure/`, with an `index.ts` for cross-module use. `lib/` is the platform and shared kernel (`db`, `env`, `logging`, `dates`, `dtos`, `mappers`...). The rules are in `docs/adr/0001-module-map-and-dependency-rules.md` and are enforced by `npm run depcruise` (CI) and ESLint: domain code cannot import Prisma/Next/React, and other modules reach `application/`/`infrastructure/` only through the module's `index.ts`. Run `docker exec birava-app npm run depcruise` after moving or adding files.
 
+## Public API (v1, added 2026-10-15)
+
+`/api/v1` (Hono + zod-openapi, `app/api/v1/_hono`, ADR 0003) serves native clients with bearer tokens (rows in the `Session` table; `getCurrentUser()` accepts a cookie or `Authorization: Bearer`). Handlers call the web actions and reads, never the db. **Adding an endpoint = a `createRoute` in `routes/*Routes.ts` + an entry in `tests/integration/api-v1/V1Fixtures.ts`** (the contract suite fails without it), then `npm run openapi:generate` and commit `docs/api/openapi.v1.json` (CI checks it is current). Additive changes stay in v1; breaking ones are `/api/v2`. Quirk: passing `security` inside `createRoute` breaks the handler's request typing, so attach it with `V1Security.any/bearer(createRoute({...}))`.
+
 ## Auth architecture (custom, not Supabase / NextAuth)
 
 The repo was migrated off Supabase to direct Prisma. Auth is a hand-rolled session-cookie system:

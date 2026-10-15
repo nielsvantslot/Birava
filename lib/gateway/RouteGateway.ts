@@ -120,6 +120,17 @@ export class RouteGateway<TUser extends { id: string }> {
     return (request) => wrapped(request, { params: Promise.resolve({}) });
   }
 
+  /**
+   * A route that hands the whole request to another router (the /api/v1 Hono
+   * app). It does none of the per-request steps itself, because the mounted
+   * app applies them per endpoint with its own middleware, but it keeps the
+   * rest of the contract: any unexpected error is logged with the route name
+   * and answered with the standard INTERNAL envelope.
+   */
+  mounted(config: { name: string }, handler: (request: Request) => Response | Promise<Response>): (request: Request, context: RouteContextLike) => Promise<Response> {
+    return this.build(config, async (request) => handler(request));
+  }
+
   private defaultFor(request: Request): RateLimitSpec | false {
     return OriginGuard.isUnsafe(request.method) ? DEFAULT_USER_RATE_LIMIT : false;
   }

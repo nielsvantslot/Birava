@@ -33,4 +33,8 @@ export class InMemorySessionRepository implements ISessionRepository {
   async deleteByToken(sessionToken: string): Promise<void> {
     this.rows.delete(sessionToken);
   }
+
+  async deleteAllForUser(userId: string): Promise<void> {
+    for (const [token, row] of this.rows) if (row.user.id === userId) this.rows.delete(token);
+  }
 }

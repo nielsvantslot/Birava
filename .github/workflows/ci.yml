@@ -51,6 +51,10 @@ jobs:
       - name: Module boundaries
         run: npm run depcruise
 
+      # The OpenAPI document is generated from the route definitions; the committed copy must match.
+      - name: OpenAPI document is current
+        run: npx tsx scripts/generate-openapi.ts --check
+
       - name: Unit tests
         run: npm run test:unit
 

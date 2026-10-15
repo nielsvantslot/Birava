@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { Gateway } from "@/lib/gateway/Gateway";
+import type { GatewayServices } from "@/lib/gateway/GatewayServices";
 import { PostgresIdempotencyStore } from "@/lib/gateway/PostgresIdempotencyStore";
 import type { SessionUserDTO } from "@/lib/dtos";
 import { LoggerFactory } from "@/lib/logging/LoggerFactory";
@@ -17,7 +18,8 @@ import { verifyCronRequest } from "@/modules/identity/server/verifyCronRequest";
  *   export const POST = gateway.route.authed({ name: "..." }, async ({ user }) => ...);
  *   export const doThing = gateway.action.authed({ name: "...", input: schema }, async ({ user, input }) => ...);
  */
-export const gateway = new Gateway<SessionUserDTO>({
+/** The collaborators the gateway is built from, shared with the /api/v1 app so both enforce the same auth, limits and idempotency. */
+export const gatewayServices: GatewayServices<SessionUserDTO> = {
   authenticator: { authenticate: () => getCurrentUser() },
   cronVerifier: { verify: verifyCronRequest },
   rateLimiter: RateLimiterFactory.create(),
@@ -25,4 +27,6 @@ export const gateway = new Gateway<SessionUserDTO>({
   logger: LoggerFactory.create("gateway"),
   clientIp: (request) => ClientIpResolver.resolve(request),
   clientIpFromHeaders: async () => ClientIpResolver.resolve(new Request("http://internal.invalid", { headers: await headers() })),
-});
+};
+
+export const gateway = new Gateway<SessionUserDTO>(gatewayServices);
