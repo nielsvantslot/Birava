@@ -68,8 +68,9 @@ export function SessionMap({
   const path = route
     .map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
     .join(" ");
-  const start = route[0];
-  const end = route[route.length - 1];
+  // route is non-empty here (callers bail out before projecting no points).
+  const start = route[0]!;
+  const end = route[route.length - 1]!;
 
   return (
     <svg

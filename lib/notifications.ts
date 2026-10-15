@@ -31,7 +31,7 @@ function pickSessionReminderVariant(seed: string): string {
   for (let i = 0; i < seed.length; i++) {
     hash = (hash * 31 + seed.charCodeAt(i)) | 0;
   }
-  return SESSION_REMINDER_VARIANTS[Math.abs(hash) % SESSION_REMINDER_VARIANTS.length];
+  return SESSION_REMINDER_VARIANTS[Math.abs(hash) % SESSION_REMINDER_VARIANTS.length]!;
 }
 
 /** Message + link for a notification event, shared by write-time push copy and the read-side list. */

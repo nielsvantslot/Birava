@@ -92,8 +92,9 @@ export function assembleDrinkSession(
 }
 
 function buildSession(checkins: DrinkEntry[]): DrinkSession {
-  const first = checkins[0];
-  const last = checkins[checkins.length - 1];
+  // buildSession is only called with a non-empty cluster.
+  const first = checkins[0]!;
+  const last = checkins[checkins.length - 1]!;
 
   return {
     id: first.id,
@@ -126,7 +127,7 @@ export function groupIntoSessions(entries: DrinkEntry[]): DrinkSession[] {
     for (const entry of bucket) {
       if (
         current.length > 0 &&
-        ts(entry) - ts(current[current.length - 1]) > SESSION_GAP_MS
+        ts(entry) - ts(current[current.length - 1]!) > SESSION_GAP_MS
       ) {
         sessions.push(buildSession(current));
         current = [];
@@ -217,7 +218,7 @@ export function formatPace(totalSeconds: number): string {
  */
 export function defaultSessionTitle(session: DrinkSession, tz: string): string {
   if (session.checkins.length === 1) {
-    const only = session.checkins[0];
+    const only = session.checkins[0]!;
     return only.drink_name?.trim() || only.drink_type || "Check-in";
   }
   const { hour } = localParts(new Date(session.start), tz);
@@ -311,12 +312,12 @@ export function activeWeeks(
 
   // Current run: walk back from the newest active week; the run is still
   // alive if that week is this week or within the one-rest-week grace.
-  const newest = weeks[weeks.length - 1];
+  const newest = weeks[weeks.length - 1]!;
   let current = 0;
   if (thisWeek - newest <= 2) {
     current = 1;
     for (let i = weeks.length - 2; i >= 0; i--) {
-      if (weeks[i + 1] - weeks[i] <= 2) current++;
+      if (weeks[i + 1]! - weeks[i]! <= 2) current++;
       else break;
     }
   }

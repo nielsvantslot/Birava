@@ -56,7 +56,7 @@ describe("getMyFeedSessions", () => {
       beforeId: page1.nextCursor!.id,
     });
     expect(page2.sessions).toHaveLength(1);
-    expect(page2.sessions[0].id).toBe(entries[0].sessionId);
+    expect(page2.sessions[0]!.id).toBe(entries[0]!.sessionId);
     expect(page2.nextCursor).toBeNull();
   });
 
@@ -76,11 +76,11 @@ describe("getMyFeedSessions", () => {
 
     const following = await getMyFeedSessions({ onlyOwn: false });
     expect(following.sessions.map((s) => s.id).sort()).toEqual(
-      [ownEntry.sessionId, followedEntry.sessionId].sort()
+      [ownEntry!.sessionId, followedEntry!.sessionId].sort()
     );
 
     const onlyOwn = await getMyFeedSessions({ onlyOwn: true });
-    expect(onlyOwn.sessions.map((s) => s.id)).toEqual([ownEntry.sessionId]);
+    expect(onlyOwn.sessions.map((s) => s.id)).toEqual([ownEntry!.sessionId]);
   });
 
   it("bundles cheer state and comment counts for the viewer", async () => {
@@ -89,20 +89,20 @@ describe("getMyFeedSessions", () => {
     });
     const [entry] = await createSessionsFor(owner.id, 1, Date.now() - DAY);
 
-    await db.cheer.create({ data: { sessionId: entry.sessionId, userId: owner.id } });
+    await db.cheer.create({ data: { sessionId: entry!.sessionId, userId: owner.id } });
     await db.comment.createMany({
       data: [
-        { sessionId: entry.sessionId, userId: owner.id, body: "nice" },
-        { sessionId: entry.sessionId, userId: owner.id, body: "again" },
+        { sessionId: entry!.sessionId, userId: owner.id, body: "nice" },
+        { sessionId: entry!.sessionId, userId: owner.id, body: "again" },
       ],
     });
 
     await loginAs(owner.id);
     const page = await getMyFeedSessions({ onlyOwn: true });
 
-    const cheerEntry = page.cheers.find(([id]) => id === entry.sessionId);
+    const cheerEntry = page.cheers.find(([id]) => id === entry!.sessionId);
     expect(cheerEntry?.[1]).toEqual({ count: 1, on: true });
-    const commentEntry = page.commentCounts.find(([id]) => id === entry.sessionId);
+    const commentEntry = page.commentCounts.find(([id]) => id === entry!.sessionId);
     expect(commentEntry?.[1]).toBe(2);
   });
 });

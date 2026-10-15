@@ -79,7 +79,7 @@ export async function getShareImageForSession(sessionId: string): Promise<ShareI
     venues.length === 0
       ? null
       : venues.length === 1
-        ? venues[0]
+        ? (venues[0] ?? null)
         : `${venues[0]} + ${venues.length - 1} more`;
 
   const routePoints = session.checkins

@@ -192,8 +192,9 @@ async function runOnePass(
   const photoResults = await uploadPhotos(entries, userId, supportsDirectUpload);
 
   for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i];
-    const photoResult = photoResults[i];
+    // photoResults is index-aligned with entries (uploadPhotos maps 1:1).
+    const entry = entries[i]!;
+    const photoResult = photoResults[i]!;
 
     if (photoResult.status === "rejected") {
       const err = photoResult.reason;

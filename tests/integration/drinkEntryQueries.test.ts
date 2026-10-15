@@ -54,8 +54,8 @@ describe("getRecentDrinkHistoryForLegend", () => {
     const history = await getRecentDrinkHistoryForLegend(user.id);
 
     expect(history).toHaveLength(1);
-    expect(history[0].venue).toBe("New Pub");
-    expect(history[0].created_at).toBe(recent.createdAt.toISOString());
+    expect(history[0]!.venue).toBe("New Pub");
+    expect(history[0]!.created_at).toBe(recent.createdAt.toISOString());
   });
 
   it("returns nothing for a user with no recent check-ins", async () => {

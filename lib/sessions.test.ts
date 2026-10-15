@@ -30,7 +30,7 @@ describe("groupIntoSessions", () => {
     ]);
 
     expect(sessions).toHaveLength(1);
-    expect(sessions[0].checkins).toHaveLength(3);
+    expect(sessions[0]!.checkins).toHaveLength(3);
   });
 
   it("splits into separate sessions once the gap exceeds 4 hours", () => {
@@ -59,8 +59,8 @@ describe("groupIntoSessions", () => {
       entry({ created_at: "2026-01-01T21:00:00.000Z", venue: "The Local Taphouse", drink_type: "Beer" }),
     ]);
 
-    expect(session.venues).toEqual(["The Local Taphouse", "Café Gollem"]);
-    expect(session.types).toEqual(["Beer", "Wine"]);
+    expect(session!.venues).toEqual(["The Local Taphouse", "Café Gollem"]);
+    expect(session!.types).toEqual(["Beer", "Wine"]);
   });
 
   it("orders sessions newest-first across users", () => {
@@ -69,15 +69,15 @@ describe("groupIntoSessions", () => {
       entry({ user_id: "user-2", created_at: "2026-01-02T10:00:00.000Z" }),
     ]);
 
-    expect(sessions[0].userId).toBe("user-2");
-    expect(sessions[1].userId).toBe("user-1");
+    expect(sessions[0]!.userId).toBe("user-2");
+    expect(sessions[1]!.userId).toBe("user-1");
   });
 });
 
 describe("sessionMinutes / formatSessionDuration", () => {
   it("is zero for a lone check-in", () => {
     const [session] = groupIntoSessions([entry({ created_at: "2026-01-01T20:00:00.000Z" })]);
-    expect(sessionMinutes(session)).toBe(0);
+    expect(sessionMinutes(session!)).toBe(0);
     expect(formatSessionDuration(0)).toBe("0m");
   });
 
@@ -109,10 +109,10 @@ describe("formatPace", () => {
 describe("sessionTitle", () => {
   it("titles a lone check-in by its drink name, falling back to type", () => {
     const [named] = groupIntoSessions([entry({ created_at: "2026-01-01T20:00:00.000Z", drink_name: "Westmalle Tripel" })]);
-    expect(sessionTitle(named, "Europe/Amsterdam")).toBe("Westmalle Tripel");
+    expect(sessionTitle(named!, "Europe/Amsterdam")).toBe("Westmalle Tripel");
 
     const [unnamed] = groupIntoSessions([entry({ created_at: "2026-01-01T20:00:00.000Z", drink_name: null, drink_type: "Wine" })]);
-    expect(sessionTitle(unnamed, "Europe/Amsterdam")).toBe("Wine");
+    expect(sessionTitle(unnamed!, "Europe/Amsterdam")).toBe("Wine");
   });
 
   it("titles a multi check-in session by local time of day", () => {
@@ -121,12 +121,12 @@ describe("sessionTitle", () => {
       entry({ created_at: "2026-01-01T20:00:00.000Z" }),
       entry({ created_at: "2026-01-01T20:30:00.000Z" }),
     ]);
-    expect(sessionTitle(session, "Europe/Amsterdam")).toBe("Evening session");
+    expect(sessionTitle(session!, "Europe/Amsterdam")).toBe("Evening session");
   });
 
   it("prefers an owner-set custom name over the derived title, but keeps the derived title available", () => {
     const [session] = groupIntoSessions([entry({ created_at: "2026-01-01T20:00:00.000Z", drink_name: "Westmalle Tripel" })]);
-    const renamed = { ...session, name: "Friday kickoff" };
+    const renamed = { ...session!, name: "Friday kickoff" };
 
     expect(sessionTitle(renamed, "Europe/Amsterdam")).toBe("Friday kickoff");
     expect(defaultSessionTitle(renamed, "Europe/Amsterdam")).toBe("Westmalle Tripel");
