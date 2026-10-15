@@ -27,7 +27,7 @@ describe("getSessionById", () => {
     const actor = { username: user.username, avatarUrl: user.avatarUrl };
     const base = Date.now() - DAY;
 
-    const a = await createAt(user.id, actor, base, { photoUrl: "photo.webp" });
+    const a = await createAt(user.id, actor, base, { photoUrl: `/uploads/entries-photos/${user.id}/photo.webp` });
     const b = await createAt(user.id, actor, base + HOUR, { venue: "The Local Taphouse", drinkType: "Wine" });
     expect(b.sessionId).toBe(a.sessionId);
 

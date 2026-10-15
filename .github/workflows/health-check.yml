@@ -18,15 +18,20 @@ jobs:
     steps:
       # The app lives at app.birava.nl (birava.nl is the marketing site, which redirects API
       # paths away). Only a 200 passes: a redirect or an error page fails the step.
+      # The secret unlocks the detailed report (the public answer is only { ok }), so a failed run shows why.
       - name: Production
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          code=$(curl -s -o /tmp/health.json -w "%{http_code}" --max-time 30 "https://app.birava.nl/api/health")
+          code=$(curl -s -o /tmp/health.json -w "%{http_code}" --max-time 30 -H "Authorization: Bearer ${CRON_SECRET}" "https://app.birava.nl/api/health")
           cat /tmp/health.json; echo
           [ "${code}" = "200" ]
 
       - name: Staging
         if: always()
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          code=$(curl -s -o /tmp/health.json -w "%{http_code}" --max-time 30 "https://staging.app.birava.nl/api/health")
+          code=$(curl -s -o /tmp/health.json -w "%{http_code}" --max-time 30 -H "Authorization: Bearer ${CRON_SECRET}" "https://staging.app.birava.nl/api/health")
           cat /tmp/health.json; echo
           [ "${code}" = "200" ]

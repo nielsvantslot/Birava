@@ -72,4 +72,15 @@ describe("SessionResolver", () => {
 
     expect(sessions.findCalls).toBe(1);
   });
+
+  it("stops serving a token at once after it is evicted", async () => {
+    const { sessions, resolver } = setup();
+    const token = sessions.add({ id: "u1" }, IN_A_DAY);
+
+    await resolver.resolve(token);
+    await sessions.deleteByToken(token);
+    resolver.evict(token);
+
+    expect(await resolver.resolve(token)).toBeNull();
+  });
 });

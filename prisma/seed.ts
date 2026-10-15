@@ -215,6 +215,11 @@ async function insertCheckins(
 }
 
 async function main() {
+  // A known-password demo account must never exist in production, whatever flags are set.
+  if (process.env.VERCEL_ENV === "production") {
+    console.log("[seed] Skipped — never runs against production.");
+    return;
+  }
   const shouldSeed =
     process.env.SEED_DEMO === "true" || process.env.VERCEL_ENV === "preview";
   if (!shouldSeed) {

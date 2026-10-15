@@ -5,19 +5,16 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ContentSecurityPolicyBuilder } from "@/lib/security/ContentSecurityPolicyBuilder";
 import { RequestContext } from "@/lib/logging/RequestContext";
 
-/**
- * Carries the already-validated session user from middleware to the RSC render,
- * so getCurrentUser() (modules/identity/server/session.ts) can skip a second Session lookup for
- * the same request. Always stripped from the incoming request first so a client
- * can't spoof it.
- */
-export const TRUSTED_USER_HEADER = "x-birava-session-user";
-
 const sessionResolver = new SessionResolver(sessionRepository);
 
 /** Exported for direct testing — updateSession() is the only production caller. The caching and its trade-offs are explained on SessionResolver. */
 export async function resolveSessionUser(token: string): Promise<SessionUserDTO | null> {
   return sessionResolver.resolve(token);
+}
+
+/** Forgets a revoked token (or all tokens) in this instance's cache. */
+export function evictSessionUser(token?: string): void {
+  sessionResolver.evict(token);
 }
 
 export async function updateSession(request: NextRequest) {
@@ -61,11 +58,9 @@ export async function updateSession(request: NextRequest) {
 
   const requestId = RequestContext.resolve(request.headers.get(RequestContext.HEADER));
   const requestHeaders = new Headers(request.headers);
-  requestHeaders.delete(TRUSTED_USER_HEADER);
+  // Defence in depth: nothing reads this header any more, but never let a client-supplied one travel on.
+  requestHeaders.delete("x-birava-session-user");
   requestHeaders.set(RequestContext.HEADER, requestId);
-  if (dto) {
-    requestHeaders.set(TRUSTED_USER_HEADER, JSON.stringify(dto));
-  }
   // Forwarded so Next's own renderer can pick the nonce back up and stamp it
   // onto the framework's inline hydration/RSC-streaming scripts — see
   // ContentSecurityPolicyBuilder's doc comment.
