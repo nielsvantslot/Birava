@@ -47,6 +47,7 @@ model User {
   comments                Comment[]
   notificationPreferences NotificationPreference[]
   clientErrorLogs         ClientErrorLog[]
+  idempotencyKeys         IdempotencyKey[]
 }
 
 /// Per-category notification preferences — gates whether queueNotifications
@@ -377,4 +378,27 @@ model RateLimitBucket {
   windowStart DateTime @default(now()) @db.Timestamptz(6)
 
   @@index([windowStart])
+}
+
+/// A mutation's first response, kept briefly so a retry carrying the same
+/// `Idempotency-Key` header gets that response back instead of running twice
+/// (lib/gateway/PostgresIdempotencyStore.ts). One row per (user, key, route):
+/// `status` is null while the first request is still running. `requestHash`
+/// catches a key reused for a different request. Rows expire after a day and
+/// are pruned by the daily prune-client-error-logs cron; they cascade with
+/// the user (GDPR erasure).
+model IdempotencyKey {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  key         String
+  route       String
+  requestHash String
+  status      Int?
+  contentType String?
+  body        String?
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key, route])
+  @@index([createdAt])
 }

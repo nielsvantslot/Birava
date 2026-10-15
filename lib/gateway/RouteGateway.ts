@@ -3,6 +3,7 @@ import { ApiError } from "./ApiError";
 import { ControlFlow } from "./ControlFlow";
 import { ErrorEnvelope } from "./ErrorEnvelope";
 import type { GatewayServices } from "./GatewayServices";
+import { IdempotencyGuard } from "./IdempotencyGuard";
 import { InputParser } from "./InputParser";
 import type { IpRateLimitSpec, Part, RateLimitSpec, RouteContextLike } from "./Models";
 import { OriginGuard } from "./OriginGuard";
@@ -57,15 +58,18 @@ type HandlerResult = Promise<unknown>;
 /**
  * Builds Next route handlers. Every handler passes through the same steps in
  * the same order: origin check (mutations), authentication, rate limit, input
- * validation, the handler itself, then error mapping to the envelope.
+ * validation, the handler itself, then error mapping to the envelope. A
+ * mutating authed route also honours an `Idempotency-Key` header (see IdempotencyGuard).
  * A handler returns a `Response` (streams, 204s, images) or any value, which
  * is sent as JSON; it signals expected failures by throwing `ApiError`.
  */
 export class RouteGateway<TUser extends { id: string }> {
   private readonly rateLimits: RateLimitGuard;
+  private readonly idempotency: IdempotencyGuard;
 
   constructor(private readonly services: GatewayServices<TUser>) {
     this.rateLimits = new RateLimitGuard(services.rateLimiter, services.logger);
+    this.idempotency = new IdempotencyGuard(services.idempotency);
   }
 
   /** A route for signed-in users. */
@@ -79,8 +83,10 @@ export class RouteGateway<TUser extends { id: string }> {
       if (!user) throw ApiError.unauthenticated();
       const limit = config.rateLimit === undefined ? this.defaultFor(request) : config.rateLimit;
       if (limit) await this.rateLimits.consume(limit, config.name, limit.scope === "user" ? user.id : this.services.clientIp(request));
-      const input = await this.parseInput(request, context, config);
-      return handler({ request, user, input });
+      return this.idempotency.run(request, user.id, config.name, async () => {
+        const input = await this.parseInput(request, context, config);
+        return this.toResponse(await handler({ request, user, input }));
+      });
     });
   }
 
@@ -144,6 +150,13 @@ export class RouteGateway<TUser extends { id: string }> {
     return parsed as Parsed<S>;
   }
 
+  /** A Response passes through, null becomes 204, anything else is sent as JSON that must not be cached (it is per user). */
+  private toResponse(result: unknown): Response {
+    if (result instanceof Response) return result;
+    if (result === null || result === undefined) return new Response(null, { status: 204 });
+    return Response.json(result, { headers: { "Cache-Control": "private, no-store" } });
+  }
+
   private build(
     config: { name: string },
     run: (request: Request, context: RouteContextLike) => HandlerResult
@@ -151,10 +164,7 @@ export class RouteGateway<TUser extends { id: string }> {
     return async (request, context) => {
       const logger = this.services.logger.child({ route: config.name, method: request.method });
       try {
-        const result = await run(request, context);
-        if (result instanceof Response) return result;
-        if (result === null || result === undefined) return new Response(null, { status: 204 });
-        return Response.json(result);
+        return this.toResponse(await run(request, context));
       } catch (error) {
         if (error instanceof ApiError) return ErrorEnvelope.response(error);
         if (ControlFlow.isNextControlFlow(error)) throw error;
