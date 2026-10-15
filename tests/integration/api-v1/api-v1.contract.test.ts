@@ -71,6 +71,12 @@ describe("the contract suite covers every /api/v1 endpoint", () => {
     expect(documented.sort()).toEqual(operations.map((o) => o.operationId).sort());
   });
 
+  it("does not serve the document where it is switched off (production)", async () => {
+    const hidden = new V1TestClient({ exposeDocument: false });
+
+    await expectEnvelope(await hidden.call("GET", "/openapi.json"), 404, "NOT_FOUND");
+  });
+
   it("answers an unknown path with the 404 envelope", async () => {
     await expectEnvelope(await client.call("GET", "/nothing-here"), 404, "NOT_FOUND");
   });

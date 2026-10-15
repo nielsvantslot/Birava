@@ -72,7 +72,10 @@ export class V1AppFactory {
       summary: "This document",
       responses: { 200: { description: "The OpenAPI 3.1 document" } },
     });
-    app.openapi(document, (c) => c.json(V1AppFactory.document(app), 200) as never);
+    app.openapi(document, (c) => {
+      if (!services.exposeDocument) throw ApiError.notFound("No such endpoint.");
+      return c.json(V1AppFactory.document(app), 200) as never;
+    });
     routes.push({ operationId: "getOpenApiDocument", route: document, authenticated: false, mutating: false });
 
     return { app, routes };

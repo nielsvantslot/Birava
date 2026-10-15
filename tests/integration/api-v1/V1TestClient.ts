@@ -20,13 +20,14 @@ export type CallOptions = {
 export class V1TestClient {
   readonly v1: V1App;
 
-  constructor(options: { mutationRateLimit?: RateLimitSpec } = {}) {
+  constructor(options: { mutationRateLimit?: RateLimitSpec; exposeDocument?: boolean } = {}) {
     this.v1 = V1AppFactory.create({
       authenticate: () => getCurrentUser(),
       rateLimiter: RateLimiterFactory.create(),
       idempotency: new PostgresIdempotencyStore(db),
       logger: LoggerFactory.create("api-v1-test", "error"),
       clientIp: () => "203.0.113.7",
+      exposeDocument: options.exposeDocument ?? true,
       mutationRateLimit: options.mutationRateLimit,
     });
   }
