@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { resolveSessionUser } from "@/lib/auth/proxy-session";
+import { resolveSessionUser } from "@/modules/identity/server/proxy-session";
 import { DrinkEntryFixtureFactory } from "./fixtures/DrinkEntryFixtureFactory";
 
 const fixtures = new DrinkEntryFixtureFactory(db);
@@ -12,6 +12,8 @@ async function createSession(userId: string, expiresAt = new Date(Date.now() + 8
   return sessionToken;
 }
 
+// Storage-level behaviour only: the real select and mapping against Postgres. The cache lives in
+// SessionResolver and is covered by its in-memory unit test.
 describe("resolveSessionUser", () => {
   it("resolves a valid session token to that session's user", async () => {
     const user = await fixtures.createUser();
@@ -35,18 +37,5 @@ describe("resolveSessionUser", () => {
     const dto = await resolveSessionUser(token);
 
     expect(dto).toBeNull();
-  });
-
-  it("caches a resolved result — a session row deleted right after still resolves within the TTL window", async () => {
-    const user = await fixtures.createUser();
-    const token = await createSession(user.id);
-
-    const first = await resolveSessionUser(token);
-    expect(first?.id).toBe(user.id);
-
-    await db.session.delete({ where: { sessionToken: token } });
-
-    const second = await resolveSessionUser(token);
-    expect(second?.id).toBe(user.id);
   });
 });

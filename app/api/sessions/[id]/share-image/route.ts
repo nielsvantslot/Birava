@@ -1,13 +1,16 @@
-import { requireUser } from "@/lib/auth/requireUser";
-import { canRenderShareImage, getShareImageForSession } from "@/lib/commands/shareImageCommands";
+import { z } from "zod";
+import { ApiError } from "@/lib/gateway/ApiError";
+import { gateway } from "@/modules/identity/server/gateway";
+import { canRenderShareImage, getShareImageForSession } from "@/modules/sessions/server/shareImageCommands";
 
 // Prisma (getCurrentUser / history) and the storage layer need Node, not edge.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export const GET = requireUser<RouteContext<"/api/sessions/[id]/share-image">>(
-  async (_request, user, { params }) => {
-    const { id } = await params;
+export const GET = gateway.route.authed(
+  { name: "sessions.share-image", params: z.object({ id: z.string().min(1) }) },
+  async ({ user, input }) => {
+    const { id } = input.params;
 
     // Ownership check first, with a cheap owner-id-only lookup. The cache-hit
     // path (inside getShareImageForSession) needs nothing more than "does the
@@ -17,13 +20,13 @@ export const GET = requireUser<RouteContext<"/api/sessions/[id]/share-image">>(
     // mismatched or missing owner both 404); the client falls back to a text
     // share on 404.
     if (!(await canRenderShareImage(user.id, id))) {
-      return new Response("Not found", { status: 404 });
+      throw ApiError.notFound();
     }
 
     const dto = await getShareImageForSession(id);
     if (!dto) {
-      return new Response("Not found", { status: 404 });
+      throw ApiError.notFound();
     }
-    return Response.json(dto);
+    return dto;
   }
 );

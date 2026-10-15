@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { createDrinkEntry } from "@/lib/commands/drinkEntryCommands";
-import { getSessionById, getSessionsForUserIds } from "@/lib/queries/drinkSessionQueries";
+import { createDrinkEntry } from "@/modules/checkins/application/drinkEntryCommands";
+import { getSessionById, getSessionsForUserIds } from "@/modules/sessions/server/drinkSessionQueries";
 import type { DrinkType } from "@/lib/types";
 
 const HOUR = 60 * 60 * 1000;
@@ -56,8 +56,8 @@ describe("getSessionById", () => {
     const session = await getSessionById(a.sessionId);
     expect(session).not.toBeNull();
     expect(session!.id).toBe(a.sessionId);
-    expect(session!.checkins[0].id).toBe(earlier.id);
-    expect(session!.checkins[0].id).not.toBe(session!.id);
+    expect(session!.checkins[0]!.id).toBe(earlier.id);
+    expect(session!.checkins[0]!.id).not.toBe(session!.id);
   });
 
   it("returns null for an id that isn't a real session", async () => {
@@ -80,8 +80,8 @@ describe("getSessionsForUserIds", () => {
 
     const page = await getSessionsForUserIds([user.id], { limit: 2 });
     expect(page).toHaveLength(2);
-    expect(page[0].id).toBe(third.sessionId);
-    expect(page[1].id).toBe(second.sessionId);
+    expect(page[0]!.id).toBe(third.sessionId);
+    expect(page[1]!.id).toBe(second.sessionId);
     expect(page.some((s) => s.id === first.sessionId)).toBe(false);
   });
 
@@ -107,7 +107,7 @@ describe("getSessionsForUserIds", () => {
     const lastOfPage1 = page1[page1.length - 1];
     const page2 = await getSessionsForUserIds([user.id], {
       limit: 2,
-      before: { endedAt: new Date(lastOfPage1.end), id: lastOfPage1.id },
+      before: { endedAt: new Date(lastOfPage1!.end), id: lastOfPage1!.id },
     });
     expect(page2.map((s) => s.id)).toEqual([b.sessionId, a.sessionId]);
   });
@@ -135,7 +135,7 @@ describe("getSessionsForUserIds", () => {
 
     const page2 = await getSessionsForUserIds([user.id], {
       limit: 2,
-      before: { endedAt: new Date(lastOfPage1.end), id: lastOfPage1.id },
+      before: { endedAt: new Date(lastOfPage1!.end), id: lastOfPage1!.id },
     });
     expect(page2.map((s) => s.id)).toEqual([b.sessionId, a.sessionId]);
     expect(page2.some((s) => s.id === e.sessionId)).toBe(false);

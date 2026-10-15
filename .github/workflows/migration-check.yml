@@ -1,0 +1,61 @@
+name: Migration check
+
+# Turns the manual "rehearse the migration against realistic data" habit into a
+# gate. Runs on every pull request that touches prisma/ (see scripts/check-migrations.ts):
+#   1. destructive statements in the new migrations need the
+#      destructive-migration-reviewed label,
+#   2. every migration applies to an empty database and the result equals
+#      prisma/schema.prisma,
+#   3. the base branch's own migrations and demo seed build a populated
+#      baseline, this branch's new migrations apply on top with no row lost, and
+#      the result equals the schema too.
+on:
+  pull_request:
+    paths:
+      - "prisma/**"
+      - "scripts/check-migrations.ts"
+      - "lib/migrations/**"
+      - ".github/workflows/migration-check.yml"
+  workflow_dispatch:
+
+jobs:
+  migrations:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: birava
+          POSTGRES_PASSWORD: birava
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U birava"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The base branch's history, for the diff of new migrations and its worktree.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check the migrations
+        env:
+          MIGRATION_CHECK_ADMIN_URL: postgresql://birava:birava@localhost:5432/postgres
+          # Scratch databases are created and dropped by the script; this is only the default connection.
+          DATABASE_URL: postgresql://birava:birava@localhost:5432/postgres
+        run: >-
+          npm run migrations:check --
+          --base origin/${{ github.base_ref || 'dev' }}
+          ${{ contains(github.event.pull_request.labels.*.name, 'destructive-migration-reviewed') && '--allow-destructive' || '' }}

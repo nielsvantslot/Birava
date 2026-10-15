@@ -8,7 +8,7 @@ name: Database backup
 # plan), this covers "nobody noticed for days" — daily cadence is
 # deliberate, since anything finer-grained just duplicates what PITR
 # already gives for free. Retention (14 daily / ~13 weekly / ~13 monthly) is
-# computed by lib/backupRetention.ts and applied by scripts/backup-database.ts
+# computed by lib/backup/backupRetention.ts and applied by scripts/backup-database.ts
 # after each upload — see docs/database-backups.md for the full reasoning.
 #
 # Storage is Vercel Blob, the same store this app already uses for photos —

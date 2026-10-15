@@ -19,6 +19,6 @@ export class ClientIpResolver {
     const forwardedFor = request.headers.get("x-forwarded-for");
     if (!forwardedFor) return "unknown";
     const hops = forwardedFor.split(",").map((h) => h.trim());
-    return hops[hops.length - 1];
+    return hops[hops.length - 1]!;
   }
 }

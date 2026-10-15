@@ -1,8 +1,8 @@
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser } from "@/modules/identity/server/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { getMyDrinkHistory } from "@/lib/controllers/drinkController";
-import { groupIntoSessions, activeWeeks } from "@/lib/sessions";
-import { computeAchievements } from "@/lib/achievements";
+import { getMyDrinkHistory } from "@/modules/checkins/server/drinkReads";
+import { groupIntoSessions, activeWeeks } from "@/modules/sessions/domain/sessions";
+import { computeAchievements } from "@/modules/achievements/domain/achievements";
 import { AchievementsView } from "@/components/drink/achievements-view";
 
 export default async function AchievementsPage() {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { markNotificationOpened } from "@/lib/commands/notificationCommands";
+import { markNotificationOpened } from "@/modules/notifications/application/notificationCommands";
 import { DrinkEntryFixtureFactory } from "./fixtures/DrinkEntryFixtureFactory";
 
 const fixtures = new DrinkEntryFixtureFactory(db);

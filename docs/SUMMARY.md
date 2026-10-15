@@ -5,6 +5,10 @@
 ## Architecture
 
 * [Backend architecture](architecture.md)
+* [ADR 0001: Module map and dependency rules](adr/0001-module-map-and-dependency-rules.md)
+* [ADR 0002: One gateway for every Route Handler and Server Action](adr/0002-gateway.md)
+* [ADR 0003: The public API at /api/v1](adr/0003-public-api-v1.md)
+* [ADR 0004: Decoupling a separate backend service](adr/0004-backend-decoupling.md)
 
 ## Audit reports
 

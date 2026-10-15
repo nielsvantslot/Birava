@@ -8,12 +8,12 @@ import {
   onPendingCheckinsChanged,
   updatePendingCheckin,
   type PendingCheckin,
-} from "@/lib/offline/pendingCheckins";
-import { flushPendingCheckins } from "@/lib/offline/syncPendingCheckins";
+} from "@/modules/checkins/client/pendingCheckins";
+import { flushPendingCheckins } from "@/modules/checkins/client/syncPendingCheckins";
 
 /**
  * An app-wide status bar for the offline check-in queue
- * (lib/offline/pendingCheckins.ts). PendingCheckinsPanel only renders on
+ * (modules/checkins/client/pendingCheckins.ts). PendingCheckinsPanel only renders on
  * /log, so anywhere else a stuck or permanently-failed check-in was
  * invisible: log-drink-form.tsx shows its "Logged" toast the instant an
  * entry is queued and deliberately lets the user navigate away right away,

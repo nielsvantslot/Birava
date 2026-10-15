@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { respondToCrewInvite } from "@/lib/controllers/groupController";
+import { respondToCrewInvite } from "@/modules/crews/actions/groupController";
 import { showToast } from "@/components/ui/toast-pill";
 import { invalidateCachedPages } from "@/lib/swCache";
 

@@ -19,10 +19,10 @@ import { PrismaClient } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { readFile } from "fs/promises";
 import path from "path";
-import { hashPassword } from "../lib/auth/password";
-import { drinkPhotoService } from "../lib/photoUpload";
-import { groupIntoSessions } from "../lib/sessions";
-import { resolveVenueId } from "../lib/commands/venueCommands";
+import { hashPassword } from "../modules/identity/application/password";
+import { drinkPhotoService } from "../modules/media/server/photoUpload";
+import { groupIntoSessions } from "../modules/sessions/domain/sessions";
+import { resolveVenueId } from "../modules/venues/application/venueCommands";
 import type { DrinkEntry as DrinkEntryDTO, DrinkType } from "../lib/types";
 
 const db = new PrismaClient();

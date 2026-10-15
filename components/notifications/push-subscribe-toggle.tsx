@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
-import { subscribeToPush, unsubscribeFromPush } from "@/lib/controllers/notificationController";
+import { subscribeToPush, unsubscribeFromPush } from "@/modules/notifications/actions/notificationController";
 import { showToast } from "@/components/ui/toast-pill";
 import { Switch } from "@/components/ui/switch";
+import { PublicEnv } from "@/lib/env/PublicEnv";
 
 type Status = "checking" | "unsupported" | "denied" | "off" | "on";
 
@@ -90,7 +91,7 @@ export function PushSubscribeToggle({ onStatusChange }: { onStatusChange?: (enab
       setTimedOut(false);
     };
 
-    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    const vapidPublicKey = PublicEnv.vapidPublicKey;
     if (!vapidPublicKey) {
       showToast("Push notifications aren't configured.");
       setBusy(false);

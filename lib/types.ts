@@ -11,7 +11,7 @@ export type DrinkType = (typeof DRINK_TYPES)[number];
 
 /**
  * One check-in — a single logged drink. Check-ins auto-group into
- * sessions (lib/sessions.ts), the unit the app is built around.
+ * sessions (modules/sessions/domain/sessions.ts), the unit the app is built around.
  */
 export type DrinkEntry = {
   id: string;

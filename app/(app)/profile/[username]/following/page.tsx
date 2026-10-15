@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth/session";
-import { getProfileByUsername } from "@/lib/controllers/profileController";
-import { getFollowingList, getMyFollowingIds } from "@/lib/controllers/socialController";
+import { getCurrentUser } from "@/modules/identity/server/session";
+import { getProfileByUsername } from "@/modules/identity/server/profileReads";
+import { getFollowingList, getMyFollowingIds } from "@/modules/social/server/socialReads";
 import { UserList } from "@/components/drink/user-list";
 import { decodeUsernameParam } from "@/lib/utils";
 

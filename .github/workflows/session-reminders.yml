@@ -17,22 +17,25 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      # www.birava.nl directly, not birava.nl — the apex domain 308-redirects
-      # to www at Vercel's edge, and curl without -L (and without forwarding
-      # Authorization across the host-changing redirect) would report success
-      # on the redirect response without ever invoking the route.
+      # The app lives at app.birava.nl (birava.nl is the marketing site and redirects API paths away).
+      # A non-200, including a redirect, fails the step: curl -f alone would call a 3xx a success.
       - name: Trigger session-reminders cron (production)
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          curl -sf -X GET \
+          code=$(curl -s -o /dev/null -w "%{http_code}" -X GET \
             -H "Authorization: Bearer ${CRON_SECRET}" \
-            "https://www.birava.nl/api/cron/session-reminders"
+            "https://app.birava.nl/api/cron/session-reminders")
+          echo "HTTP ${code}"
+          [ "${code}" = "200" ]
 
       - name: Trigger session-reminders cron (staging)
+        if: always()
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          curl -sf -X GET \
+          code=$(curl -s -o /dev/null -w "%{http_code}" -X GET \
             -H "Authorization: Bearer ${CRON_SECRET}" \
-            "https://staging.birava.nl/api/cron/session-reminders"
+            "https://staging.app.birava.nl/api/cron/session-reminders")
+          echo "HTTP ${code}"
+          [ "${code}" = "200" ]

@@ -28,7 +28,7 @@ const DEFAULT_ALLOWED_CONTENT_TYPES = [
  * no concrete dependency on sharp, heic-convert, Vercel Blob, or the
  * filesystem. Obtain an instance via `PhotoUploadServiceFactory.create(...)`
  * rather than constructing directly, and depend on `IPhotoUploadService` at
- * call sites. See `PhotoUploadRouteFactory.ts` for ready-made Next.js Route Handler wrappers.
+ * call sites. See `PhotoUploadRouteHandlers.ts` for the route-level behaviour (auth and parsing are the host project's).
  */
 export class PhotoUploadService implements IPhotoUploadService {
   private readonly allowedContentTypes: string[];

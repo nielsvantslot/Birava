@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { createDrinkEntry, deleteDrinkEntry, updateDrinkEntry } from "@/lib/commands/drinkEntryCommands";
+import { createDrinkEntry, deleteDrinkEntry, updateDrinkEntry } from "@/modules/checkins/application/drinkEntryCommands";
 import { DrinkEntryFixtureFactory } from "./fixtures/DrinkEntryFixtureFactory";
 
 const fixtures = new DrinkEntryFixtureFactory(db);

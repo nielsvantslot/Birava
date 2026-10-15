@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { markNotificationsRead } from "@/lib/controllers/notificationController";
+import { markNotificationsRead } from "@/modules/notifications/actions/notificationController";
 
 /**
  * Marks all notifications read on an actual visit to /notifications, not

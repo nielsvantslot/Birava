@@ -1,38 +1,28 @@
 import { revalidatePath } from "next/cache";
-import { getCurrentUser } from "@/lib/auth/session";
-import { storeAvatar } from "@/lib/commands/userCommands";
+import { ApiError } from "@/lib/gateway/ApiError";
+import { gateway } from "@/modules/identity/server/gateway";
+import { storeAvatar } from "@/modules/identity";
 import { PhotoUploadError } from "@/modules/photo-upload/Errors/PhotoUploadError";
-import { AvatarUploadResultDTO } from "@/lib/dtos";
+import { LoggerFactory } from "@/lib/logging/LoggerFactory";
+import { UploadErrorMapper } from "@/modules/media/server/UploadErrorMapper";
+import { uploadFileForm } from "@/modules/media/contract/uploadContract";
 
 // sharp + storage need Node, not edge.
 export const runtime = "nodejs";
 
-export async function POST(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return Response.json({ error: "Not signed in." } satisfies AvatarUploadResultDTO, { status: 401 });
-  }
+const logger = LoggerFactory.create("avatar-upload");
 
-  const form = await request.formData().catch(() => null);
-  const file = form?.get("file");
-  if (!(file instanceof File)) {
-    return Response.json({ error: "No image provided." } satisfies AvatarUploadResultDTO, { status: 400 });
-  }
-
-  try {
-    const result = await storeAvatar(user.id, file);
-    if (result.error) {
-      return Response.json(result, { status: 500 });
-    }
-    revalidatePath("/profile");
-    return Response.json(result);
-  } catch (e) {
-    if (e instanceof PhotoUploadError) {
-      return Response.json({ error: e.message } satisfies AvatarUploadResultDTO, { status: 400 });
-    }
-    return Response.json(
-      { error: "Couldn't upload that image. Try another." } satisfies AvatarUploadResultDTO,
-      { status: 500 }
-    );
-  }
-}
+export const POST = gateway.route.authed(
+  { name: "uploads.avatar.create", form: uploadFileForm, invalidMessage: "No image provided." },
+  ({ user, input }) =>
+    UploadErrorMapper.run(async () => {
+      const result = await storeAvatar(user.id, input.form.file).catch((error: unknown) => {
+        if (error instanceof PhotoUploadError) throw error;
+        logger.error("avatar upload failed", { userId: user.id, error });
+        throw new ApiError("INTERNAL", "Couldn't upload that image. Try another.");
+      });
+      if (result.error) throw new ApiError("INTERNAL", result.error);
+      revalidatePath("/profile");
+      return result;
+    })
+);

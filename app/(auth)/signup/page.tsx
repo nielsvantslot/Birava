@@ -10,7 +10,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { clearSessionCaches } from "@/lib/swCache";
-import type { AuthResultDTO } from "@/lib/dtos";
+import { ErrorEnvelope } from "@/lib/gateway/ErrorEnvelope";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -44,10 +44,10 @@ export default function SignupPage() {
       }),
     });
 
-    const result = (await response.json().catch(() => null)) as AuthResultDTO | null;
+    const result: unknown = await response.json().catch(() => null);
 
     if (!response.ok) {
-      setError(result?.error ?? "Unable to create account.");
+      setError(ErrorEnvelope.messageFrom(result, "Unable to create account."));
       setLoading(false);
       return;
     }
@@ -61,10 +61,10 @@ export default function SignupPage() {
       }),
     });
 
-    const loginResult = (await loginResponse.json().catch(() => null)) as AuthResultDTO | null;
+    const loginResult: unknown = await loginResponse.json().catch(() => null);
 
     if (!loginResponse.ok) {
-      setError(loginResult?.error ?? "Unable to sign in.");
+      setError(ErrorEnvelope.messageFrom(loginResult, "Unable to sign in."));
       setLoading(false);
       return;
     }

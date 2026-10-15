@@ -2,7 +2,7 @@
 
 import { useTransition, type ReactNode } from "react";
 import Link from "next/link";
-import { markNotificationOpenedAction } from "@/lib/controllers/notificationController";
+import { markNotificationOpenedAction } from "@/modules/notifications/actions/notificationController";
 
 /**
  * Wraps a single notification row's Link so click-through can be recorded
@@ -31,7 +31,7 @@ export function NotificationRowLink({
       className={className}
       style={style}
       prefetch={false}
-      onClick={() => startTransition(() => markNotificationOpenedAction(id))}
+      onClick={() => startTransition(async () => { await markNotificationOpenedAction(id); })}
     >
       {children}
     </Link>

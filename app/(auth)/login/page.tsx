@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { queueToast } from "@/components/ui/toast-pill";
 import { clearSessionCaches } from "@/lib/swCache";
 import type { AuthResultDTO } from "@/lib/dtos";
+import { ErrorEnvelope } from "@/lib/gateway/ErrorEnvelope";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,14 +32,14 @@ export default function LoginPage() {
       body: JSON.stringify({ email, password }),
     });
 
-    const result = (await response.json().catch(() => null)) as AuthResultDTO | null;
+    const result: unknown = await response.json().catch(() => null);
 
     if (!response.ok) {
-      setError(result?.error ?? "Unable to sign in.");
+      setError(ErrorEnvelope.messageFrom(result, "Unable to sign in."));
       setLoading(false);
     } else {
       setLoading(false);
-      if (result?.cancelledDeletion) {
+      if ((result as AuthResultDTO | null)?.cancelledDeletion) {
         queueToast("Account deletion cancelled — welcome back.");
       }
       clearSessionCaches();

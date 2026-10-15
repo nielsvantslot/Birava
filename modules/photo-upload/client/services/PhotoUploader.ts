@@ -1,10 +1,10 @@
 import { VercelBlobDirectUploadTransport } from "./VercelBlobDirectUploadTransport";
 import type { DirectUploadEndpoints, ServerUploadEndpoints } from "../Models";
 import type { PhotoUploadResultDto } from "../Dto/PhotoUploadResultDto";
-import type { ErrorResponseDto } from "../../Dto/ErrorResponseDto";
+import { ErrorMessageReader } from "./ErrorMessageReader";
 import type { UploadResultDto } from "../../Dto/UploadResultDto";
 
-type UploadResponseBody = Partial<UploadResultDto> & Partial<ErrorResponseDto>;
+type UploadResponseBody = Partial<UploadResultDto> & { error?: unknown };
 
 // A direct-to-storage upload that's genuinely hung (not rejected — a network
 // that reaches this app fine but silently can't reach the storage provider's
@@ -91,7 +91,7 @@ export class PhotoUploader {
       // The finalize request completed and the server had its say — a
       // definitive rejection (unsupported format, failed decode), not a
       // network hiccup. Retrying the same file won't change the outcome.
-      if (!res.ok || !result?.url) return { error: result?.error ?? "Failed to process photo.", retryable: false };
+      if (!res.ok || !result?.url) return { error: ErrorMessageReader.read(result, "Failed to process photo."), retryable: PhotoUploader.isTransient(res.status) };
       return { url: result.url, lqip: result.lqip ?? null };
     };
 
@@ -138,8 +138,13 @@ export class PhotoUploader {
     if (res.status === 413) return { error: "Photo is too large. Please use a smaller photo.", retryable: false };
 
     const result = await PhotoUploader.parseJson(res);
-    if (!res.ok || !result?.url) return { error: result?.error ?? "Failed to upload photo.", retryable: false };
+    if (!res.ok || !result?.url) return { error: ErrorMessageReader.read(result, "Failed to upload photo."), retryable: PhotoUploader.isTransient(res.status) };
     return { url: result.url, lqip: result.lqip ?? null };
+  }
+
+  /** Rate limited or a server fault: the same file may well succeed later, unlike a definitive rejection (bad format, too large). */
+  private static isTransient(status: number): boolean {
+    return status === 429 || status >= 500;
   }
 
   private static async parseJson(res: Response): Promise<UploadResponseBody | null> {

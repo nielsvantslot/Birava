@@ -2,8 +2,8 @@
 
 import { useTransition } from "react";
 import Link from "next/link";
-import { addPendingCheckin } from "@/lib/offline/pendingCheckins";
-import { flushPendingCheckins } from "@/lib/offline/syncPendingCheckins";
+import { addPendingCheckin } from "@/modules/checkins/client/pendingCheckins";
+import { flushPendingCheckins } from "@/modules/checkins/client/syncPendingCheckins";
 import { showToast } from "@/components/ui/toast-pill";
 import { BeerGlassIcon } from "@/components/drink/beer-glass-icon";
 import type { DrinkEntry } from "@/lib/types";

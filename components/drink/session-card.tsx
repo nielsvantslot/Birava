@@ -5,7 +5,7 @@ import {
   DrinkSession,
   sessionMinutes,
   sessionTitle,
-} from "@/lib/sessions";
+} from "@/modules/sessions/domain/sessions";
 import { formatTime, relativeDayTime } from "@/lib/dates";
 import { drinkPhotoSrc } from "@/lib/utils";
 import { PluralFormatter } from "@/lib/format/pluralFormatter";
@@ -193,7 +193,7 @@ export function SessionCard({
       {lone && (
         <div className="checkin-line">
           <span className="meta">
-            {[checkins[0].drink_type, checkins[0].venue]
+            {[checkins[0]!.drink_type, checkins[0]!.venue]
               .filter(Boolean)
               .join(" · ")}
           </span>

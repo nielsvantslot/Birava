@@ -2,18 +2,19 @@
 
 import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import { SessionCard } from "@/components/drink/session-card";
-import { getMyFeedSessions, type FeedSessionsPage } from "@/lib/controllers/drinkController";
-import type { DrinkSession } from "@/lib/sessions";
-import type { CheerState } from "@/lib/queries/cheerQueries";
+import { ApiClient } from "@/lib/gateway/ApiClient";
+import type { FeedSessionsPage } from "@/modules/checkins/server/drinkReads";
+import type { DrinkSession } from "@/modules/sessions/domain/sessions";
+import type { CheerState } from "@/modules/social/server/cheerQueries";
 
 type Cursor = { endedAt: string; id: string };
 
 /**
  * The dashboard feed, with Instagram-style infinite scroll: the initial page
  * is server-rendered (page.tsx), everything past it loads as the viewer
- * nears the bottom. Fetches getMyFeedSessions directly as a server action —
- * same function and page shape the initial server render used, so there's
- * exactly one way a page of feed data gets assembled.
+ * nears the bottom. Fetches GET /api/feed — the same function and page shape
+ * the initial server render used, so there's exactly one way a page of feed
+ * data gets assembled.
  *
  * Keyed by the caller on `onlyOwn` (see page.tsx) so switching tabs remounts
  * this component fresh instead of needing an effect to reset paginated state
@@ -59,7 +60,7 @@ export function DashboardFeed({
         observer.disconnect();
         startTransition(async () => {
           try {
-            const page = await getMyFeedSessions({
+            const page = await ApiClient.get<FeedSessionsPage>("/api/feed", {
               onlyOwn,
               beforeEndedAt: cursor.endedAt,
               beforeId: cursor.id,

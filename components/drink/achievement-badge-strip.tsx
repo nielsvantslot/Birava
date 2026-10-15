@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AchievementGlyph } from "@/components/drink/achievement-icon";
-import type { VarietyAchievement } from "@/lib/achievements";
+import type { VarietyAchievement } from "@/modules/achievements/domain/achievements";
 
 interface AchievementBadgeStripProps {
   achievements: VarietyAchievement[];

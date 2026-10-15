@@ -48,7 +48,7 @@ app and its backups together. That's a known, accepted gap at this
 project's scale — revisit if the app ever depends on backups surviving a
 Vercel-specific catastrophe, not just a database one.
 
-**Retention** (`lib/backupRetention.ts`, unit-tested) is computed in code
+**Retention** (`lib/backup/backupRetention.ts`, unit-tested) is computed in code
 and applied by the same script right after each upload — one grandfather-
 father-son scheme, one copy per day (not physically duplicated per tier):
 
@@ -67,7 +67,7 @@ disposable (seeded demo accounts, throwaway test data).
 
 **GDPR erasure vs. this retention schedule** — a deliberate, documented
 trade-off, not an oversight: account deletion
-(`lib/commands/userCommands.ts`'s `requestAccountDeletion`/
+(`modules/identity/application/userCommands.ts`'s `requestAccountDeletion`/
 `purgeExpiredDeletedAccounts`) removes a user's data from every live system
 completely and immediately once the grace period ends. It does **not**
 reach into these encrypted nightly dumps — a deleted user's data can still

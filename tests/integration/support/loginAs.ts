@@ -1,4 +1,4 @@
-import { createUserSession } from "@/lib/auth/session";
+import { createUserSession } from "@/modules/identity/server/session";
 
 /**
  * Logs a test in as the given user via the real session-creation code path

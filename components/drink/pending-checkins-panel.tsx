@@ -7,8 +7,8 @@ import {
   removePendingCheckin,
   updatePendingCheckin,
   type PendingCheckin,
-} from "@/lib/offline/pendingCheckins";
-import { flushPendingCheckins } from "@/lib/offline/syncPendingCheckins";
+} from "@/modules/checkins/client/pendingCheckins";
+import { flushPendingCheckins } from "@/modules/checkins/client/syncPendingCheckins";
 
 /**
  * Tracks batch progress across a run of sync activity, purely from the
@@ -70,7 +70,7 @@ function statusLabel(entry: PendingCheckin): string {
 
 /**
  * Visibility + cancellation for the offline check-in queue
- * (lib/offline/pendingCheckins.ts) — a durable but otherwise invisible/silent
+ * (modules/checkins/client/pendingCheckins.ts) — a durable but otherwise invisible/silent
  * queue is worse than the previous behavior in some ways, so this gives the
  * user a way to see and back out of what's about to sync.
  */

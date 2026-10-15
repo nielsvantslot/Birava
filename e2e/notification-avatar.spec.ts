@@ -38,7 +38,7 @@ test("a notification's actor avatar renders through the private-blob proxy and a
   // link, which shows the same picture and would make this locator resolve
   // to two elements (strict-mode violation).
   //
-  // Retries with a fresh reload rather than a flat wait: lib/auth/proxy-
+  // Retries with a fresh reload rather than a flat wait: modules/identity/server/proxy-
   // session.ts's resolveSessionUser keeps a short (a few seconds) in-memory
   // cache of the session's SessionUserDTO — including avatarUrl — keyed by
   // token, so the router.refresh() this upload triggers can still observe
@@ -50,7 +50,7 @@ test("a notification's actor avatar renders through the private-blob proxy and a
     await expect(page.locator('[aria-label="Change profile picture"] img')).toBeVisible({ timeout: 5_000 });
   }).toPass({ timeout: 15_000 });
 
-  // Follow the recipient — queueNotifications (lib/notify.ts) writes the
+  // Follow the recipient — queueNotifications (modules/notifications/server/notify.ts) writes the
   // FOLLOW notification via Next's after(), deferred past the response, so
   // the recipient's notification may not exist the instant this click
   // resolves.

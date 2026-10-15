@@ -34,8 +34,8 @@ Every expected, catchable failure is a distinct `PhotoUploadError` subclass
 `InvalidUploadError`, `DirectUploadNotConfiguredError`) rather than one
 generic exception type or a bare `Error` — callers can `catch` a specific
 reason when it matters, or `instanceof PhotoUploadError` to handle any of
-them uniformly (`PhotoUploadRouteFactory` does the latter, mapping any of
-them to a 400 with `error.message`).
+them uniformly (`PhotoUploadRouteHandlers` does the latter, mapping any of
+them to a `PhotoUploadRouteError` 400 with `error.message`).
 
 | Role | Interface (lives next to its implementation) | Default implementation |
 |---|---|---|
@@ -83,7 +83,7 @@ reusable factory. A small app-level factory class is the idiomatic place for
 that decision:
 
 ```ts
-// lib/photoUpload.ts
+// modules/media/server/photoUpload.ts
 import path from "path";
 import { PhotoUploadServiceFactory } from "@/modules/photo-upload/services/PhotoUploadServiceFactory";
 import { SharpImageProcessor } from "@/modules/photo-upload/services/SharpImageProcessor";
@@ -121,26 +121,33 @@ export const photoUploadService = PhotoUploadServiceFactory.create({
 
 ## 2. Mount routes (server)
 
-`PhotoUploadRouteFactory` (`PhotoUploadRouteFactory.ts`) has one static method per route this
-feature needs:
+`PhotoUploadRouteHandlers` (`PhotoUploadRouteHandlers.ts`) has one static method per route this
+feature needs. It owns the upload behaviour; **your project owns authentication, body parsing and the
+error response shape**, so the methods take an already-resolved `ownerId` and already-parsed input, and
+throw `PhotoUploadRouteError` (`status` 400 or 499, a ready-to-show `message`) for an expected failure:
 
 ```ts
 // app/api/photos/upload/route.ts — the plain multipart path (works regardless of directUpload)
-import { PhotoUploadRouteFactory } from "@/modules/photo-upload/PhotoUploadRouteFactory";
+import { PhotoUploadRouteHandlers } from "@/modules/photo-upload/PhotoUploadRouteHandlers";
 import { photoUploadService } from "@/lib/photoUpload";
-import { getCurrentUser } from "@/lib/auth/session"; // however this project resolves the caller
 
-export const POST = PhotoUploadRouteFactory.createUploadRoute(photoUploadService, async () => getCurrentUser());
+export async function POST(request: Request) {
+  const user = await getCurrentUser(); // however this project resolves the caller
+  if (!user) return new Response(null, { status: 401 });
+  const file = (await request.formData()).get("file");
+  if (!(file instanceof File)) return new Response(null, { status: 400 });
+  try {
+    return Response.json(await PhotoUploadRouteHandlers.upload(photoUploadService, { file, request, ownerId: user.id }));
+  } catch (error) {
+    if (error instanceof PhotoUploadRouteError) return Response.json({ error: error.message }, { status: error.status });
+    throw error;
+  }
+}
 ```
 
-```ts
-// app/api/photos/upload/token/route.ts + app/api/photos/upload/finalize/route.ts — direct-upload path
-export const POST = PhotoUploadRouteFactory.createDirectUploadTokenRoute(photoUploadService, async () => getCurrentUser());
-// ...and PhotoUploadRouteFactory.createFinalizeRoute(...) in the finalize route
-```
-
-`authenticate` is the DI seam for identity — it's just `(request, context) => Promise<{ id: string } | null>`,
-so any auth system works as long as it can answer "who is this request from."
+`createDirectUploadToken` and `finalize` are the two routes of the direct-upload path, mounted the same way.
+Birava mounts all four through its gateway (see docs/adr/0002-gateway.md), which supplies auth, validation and
+the error envelope; the client reads either `{ error: "message" }` or `{ error: { message } }`.
 
 ## 3. Upload from the browser (client)
 

@@ -15,7 +15,7 @@
  *    logged and skipped; the process always exits 0.
  */
 import { PrismaClient } from "@prisma/client";
-import { drinkPhotoService } from "../lib/photoUpload";
+import { drinkPhotoService } from "../modules/media/server/photoUpload";
 
 const db = new PrismaClient();
 
