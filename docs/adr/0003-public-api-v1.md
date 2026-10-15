@@ -11,7 +11,7 @@ A native client needs a stable, documented API with its own kind of session. The
 
 ### One Hono app, mounted whole
 
-`app/api/v1/[[...route]]/route.ts` mounts a single Hono app (`@hono/zod-openapi`) through `gateway.route.mounted`, so it still passes the gateway coverage gate. Each endpoint is a `createRoute` definition with its request schemas, its responses and its error responses, registered in `app/api/v1/_hono/routes/*`. The OpenAPI 3.1 document is generated from those definitions, served at `/api/v1/openapi.json`, and committed at `docs/api/openapi.v1.json` (CI fails if the committed copy is stale: `npx tsx scripts/generate-openapi.ts --check`).
+`app/api/v1/[[...route]]/route.ts` mounts a single Hono app (`@hono/zod-openapi`) through `gateway.route.mounted`, so it still passes the gateway coverage gate. Each endpoint is a `createRoute` definition with its request schemas, its responses and its error responses, registered in `app/api/v1/_hono/routes/*`. The OpenAPI 3.1 document is generated from those definitions, served at `/api/v1/openapi.json` on dev and staging (404 in production, where nobody needs a live map of every endpoint), and committed at `docs/api/openapi.v1.json` (CI fails if the committed copy is stale: `npx tsx scripts/generate-openapi.ts --check`).
 
 The handlers are thin: they call the same web actions and reads the UI uses (`modules/*/actions`, `modules/*/server/*Reads`) and turn their results into responses. So the API and the web UI cannot drift apart in behaviour, validation or limits; the per-endpoint guards (`V1Guards`) are the same gateway classes (rate limit, idempotency, origin check) used by the web gateway.
 

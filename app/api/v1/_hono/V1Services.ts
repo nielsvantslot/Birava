@@ -12,6 +12,8 @@ export type V1Services = {
   idempotency: IIdempotencyStore;
   logger: ILogger;
   clientIp: (request: Request) => string;
+  /** Serve GET /openapi.json. Off in production: the committed docs/api/openapi.v1.json is the reference there. */
+  exposeDocument: boolean;
   /** Overrides the default per-user mutation limit (the contract tests lower it to prove 429). */
   mutationRateLimit?: RateLimitSpec;
 };
