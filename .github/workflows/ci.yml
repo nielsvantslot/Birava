@@ -2,6 +2,10 @@ name: CI
 
 on:
   pull_request:
+  # Also gate direct pushes to the long-lived branches, so a push that skips
+  # a pull request can't bypass lint/typecheck/tests.
+  push:
+    branches: [dev, staging, main]
   workflow_dispatch:
 
 jobs:
@@ -37,7 +41,13 @@ jobs:
 
       - run: npm ci
 
-      # Fastest, no DB needed — fail fast before anything else.
+      # Cheapest checks first — no DB needed, fail fast before anything else.
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
       - name: Unit tests
         run: npm run test:unit
 

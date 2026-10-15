@@ -8,6 +8,7 @@
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "next typegen && tsc --noEmit",
     "version:generate": "tsx scripts/write-version.ts",
     "prisma:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
