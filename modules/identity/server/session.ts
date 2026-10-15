@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { cookies, headers } from "next/headers";
 import { cache } from "react";
-import { db } from "@/lib/db";
+import { sessionRepository } from "@/modules/identity/server/sessionRepository";
 import { TRUSTED_USER_HEADER } from "@/modules/identity/server/proxy-session";
 import { SessionUserDTO } from "@/lib/dtos";
 import { SessionUserMapper } from "@/lib/mappers";
@@ -51,13 +51,7 @@ export async function createUserSession(userId: string) {
   const token = crypto.randomUUID();
   const expiresAt = expiryDate();
 
-  await db.session.create({
-    data: {
-      userId,
-      sessionToken: token,
-      expiresAt,
-    },
-  });
+  await sessionRepository.create({ userId, sessionToken: token, expiresAt });
 
   const store = await cookies();
   store.set(SESSION_COOKIE, token, {
@@ -72,7 +66,7 @@ export async function createUserSession(userId: string) {
 export async function clearUserSession() {
   const token = await readSessionToken();
   if (token) {
-    await db.session.deleteMany({ where: { sessionToken: token } });
+    await sessionRepository.deleteByToken(token);
   }
 
   const store = await cookies();
@@ -98,18 +92,12 @@ export const getCurrentUser = cache(async (): Promise<SessionUserDTO | null> => 
   const token = await readSessionToken();
   if (!token) return null;
 
-  const session = await db.session.findUnique({
-    where: { sessionToken: token },
-    select: {
-      expiresAt: true,
-      user: { select: { id: true, email: true, username: true, avatarUrl: true, createdAt: true, isDeveloper: true } },
-    },
-  });
+  const session = await sessionRepository.findWithUser(token);
 
   if (!session) return null;
 
   if (session.expiresAt.getTime() <= Date.now()) {
-    await db.session.delete({ where: { sessionToken: token } });
+    await sessionRepository.deleteByToken(token);
     return null;
   }
 

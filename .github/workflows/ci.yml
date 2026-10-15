@@ -67,6 +67,10 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Per-route gzipped JS against perf-budgets.json; fails if a page got heavier than agreed.
+      - name: JavaScript budgets
+        run: npm run budgets:check
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium webkit
 

@@ -41,18 +41,18 @@ class MemoryIdempotencyStore implements IIdempotencyStore {
     const existing = this.rows.get(this.id(scope));
     if (!existing) {
       this.rows.set(this.id(scope), { hash, response: null });
-      return { state: "started" };
+      return { state: "started", claim: this.id(scope) };
     }
     if (existing.hash !== hash) return { state: "conflict", reason: "different-request" };
     if (!existing.response) return { state: "conflict", reason: "in-progress" };
     return { state: "replay", response: existing.response };
   }
-  async complete(scope: IdempotencyScope, response: StoredResponse) {
-    const row = this.rows.get(this.id(scope));
+  async complete(claim: string, response: StoredResponse) {
+    const row = this.rows.get(claim);
     if (row) row.response = response;
   }
-  async abandon(scope: IdempotencyScope) {
-    this.rows.delete(this.id(scope));
+  async abandon(claim: string) {
+    this.rows.delete(claim);
   }
 }
 

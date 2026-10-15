@@ -9,6 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
+    "budgets:check": "tsx scripts/check-bundle-budgets.ts",
+    "migrations:check": "tsx scripts/check-migrations.ts",
     "depcruise": "depcruise app components lib modules middleware.ts instrumentation.ts scripts --config .dependency-cruiser.cjs",
     "version:generate": "tsx scripts/write-version.ts",
     "prisma:generate": "prisma generate",

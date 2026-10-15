@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { ILogger } from "@/lib/logging/ILogger";
 import { ApiError } from "./ApiError";
 import type { IIdempotencyStore, IdempotencyScope } from "./IIdempotencyStore";
 import { OriginGuard } from "./OriginGuard";
@@ -17,7 +18,10 @@ const MAX_STORED_BODY_BYTES = 64 * 1024;
  * can be retried with the same key.
  */
 export class IdempotencyGuard {
-  constructor(private readonly store: IIdempotencyStore) {}
+  constructor(
+    private readonly store: IIdempotencyStore,
+    private readonly logger: ILogger
+  ) {}
 
   async run(request: Request, userId: string, route: string, execute: () => Promise<Response>): Promise<Response> {
     const key = request.headers.get("idempotency-key");
@@ -29,7 +33,7 @@ export class IdempotencyGuard {
 
     if (begun.state === "replay") {
       const { status, contentType, body } = begun.response;
-      const headers = new Headers({ "Idempotent-Replay": "true" });
+      const headers = new Headers({ "Idempotent-Replay": "true", "Cache-Control": "private, no-store" });
       if (contentType) headers.set("Content-Type", contentType);
       return new Response(status === 204 ? null : body, { status, headers });
     }
@@ -45,14 +49,28 @@ export class IdempotencyGuard {
     try {
       response = await execute();
     } catch (error) {
-      await this.store.abandon(scope);
+      await this.bestEffort("abandon", () => this.store.abandon(begun.claim));
       throw error;
     }
 
     const stored = await this.storable(response);
-    if (stored) await this.store.complete(scope, stored);
-    else await this.store.abandon(scope);
+    if (stored) await this.bestEffort("complete", () => this.store.complete(begun.claim, stored));
+    else await this.bestEffort("abandon", () => this.store.abandon(begun.claim));
     return response;
+  }
+
+  /**
+   * Bookkeeping must never change the outcome the caller sees: a handler's own
+   * error must reach them, and a mutation that already committed must not turn
+   * into a 500. A failure here is logged; the key just stays in progress until
+   * its record goes stale.
+   */
+  private async bestEffort(what: string, work: () => Promise<void>): Promise<void> {
+    try {
+      await work();
+    } catch (error) {
+      this.logger.warn("idempotency bookkeeping failed", { what, error });
+    }
   }
 
   /** What identifies "the same request": method, path and query, and the body (only its size for an upload, which is too big to hash). */

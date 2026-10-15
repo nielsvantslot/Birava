@@ -1,0 +1,27 @@
+name: Health check
+
+# An uptime check with no extra service: every 30 minutes this calls /api/health,
+# which answers non-200 when the database is unreachable, the newest backup is
+# older than 36 hours, or any scheduled job has not succeeded within three of
+# its own intervals (session reminders: 45 minutes; the daily jobs: 3 days).
+# A failed run makes GitHub email the repository's watchers, which is the alert.
+# If a dedicated uptime monitor is added later (UptimeRobot, Better Stack, a free
+# tier), point it at the same URL and alert on a non-200; this workflow can then go.
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      # www.birava.nl directly, not birava.nl: the apex redirects to www at the
+      # edge and a redirect response would look healthy (see session-reminders.yml).
+      - name: Production
+        run: |
+          curl -sS --fail-with-body --max-time 30 "https://www.birava.nl/api/health"
+
+      - name: Staging
+        run: |
+          curl -sS --fail-with-body --max-time 30 "https://staging.birava.nl/api/health"

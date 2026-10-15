@@ -17,8 +17,8 @@ export class PostgresIdempotencyStore implements IIdempotencyStore {
 
   async begin(scope: IdempotencyScope, requestHash: string): Promise<IdempotencyBegin> {
     try {
-      await this.db.idempotencyKey.create({ data: { ...scope, requestHash } });
-      return { state: "started" };
+      const row = await this.db.idempotencyKey.create({ data: { ...scope, requestHash }, select: { id: true } });
+      return { state: "started", claim: row.id };
     } catch (error) {
       if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) throw error;
     }
@@ -45,15 +45,15 @@ export class PostgresIdempotencyStore implements IIdempotencyStore {
     };
   }
 
-  async complete(scope: IdempotencyScope, response: StoredResponse): Promise<void> {
+  async complete(claim: string, response: StoredResponse): Promise<void> {
     await this.db.idempotencyKey.updateMany({
-      where: scope,
+      where: { id: claim },
       data: { status: response.status, contentType: response.contentType, body: response.body },
     });
   }
 
-  async abandon(scope: IdempotencyScope): Promise<void> {
-    await this.db.idempotencyKey.deleteMany({ where: { ...scope, status: null } });
+  async abandon(claim: string): Promise<void> {
+    await this.db.idempotencyKey.deleteMany({ where: { id: claim, status: null } });
   }
 
   /** Deletes records past their retention. Returns how many. */
