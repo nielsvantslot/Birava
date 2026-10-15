@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { getCrewInviteCandidates, sendCrewInvite } from "@/lib/controllers/groupController";
+import { getCrewInviteCandidates, sendCrewInvite } from "@/modules/crews/actions/groupController";
 import { showToast } from "@/components/ui/toast-pill";
 import { Avatar } from "@/components/ui/avatar";
 import { UsernameLabel } from "@/components/ui/username-label";

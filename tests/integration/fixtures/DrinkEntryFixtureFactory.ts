@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { randomUUID } from "crypto";
-import { hashPassword } from "@/lib/auth/password";
-import { resolveVenueId } from "@/lib/commands/venueCommands";
+import { hashPassword } from "@/modules/identity/application/password";
+import { resolveVenueId } from "@/modules/venues/application/venueCommands";
 import type {
   DrinkEntryFixture,
   DrinkEntryFixtureInput,

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createComment, deleteComment } from "@/lib/controllers/socialController";
+import { createComment, deleteComment } from "@/modules/social/actions/socialController";
 import { showToast } from "@/components/ui/toast-pill";
 import { Avatar } from "@/components/ui/avatar";
 import { UsernameLabel } from "@/components/ui/username-label";

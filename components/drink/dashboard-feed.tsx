@@ -2,9 +2,9 @@
 
 import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import { SessionCard } from "@/components/drink/session-card";
-import { getMyFeedSessions, type FeedSessionsPage } from "@/lib/controllers/drinkController";
-import type { DrinkSession } from "@/lib/sessions";
-import type { CheerState } from "@/lib/queries/cheerQueries";
+import { getMyFeedSessions, type FeedSessionsPage } from "@/modules/checkins/actions/drinkController";
+import type { DrinkSession } from "@/modules/sessions/domain/sessions";
+import type { CheerState } from "@/modules/social/server/cheerQueries";
 
 type Cursor = { endedAt: string; id: string };
 

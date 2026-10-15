@@ -1,10 +1,10 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser } from "@/modules/identity/server/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { getMyDrinkHistory } from "@/lib/controllers/drinkController";
-import { groupIntoSessions, activeWeeks } from "@/lib/sessions";
-import { computeAchievements, sortByRelevance } from "@/lib/achievements";
+import { getMyDrinkHistory } from "@/modules/checkins/actions/drinkController";
+import { groupIntoSessions, activeWeeks } from "@/modules/sessions/domain/sessions";
+import { computeAchievements, sortByRelevance } from "@/modules/achievements/domain/achievements";
 import { weekIndex } from "@/lib/dates";
 import { DRINK_TYPES } from "@/lib/types";
 import { AchievementGlyph } from "@/components/drink/achievement-icon";

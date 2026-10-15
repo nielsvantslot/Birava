@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateNotificationPreference } from "@/lib/controllers/notificationController";
+import { updateNotificationPreference } from "@/modules/notifications/actions/notificationController";
 import type { NotificationPreferenceKey } from "@/lib/dtos";
 import { showToast } from "@/components/ui/toast-pill";
 import { Switch } from "@/components/ui/switch";
@@ -63,7 +63,7 @@ const GROUPS: { label: string; items: Category[] }[] = [
 ];
 
 /**
- * Per-category gate on whether PUSH fires for that category (lib/notify.ts)
+ * Per-category gate on whether PUSH fires for that category (modules/notifications/server/notify.ts)
  * — the in-app notification list always shows every event regardless of
  * these toggles or of push being on at all. The master push
  * subscribe/unsubscribe switch (PushSubscribeToggle) is a separate, coarser

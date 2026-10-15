@@ -8,7 +8,7 @@ import type { IPhotoUploadService } from "./IPhotoUploadService";
  * the concrete class. Deliberately does NOT decide which concrete
  * `IStorageAdapter`/`IImageProcessor`/`IDirectUploadCoordinator` to use for a
  * given environment — that's an application concern for the project's own
- * composition root (e.g. `lib/photoUpload.ts`), not something this reusable
+ * composition root (e.g. `modules/media/server/photoUpload.ts`), not something this reusable
  * factory should hardcode.
  */
 export class PhotoUploadServiceFactory {

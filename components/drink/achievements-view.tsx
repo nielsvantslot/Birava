@@ -1,8 +1,8 @@
 import { AchievementGlyph } from "@/components/drink/achievement-icon";
 import { ActiveWeeksStreak } from "@/components/drink/active-weeks-streak";
 import { cn } from "@/lib/utils";
-import type { ActiveWeeks } from "@/lib/sessions";
-import type { VarietyAchievement } from "@/lib/achievements";
+import type { ActiveWeeks } from "@/modules/sessions/domain/sessions";
+import type { VarietyAchievement } from "@/modules/achievements/domain/achievements";
 
 /**
  * The full achievements page body — streak section + variety grid.

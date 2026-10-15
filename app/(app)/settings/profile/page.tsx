@@ -1,5 +1,5 @@
-import { getCurrentUser } from "@/lib/auth/session";
-import { avatarPhotoService } from "@/lib/avatarPhoto";
+import { getCurrentUser } from "@/modules/identity/server/session";
+import { avatarPhotoService } from "@/modules/media/server/avatarPhoto";
 import { ProfileEditForm } from "@/components/drink/profile-edit-form";
 
 export default async function ProfileSettingsPage() {

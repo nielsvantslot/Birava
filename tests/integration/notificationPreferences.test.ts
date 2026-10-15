@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { getNotificationPreferences } from "@/lib/queries/notificationQueries";
-import { updateNotificationPreference } from "@/lib/commands/notificationCommands";
+import { getNotificationPreferences } from "@/modules/notifications/server/notificationQueries";
+import { updateNotificationPreference } from "@/modules/notifications/application/notificationCommands";
 import { DrinkEntryFixtureFactory } from "./fixtures/DrinkEntryFixtureFactory";
 
 const fixtures = new DrinkEntryFixtureFactory(db);

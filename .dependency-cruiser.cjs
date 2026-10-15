@@ -75,9 +75,9 @@ module.exports = {
     {
       name: "lib-does-not-import-modules",
       severity: "error",
-      comment: "lib/ is the platform; features depend on it, never the reverse.",
+      comment: "lib/ is the platform; features depend on it, never the reverse (pure domain/contract excepted).",
       from: { path: "^lib/" },
-      to: { path: FEATURE_MODULE },
+      to: { path: FEATURE_MODULE, pathNot: "^modules/[^/]+/(domain|contract)/" },
     },
     {
       name: "photo-upload-is-portable",

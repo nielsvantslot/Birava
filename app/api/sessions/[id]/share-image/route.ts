@@ -1,5 +1,5 @@
-import { requireUser } from "@/lib/auth/requireUser";
-import { canRenderShareImage, getShareImageForSession } from "@/lib/commands/shareImageCommands";
+import { requireUser } from "@/modules/identity/server/requireUser";
+import { canRenderShareImage, getShareImageForSession } from "@/modules/sessions";
 
 // Prisma (getCurrentUser / history) and the storage layer need Node, not edge.
 export const runtime = "nodejs";

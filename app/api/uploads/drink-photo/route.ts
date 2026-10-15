@@ -1,6 +1,6 @@
 import { PhotoUploadRouteFactory } from "@/modules/photo-upload/PhotoUploadRouteFactory";
-import { drinkPhotoService } from "@/lib/photoUpload";
-import { getCurrentUser } from "@/lib/auth/session";
+import { drinkPhotoService } from "@/modules/media/server/photoUpload";
+import { getCurrentUser } from "@/modules/identity/server/session";
 
 // Local dev only (disk storage has no direct-upload capability) — production
 // uploads straight to Blob via blob-token/ + finalize/.

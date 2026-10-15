@@ -2,6 +2,9 @@ import path from "path";
 import { defineConfig } from "vitest/config";
 
 const alias = { "@": path.resolve(__dirname, ".") };
+// tsconfig keeps jsx "preserve" for Next; Vite needs to compile JSX itself
+// (share image card is JSX and is reachable from the sessions module index).
+const oxc = { jsx: { runtime: "automatic" as const } };
 
 export default defineConfig({
   test: {
@@ -19,17 +22,18 @@ export default defineConfig({
       // deliberately has none.
       thresholds: {
         // Pure domain rules — the Birava 2.0 invariants live here.
-        "lib/{sessions,achievements,crews,dates,sessionReminderAlgorithm,mapProjection,venueMatching,backupRetention}.ts": {
+        "{modules/sessions/domain/{sessions,mapProjection},modules/achievements/domain/achievements,modules/crews/domain/crews,modules/notifications/domain/sessionReminderAlgorithm,modules/venues/domain/venueMatching,lib/dates,lib/backup/backupRetention}.ts": {
           lines: 92,
           branches: 88,
         },
-        "lib/commands/**": { lines: 35, branches: 32 },
-        "lib/queries/**": { lines: 55, branches: 35 },
+        "modules/*/application/!(password).ts": { lines: 35, branches: 32 },
+        "modules/*/server/*{Queries,Select,Visibility}.ts": { lines: 55, branches: 35 },
       },
     },
     projects: [
       {
         resolve: { alias },
+        oxc,
         test: {
           name: "unit",
           environment: "node",
@@ -38,6 +42,7 @@ export default defineConfig({
       },
       {
         resolve: { alias },
+        oxc,
         test: {
           name: "integration",
           environment: "node",

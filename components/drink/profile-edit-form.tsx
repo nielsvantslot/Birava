@@ -2,15 +2,15 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { updateProfileUsername } from "@/lib/controllers/profileController";
+import { updateProfileUsername } from "@/modules/identity/actions/profileController";
 import { PhotoUploadPreparer, PhotoUploader, PhotoMetadataStripFailedError } from "@/modules/photo-upload/client";
-import { AVATAR_MAX_DIMENSION, avatarUploadEndpoints } from "@/lib/avatarPhotoConfig";
+import { AVATAR_MAX_DIMENSION, avatarUploadEndpoints } from "@/modules/media/domain/avatarPhotoConfig";
 import { showToast } from "@/components/ui/toast-pill";
 import { Avatar } from "@/components/ui/avatar";
 import { FieldError } from "@/components/ui/field-error";
 
 // Canvas-encode quality (0-1) is a client-only concern — the server's WebP
-// quality (0-100, lib/avatarPhoto.ts) is a different encoder/scale.
+// quality (0-100, modules/media/server/avatarPhoto.ts) is a different encoder/scale.
 const AVATAR_COMPRESS_CONFIG = { maxDimension: AVATAR_MAX_DIMENSION, quality: 0.85 };
 
 interface ProfileEditFormProps {

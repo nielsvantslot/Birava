@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { toggleCheer } from "@/lib/controllers/socialController";
+import { toggleCheer } from "@/modules/social/actions/socialController";
 import { showToast } from "@/components/ui/toast-pill";
 import { BeerGlassIcon } from "@/components/drink/beer-glass-icon";
 import { cn } from "@/lib/utils";
@@ -96,7 +96,7 @@ export function SocialActs({
 
   // Deliberately not aborted on unmount (e.g. navigating away before this
   // resolves) — the point of prefetching is to warm the server's cache
-  // (lib/shareImageCache.ts) regardless of whether this exact component
+  // (modules/sessions/infrastructure/shareImageCache.ts) regardless of whether this exact component
   // instance is still around to see the result.
   useEffect(() => {
     if (isOwner && prefetchShareImage) ensureShareFetch();

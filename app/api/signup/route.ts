@@ -1,4 +1,4 @@
-import { createUser } from "@/lib/commands/userCommands";
+import { createUser } from "@/modules/identity";
 import { JsonSerializer } from "@/lib/http/jsonSerializer";
 import { AuthResultDTO, CreateUserDTO } from "@/lib/dtos";
 import { RateLimiterFactory } from "@/lib/rateLimit/RateLimiterFactory";

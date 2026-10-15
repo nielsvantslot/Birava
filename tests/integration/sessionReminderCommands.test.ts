@@ -1,9 +1,9 @@
 import { randomUUID } from "crypto";
 import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { sendSessionReminders } from "@/lib/commands/sessionReminderCommands";
-import { SESSION_GAP_MS } from "@/lib/sessions";
-import { ENGAGEMENT_RESOLUTION_WINDOW_MS } from "@/lib/sessionReminderAlgorithm";
+import { sendSessionReminders } from "@/modules/notifications/application/sessionReminderCommands";
+import { SESSION_GAP_MS } from "@/modules/sessions/domain/sessions";
+import { ENGAGEMENT_RESOLUTION_WINDOW_MS } from "@/modules/notifications/domain/sessionReminderAlgorithm";
 import { DrinkEntryFixtureFactory } from "./fixtures/DrinkEntryFixtureFactory";
 import { flushAfterCallbacks } from "./setup";
 

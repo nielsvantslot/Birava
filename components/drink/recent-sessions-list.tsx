@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { sessionTitle, type DrinkSession } from "@/lib/sessions";
+import { sessionTitle, type DrinkSession } from "@/modules/sessions/domain/sessions";
 import { relativeDay } from "@/lib/dates";
 import { PluralFormatter } from "@/lib/format/pluralFormatter";
 import { BeerGlassIcon } from "@/components/drink/beer-glass-icon";

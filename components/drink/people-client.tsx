@@ -5,7 +5,7 @@ import Link from "next/link";
 import { FollowButton } from "@/components/drink/follow-button";
 import { Avatar } from "@/components/ui/avatar";
 import { UsernameLabel } from "@/components/ui/username-label";
-import { searchUsers } from "@/lib/controllers/socialController";
+import { searchUsers } from "@/modules/social/actions/socialController";
 
 const SEARCH_DEBOUNCE_MS = 300;
 

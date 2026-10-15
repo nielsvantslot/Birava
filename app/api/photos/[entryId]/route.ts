@@ -1,10 +1,10 @@
 import crypto from "crypto";
 import sharp from "sharp";
-import { requireUser } from "@/lib/auth/requireUser";
-import { drinkPhotoService } from "@/lib/photoUpload";
+import { requireUser } from "@/modules/identity/server/requireUser";
+import { drinkPhotoService } from "@/modules/media/server/photoUpload";
 import { StreamBufferConverter } from "@/modules/photo-upload/StreamBufferConverter";
-import { getViewableDrinkPhotoUrl } from "@/lib/queries/drinkEntryQueries";
-import { HERO_WIDTHS, THUMB_WIDTH } from "@/lib/photoSizes";
+import { getViewableDrinkPhotoUrl } from "@/modules/checkins/server/drinkEntryQueries";
+import { HERO_WIDTHS, THUMB_WIDTH } from "@/modules/media/domain/photoSizes";
 
 // The bytes behind a given photoUrl never change (see comment below), so
 // this is safe to cache for a year without revalidation.

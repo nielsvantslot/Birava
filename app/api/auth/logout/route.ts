@@ -1,4 +1,4 @@
-import { clearUserSession } from "@/lib/auth/session";
+import { clearUserSession } from "@/modules/identity/server/session";
 
 export async function POST() {
   await clearUserSession();

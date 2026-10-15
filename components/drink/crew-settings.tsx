@@ -7,7 +7,7 @@ import {
   setMemberRole,
   kickMember,
   unbanMember,
-} from "@/lib/controllers/groupController";
+} from "@/modules/crews/actions/groupController";
 import { showToast } from "@/components/ui/toast-pill";
 import { confirmModal } from "@/components/ui/confirm-modal";
 import { invalidateCachedPages } from "@/lib/swCache";

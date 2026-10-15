@@ -10,7 +10,7 @@ import {
   deleteGroup,
   renameGroup,
   regenerateInviteCode,
-} from "@/lib/controllers/groupController";
+} from "@/modules/crews/actions/groupController";
 import { showToast } from "@/components/ui/toast-pill";
 import { confirmModal, ConfirmModalOptions } from "@/components/ui/confirm-modal";
 import { FieldError } from "@/components/ui/field-error";

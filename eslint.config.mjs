@@ -33,6 +33,7 @@ const eslintConfig = defineConfig([
   // dependency-cruiser is the authority in CI; these give editor feedback.
   {
     files: ["modules/*/domain/**/*.{ts,tsx}"],
+    ignores: ["**/*.test.ts"],
     rules: {
       "no-restricted-imports": [
         "error",

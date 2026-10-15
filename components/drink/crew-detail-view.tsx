@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { sessionTitle } from "@/lib/sessions";
+import { sessionTitle } from "@/modules/sessions/domain/sessions";
 import { formatDate, timeAgo } from "@/lib/dates";
 import { PluralFormatter } from "@/lib/format/pluralFormatter";
 import { CrewLeaderboard } from "@/components/drink/crew-leaderboard";
 import { CopyCodeChip } from "@/components/drink/crews-forms";
 import { Avatar } from "@/components/ui/avatar";
 import { UsernameLabel } from "@/components/ui/username-label";
-import type { CrewDetail } from "@/lib/queries/groupQueries";
+import type { CrewDetail } from "@/modules/crews/server/groupQueries";
 
 /**
  * The full crew page body — identity header, leaderboard, activity feed,

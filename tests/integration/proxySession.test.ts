@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { resolveSessionUser } from "@/lib/auth/proxy-session";
+import { resolveSessionUser } from "@/modules/identity/server/proxy-session";
 import { DrinkEntryFixtureFactory } from "./fixtures/DrinkEntryFixtureFactory";
 
 const fixtures = new DrinkEntryFixtureFactory(db);

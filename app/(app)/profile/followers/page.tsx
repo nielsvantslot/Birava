@@ -1,5 +1,5 @@
-import { getCurrentUser } from "@/lib/auth/session";
-import { getFollowersList, getMyFollowingIds } from "@/lib/controllers/socialController";
+import { getCurrentUser } from "@/modules/identity/server/session";
+import { getFollowersList, getMyFollowingIds } from "@/modules/social/actions/socialController";
 import { UserList } from "@/components/drink/user-list";
 
 export default async function MyFollowersPage() {

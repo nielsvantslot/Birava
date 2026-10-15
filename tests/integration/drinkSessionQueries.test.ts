@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { createDrinkEntry } from "@/lib/commands/drinkEntryCommands";
-import { getSessionById, getSessionsForUserIds } from "@/lib/queries/drinkSessionQueries";
+import { createDrinkEntry } from "@/modules/checkins/application/drinkEntryCommands";
+import { getSessionById, getSessionsForUserIds } from "@/modules/sessions/server/drinkSessionQueries";
 import type { DrinkType } from "@/lib/types";
 
 const HOUR = 60 * 60 * 1000;

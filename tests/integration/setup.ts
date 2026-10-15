@@ -57,7 +57,7 @@ vi.mock("next/headers", () => ({
   headers: async () => new Headers(),
 }));
 
-// lib/notify.ts defers notification writes via next/server's after(), also
+// modules/notifications/server/notify.ts defers notification writes via next/server's after(), also
 // real only inside a request — just run the callback immediately instead,
 // tracking its promise so beforeEach can await it before the next reset.
 vi.mock("next/server", async (importOriginal) => ({

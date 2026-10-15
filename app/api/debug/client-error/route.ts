@@ -1,5 +1,5 @@
-import { getCurrentUser } from "@/lib/auth/session";
-import { reportClientError } from "@/lib/commands/clientErrorLogCommands";
+import { getCurrentUser } from "@/modules/identity/server/session";
+import { reportClientError } from "@/modules/diagnostics";
 import type { ReportClientErrorDTO } from "@/lib/dtos";
 
 // The one client-side error beacon this app has — see

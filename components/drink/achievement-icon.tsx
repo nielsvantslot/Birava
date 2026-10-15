@@ -1,4 +1,4 @@
-import type { AchievementIcon } from "@/lib/achievements";
+import type { AchievementIcon } from "@/modules/achievements/domain/achievements";
 
 /** Stroke icons for the variety badges — honey via currentColor. */
 export function AchievementGlyph({ icon }: { icon: AchievementIcon }) {

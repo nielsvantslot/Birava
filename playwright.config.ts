@@ -50,7 +50,7 @@ export default defineConfig({
   webServer: {
     // Deliberately `next dev`, not `next build && next start`: `next start`
     // hardcodes NODE_ENV=production, which flips
-    // StorageAdapterFactory (lib/storageAdapterFactory.ts) over to the Vercel
+    // StorageAdapterFactory (modules/media/server/storageAdapterFactory.ts) over to the Vercel
     // Blob upload path — unusable here without real Blob credentials, and
     // every photo upload would fail permanently (not transiently), leaving
     // queued check-ins stuck forever. `next dev` matches how local

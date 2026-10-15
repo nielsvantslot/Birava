@@ -9,7 +9,7 @@ import { useEffect } from "react";
 // page-level errors and errors thrown inside sw.js itself (forwarded via
 // postMessage, since the service worker's global scope has no window to
 // report to directly). Persisted via app/api/debug/client-error/route.ts →
-// lib/commands/clientErrorLogCommands.ts's ClientErrorLog table.
+// modules/diagnostics/application/clientErrorLogCommands.ts's ClientErrorLog table.
 export function ClientErrorReporter() {
   useEffect(() => {
     function report(payload: Record<string, unknown>) {

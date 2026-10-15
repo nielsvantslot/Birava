@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 
 /**
- * The id middleware stamps on every request (lib/auth/proxy-session.ts), so
+ * The id middleware stamps on every request (modules/identity/server/proxy-session.ts), so
  * every log line from one request can be found with a single search.
  */
 export class RequestContext {

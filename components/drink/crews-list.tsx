@@ -2,7 +2,7 @@ import Link from "next/link";
 import { OrdinalFormatter } from "@/lib/format/ordinalFormatter";
 import { PluralFormatter } from "@/lib/format/pluralFormatter";
 import { EmptyState } from "@/components/ui/empty-state";
-import type { CrewSummary } from "@/lib/queries/groupQueries";
+import type { CrewSummary } from "@/modules/crews/server/groupQueries";
 
 interface CrewsListProps {
   crews: CrewSummary[];

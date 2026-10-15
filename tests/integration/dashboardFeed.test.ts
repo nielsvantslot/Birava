@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { createDrinkEntry } from "@/lib/commands/drinkEntryCommands";
-import { getMyFeedSessions } from "@/lib/controllers/drinkController";
+import { createDrinkEntry } from "@/modules/checkins/application/drinkEntryCommands";
+import { getMyFeedSessions } from "@/modules/checkins/actions/drinkController";
 import { loginAs } from "./support/loginAs";
 
 const HOUR = 60 * 60 * 1000;
@@ -33,7 +33,7 @@ describe("getMyFeedSessions", () => {
     });
     await loginAs(user.id);
 
-    // Within MAX_BACKDATE_MS's 7-day trust window (lib/sessions.ts) — anything
+    // Within MAX_BACKDATE_MS's 7-day trust window (modules/sessions/domain/sessions.ts) — anything
     // older gets silently clamped to now() by createDrinkEntry, which would
     // collapse every one of these into a single same-instant session instead
     // of FEED_PAGE_SIZE + 1 distinct ones.

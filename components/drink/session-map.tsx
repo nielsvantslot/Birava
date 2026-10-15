@@ -9,7 +9,7 @@ import {
   pickZoom,
   project,
   tileUrl,
-} from "@/lib/mapProjection";
+} from "@/modules/sessions/domain/mapProjection";
 
 /**
  * Static route map for a session's located check-ins.

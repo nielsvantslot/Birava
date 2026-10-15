@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
-import { HERO_WIDTHS } from "./lib/photoSizes";
+import { HERO_WIDTHS } from "./modules/media/domain/photoSizes";
 
 const SECURITY_HEADERS = [
-  // CSP is set per-request in lib/auth/proxy-session.ts (needs a fresh nonce
+  // CSP is set per-request in modules/identity/server/proxy-session.ts (needs a fresh nonce
   // each time) — everything else here is static and safe to apply globally,
   // including to api/ routes and static assets that middleware's matcher
   // skips for the CSP/auth pass.
@@ -29,9 +29,9 @@ const nextConfig: NextConfig = {
   },
   images: {
     loader: "custom",
-    loaderFile: "./lib/imageLoader.ts",
+    loaderFile: "./modules/media/client/imageLoader.ts",
     // Trimmed to the widths the session-card hero photo actually requests
-    // (lib/photoSizes.ts) — the defaults go up to 3840, far past anything
+    // (modules/media/domain/photoSizes.ts) — the defaults go up to 3840, far past anything
     // this app ever renders.
     deviceSizes: HERO_WIDTHS,
     // No other next/image usage in this app needs small fixed-size icons —

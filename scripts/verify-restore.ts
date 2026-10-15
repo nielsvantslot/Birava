@@ -8,7 +8,7 @@
  * exactly like the rest of the app.
  */
 import { db } from "../lib/db";
-import { verifyRestoredDatabase } from "../lib/backupVerification";
+import { verifyRestoredDatabase } from "../lib/backup/backupVerification";
 
 async function main() {
   const result = await verifyRestoredDatabase(db);
