@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { ContentSecurityPolicyResult } from "@/lib/security/Models";
+import { Env } from "@/lib/env/Env";
 
 /**
  * Nonce-based CSP, generated fresh per request. `script-src` uses
@@ -49,7 +50,7 @@ export class ContentSecurityPolicyBuilder {
     // Next's dev-mode Fast Refresh runtime evals code to apply hot updates —
     // production never does this, so 'unsafe-eval' is scoped to dev only.
     const scriptSrc =
-      process.env.NODE_ENV === "production"
+      Env.isProduction
         ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`
         : `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval'`;
     const directives = [
@@ -66,7 +67,7 @@ export class ContentSecurityPolicyBuilder {
       "form-action 'self'",
       "frame-ancestors 'none'",
     ];
-    if (process.env.NODE_ENV === "production") {
+    if (Env.isProduction) {
       directives.push("upgrade-insecure-requests");
     }
 

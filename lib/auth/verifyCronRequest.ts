@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "crypto";
+import { Env } from "@/lib/env/Env";
 
 /**
  * Guards every app/api/cron/* route. A plain `!==` string comparison here
@@ -10,7 +11,7 @@ import { timingSafeEqual } from "crypto";
  * lengths isn't meaningful anyway — there's nothing to compare byte-for-byte).
  */
 export function verifyCronRequest(request: Request): boolean {
-  const secret = process.env.CRON_SECRET;
+  const secret = Env.server.CRON_SECRET;
   if (!secret) return false;
 
   const header = request.headers.get("authorization") ?? "";

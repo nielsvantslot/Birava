@@ -1,6 +1,7 @@
 import { WebPushError } from "web-push";
 import { db } from "@/lib/db";
 import { getWebPushClient } from "@/lib/push/webPushClient";
+import { Env } from "@/lib/env/Env";
 
 export type PushPayload = {
   title: string;
@@ -15,7 +16,7 @@ export type PushPayload = {
 
 /** Best-effort push to every device the user has subscribed from. Silently drops dead subscriptions. */
 export async function sendPushToUser(userId: string, payload: PushPayload): Promise<void> {
-  if (!process.env.VAPID_PRIVATE_KEY) return;
+  if (!Env.server.VAPID_PRIVATE_KEY) return;
 
   const subscriptions = await db.pushSubscription.findMany({ where: { userId } });
   if (subscriptions.length === 0) return;

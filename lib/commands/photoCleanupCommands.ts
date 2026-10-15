@@ -1,6 +1,7 @@
 import { list, del } from "@vercel/blob";
 import { db } from "@/lib/db";
 import { BlobCleanupResultDTO } from "@/lib/dtos";
+import { Env } from "@/lib/env/Env";
 
 // A blob younger than this might still be legitimately unreferenced rather
 // than abandoned: the offline queue (lib/offline/pendingCheckins.ts) can
@@ -55,7 +56,7 @@ const MAX_DELETE_ATTEMPTS_PER_PREFIX = Math.floor(MAX_DELETE_ATTEMPTS_PER_RUN / 
  * StorageAdapterFactory.create() would otherwise be using local disk instead.
  */
 export async function cleanupOrphanedBlobs(): Promise<BlobCleanupResultDTO> {
-  if (process.env.NODE_ENV !== "production") {
+  if (!Env.isProduction) {
     return { scanned: 0, deleted: 0, failed: 0 };
   }
 

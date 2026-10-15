@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { TRUSTED_USER_HEADER } from "@/lib/auth/proxy-session";
 import { SessionUserDTO } from "@/lib/dtos";
 import { SessionUserMapper } from "@/lib/mappers";
+import { Env } from "@/lib/env/Env";
 
 const SESSION_COOKIE = "birava_session";
 const SESSION_TTL_DAYS = 30;
@@ -62,7 +63,7 @@ export async function createUserSession(userId: string) {
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: Env.isProduction,
     path: "/",
     expires: expiresAt,
   });
@@ -78,7 +79,7 @@ export async function clearUserSession() {
   store.set(SESSION_COOKIE, "", {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: Env.isProduction,
     path: "/",
     expires: new Date(0),
   });

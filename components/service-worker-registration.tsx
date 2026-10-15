@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { ControllerChangeReloadGate } from "@/lib/swControllerReload";
 import { FormDirtyTracker } from "@/lib/serviceWorkerUpdate/FormDirtyTracker";
 import { UpdateAvailableSignal } from "@/lib/serviceWorkerUpdate/UpdateAvailableSignal";
+import { PublicEnv } from "@/lib/env/PublicEnv";
 
 export function ServiceWorkerRegistration() {
   useEffect(() => {
@@ -19,7 +20,7 @@ export function ServiceWorkerRegistration() {
     // round-trip — see .env.example. Opt-in, not default: it reintroduces
     // the stale-chunk risk this guard exists to avoid, so leave it unset for
     // normal day-to-day dev work.
-    if (process.env.NODE_ENV !== "production" && !process.env.NEXT_PUBLIC_FORCE_SW_IN_DEV) {
+    if (!PublicEnv.isProduction && !PublicEnv.forceServiceWorkerInDev) {
       navigator.serviceWorker
         .getRegistrations()
         .then((registrations) =>
