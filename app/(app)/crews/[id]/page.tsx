@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/modules/identity/server/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { getCrew } from "@/modules/crews/actions/groupController";
+import { getCrew } from "@/modules/crews/server/crewReads";
 import { CrewDetailView } from "@/components/drink/crew-detail-view";
 
 export default async function CrewDetailPage({

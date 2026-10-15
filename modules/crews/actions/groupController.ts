@@ -1,9 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getCurrentUser } from "@/modules/identity/server/session";
-import { NOT_AUTHENTICATED } from "@/modules/identity/server/authErrors";
-import { RateLimiterFactory } from "@/lib/rateLimit/RateLimiterFactory";
+import { gateway } from "@/modules/identity/server/gateway";
 import {
   createGroup as createGroupCommand,
   joinGroup,
@@ -22,33 +20,18 @@ import {
   respondToCrewInvite as respondToCrewInviteCommand,
 } from "@/modules/crews/application/groupInviteCommands";
 import {
-  getCrewSummariesForUser,
-  getCrewDetailForViewer,
-  type CrewSummary,
-  type CrewDetail,
-} from "@/modules/crews/server/groupQueries";
-import { getCrewInviteCandidates as getCrewInviteCandidatesQuery } from "@/modules/crews/server/groupInviteQueries";
-import {
-  ActionResultDTO,
-  CreateGroupDTO,
-  CreateGroupResultDTO,
-  GetCrewDTO,
-  JoinGroupDTO,
-  JoinGroupResultDTO,
-  LeaveGroupDTO,
-  SetCrewVisibilityDTO,
-  RenameGroupDTO,
-  RegenerateInviteCodeDTO,
-  RegenerateInviteCodeResultDTO,
-  SetMemberRoleDTO,
-  KickMemberDTO,
-  UnbanMemberDTO,
-  SendCrewInviteDTO,
-  RespondToCrewInviteDTO,
-  GetCrewInviteCandidatesDTO,
-  CloseGroupDTO,
-  DeleteGroupDTO,
-} from "@/lib/dtos";
+  createCrewInput,
+  crewIdInput,
+  crewMemberInput,
+  joinCrewInput,
+  renameCrewInput,
+  respondToCrewInviteInput,
+  sendCrewInviteInput,
+  setCrewVisibilityInput,
+  setMemberRoleInput,
+} from "@/modules/crews/contract/crewContract";
+
+// Mutations only: reads live in modules/crews/server/crewReads.ts (a Server Action is a public POST endpoint).
 
 const GROUP_PATHS = ["/crews"];
 
@@ -58,163 +41,105 @@ function revalidateGroupPaths(): string[] {
   return GROUP_PATHS;
 }
 
-export async function createGroup(input: CreateGroupDTO): Promise<CreateGroupResultDTO> {
-  const user = await getCurrentUser();
-  if (!user) return NOT_AUTHENTICATED;
-
-  const result = await createGroupCommand(user.id, input);
+/** Runs a crew command and, on success, folds the revalidated crew paths into its result. */
+async function withGroupRevalidation<T extends { error?: string; revalidatedPaths?: string[] }>(result: T): Promise<T> {
   if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
   return result;
 }
 
-export async function joinGroupByInvite(input: JoinGroupDTO): Promise<JoinGroupResultDTO> {
-  const user = await getCurrentUser();
-  if (!user) return NOT_AUTHENTICATED;
+export const createGroup = gateway.action.authed(
+  { name: "crews.create", input: createCrewInput },
+  async ({ user, input }) => withGroupRevalidation(await createGroupCommand(user.id, input))
+);
 
-  // 6-char base36 invite codes make brute-forcing impractical at any
-  // reasonable rate, but capping attempts is cheap insurance regardless.
-  const rateLimit = await RateLimiterFactory.create().consume(`join-crew:${user.id}`, 20, 10 * 60 * 1000);
-  if (!rateLimit.allowed) {
-    return { error: "Too many attempts — try again in a few minutes." };
+export const joinGroupByInvite = gateway.action.authed(
+  {
+    name: "crews.join",
+    input: joinCrewInput,
+    // 6-char base36 invite codes make brute-forcing impractical at any
+    // reasonable rate, but capping attempts is cheap insurance regardless.
+    rateLimit: {
+      bucket: "join-crew",
+      limit: 20,
+      windowMs: 10 * 60 * 1000,
+      scope: "user",
+      message: "Too many attempts — try again in a few minutes.",
+    },
+  },
+  async ({ user, input }) =>
+    withGroupRevalidation(
+      await joinGroup(user.id, input, {
+        username: user.username,
+        avatarUrl: user.avatarUrl,
+      })
+    )
+);
+
+export const leaveGroup = gateway.action.authed(
+  { name: "crews.leave", input: crewIdInput },
+  async ({ user, input }) => withGroupRevalidation(await leaveGroupCommand(user.id, input))
+);
+
+export const setCrewVisibility = gateway.action.authed(
+  { name: "crews.set-visibility", input: setCrewVisibilityInput },
+  async ({ user, input }) => withGroupRevalidation(await setCrewVisibilityCommand(user.id, input))
+);
+
+export const renameGroup = gateway.action.authed(
+  { name: "crews.rename", input: renameCrewInput },
+  async ({ user, input }) => withGroupRevalidation(await renameGroupCommand(user.id, input))
+);
+
+export const regenerateInviteCode = gateway.action.authed(
+  { name: "crews.regenerate-invite-code", input: crewIdInput },
+  async ({ user, input }) => withGroupRevalidation(await regenerateInviteCodeCommand(user.id, input))
+);
+
+export const setMemberRole = gateway.action.authed(
+  { name: "crews.set-member-role", input: setMemberRoleInput },
+  async ({ user, input }) => withGroupRevalidation(await setMemberRoleCommand(user.id, input))
+);
+
+export const kickMember = gateway.action.authed(
+  { name: "crews.kick-member", input: crewMemberInput },
+  async ({ user, input }) => withGroupRevalidation(await kickMemberCommand(user.id, input))
+);
+
+export const unbanMember = gateway.action.authed(
+  { name: "crews.unban-member", input: crewMemberInput },
+  async ({ user, input }) => withGroupRevalidation(await unbanMemberCommand(user.id, input))
+);
+
+export const sendCrewInvite = gateway.action.authed(
+  { name: "crews.send-invite", input: sendCrewInviteInput },
+  async ({ user, input }) =>
+    sendCrewInviteCommand(user.id, input, {
+      username: user.username,
+      avatarUrl: user.avatarUrl,
+    })
+);
+
+export const respondToCrewInvite = gateway.action.authed(
+  { name: "crews.respond-to-invite", input: respondToCrewInviteInput },
+  async ({ user, input }) => {
+    const result = await respondToCrewInviteCommand(user.id, input, {
+      username: user.username,
+      avatarUrl: user.avatarUrl,
+    });
+    if (!result.error) {
+      revalidatePath("/notifications");
+      result.revalidatedPaths = ["/notifications", ...revalidateGroupPaths()];
+    }
+    return result;
   }
+);
 
-  const result = await joinGroup(user.id, input, {
-    username: user.username,
-    avatarUrl: user.avatarUrl,
-  });
-  if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
-  return result;
-}
+export const closeGroup = gateway.action.authed(
+  { name: "crews.close", input: crewIdInput },
+  async ({ user, input }) => withGroupRevalidation(await closeGroupCommand(user.id, input))
+);
 
-export async function leaveGroup(input: LeaveGroupDTO): Promise<ActionResultDTO> {
-  const user = await getCurrentUser();
-  if (!user) return NOT_AUTHENTICATED;
-
-  const result = await leaveGroupCommand(user.id, input);
-  if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
-  return result;
-}
-
-export async function setCrewVisibility(input: SetCrewVisibilityDTO): Promise<ActionResultDTO> {
-  const user = await getCurrentUser();
-  if (!user) return NOT_AUTHENTICATED;
-
-  const result = await setCrewVisibilityCommand(user.id, input);
-  if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
-  return result;
-}
-
-export async function renameGroup(input: RenameGroupDTO): Promise<ActionResultDTO> {
-  const user = await getCurrentUser();
-  if (!user) return NOT_AUTHENTICATED;
-
-  const result = await renameGroupCommand(user.id, input);
-  if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
-  return result;
-}
-
-export async function regenerateInviteCode(input: RegenerateInviteCodeDTO): Promise<RegenerateInviteCodeResultDTO> {
-  const user = await getCurrentUser();
-  if (!user) return NOT_AUTHENTICATED;
-
-  const result = await regenerateInviteCodeCommand(user.id, input);
-  if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
-  return result;
-}
-
-export async function setMemberRole(input: SetMemberRoleDTO): Promise<ActionResultDTO> {
-  const user = await getCurrentUser();
-  if (!user) return NOT_AUTHENTICATED;
-
-  const result = await setMemberRoleCommand(user.id, input);
-  if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
-  return result;
-}
-
-export async function kickMember(input: KickMemberDTO): Promise<ActionResultDTO> {
-  const user = await getCurrentUser();
-  if (!user) return NOT_AUTHENTICATED;
-
-  const result = await kickMemberCommand(user.id, input);
-  if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
-  return result;
-}
-
-export async function unbanMember(input: UnbanMemberDTO): Promise<ActionResultDTO> {
-  const user = await getCurrentUser();
-  if (!user) return NOT_AUTHENTICATED;
-
-  const result = await unbanMemberCommand(user.id, input);
-  if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
-  return result;
-}
-
-export async function sendCrewInvite(input: SendCrewInviteDTO): Promise<ActionResultDTO> {
-  const user = await getCurrentUser();
-  if (!user) return NOT_AUTHENTICATED;
-
-  return sendCrewInviteCommand(user.id, input, {
-    username: user.username,
-    avatarUrl: user.avatarUrl,
-  });
-}
-
-export async function respondToCrewInvite(input: RespondToCrewInviteDTO): Promise<ActionResultDTO> {
-  const user = await getCurrentUser();
-  if (!user) return NOT_AUTHENTICATED;
-
-  const result = await respondToCrewInviteCommand(user.id, input, {
-    username: user.username,
-    avatarUrl: user.avatarUrl,
-  });
-  if (!result.error) {
-    revalidatePath("/notifications");
-    result.revalidatedPaths = ["/notifications", ...revalidateGroupPaths()];
-  }
-  return result;
-}
-
-/** Who the current user can invite into a crew — null if they can't invite at all right now. */
-export async function getCrewInviteCandidates(input: GetCrewInviteCandidatesDTO) {
-  const user = await getCurrentUser();
-  if (!user) return null;
-
-  return getCrewInviteCandidatesQuery(user.id, input.groupId, {
-    search: input.search,
-    offset: input.offset,
-  });
-}
-
-export async function closeGroup(input: CloseGroupDTO): Promise<ActionResultDTO> {
-  const user = await getCurrentUser();
-  if (!user) return NOT_AUTHENTICATED;
-
-  const result = await closeGroupCommand(user.id, input);
-  if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
-  return result;
-}
-
-export async function deleteGroup(input: DeleteGroupDTO): Promise<ActionResultDTO> {
-  const user = await getCurrentUser();
-  if (!user) return NOT_AUTHENTICATED;
-
-  const result = await deleteGroupCommand(user.id, input);
-  if (!result.error) result.revalidatedPaths = revalidateGroupPaths();
-  return result;
-}
-
-/** The current user's crews with their rank in each (one bulk read, no N+1). */
-export async function getMyCrews(): Promise<CrewSummary[]> {
-  const user = await getCurrentUser();
-  if (!user) return [];
-
-  return getCrewSummariesForUser(user.id);
-}
-
-/** A crew's board — null when the crew doesn't exist or the viewer isn't a member. */
-export async function getCrew(input: GetCrewDTO): Promise<CrewDetail | null> {
-  const user = await getCurrentUser();
-  if (!user) return null;
-
-  return getCrewDetailForViewer(input.crewId, user.id);
-}
+export const deleteGroup = gateway.action.authed(
+  { name: "crews.delete", input: crewIdInput },
+  async ({ user, input }) => withGroupRevalidation(await deleteGroupCommand(user.id, input))
+);

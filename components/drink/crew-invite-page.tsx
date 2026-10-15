@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { getCrewInviteCandidates, sendCrewInvite } from "@/modules/crews/actions/groupController";
+import { sendCrewInvite } from "@/modules/crews/actions/groupController";
+import { ApiClient } from "@/lib/gateway/ApiClient";
 import { showToast } from "@/components/ui/toast-pill";
 import { Avatar } from "@/components/ui/avatar";
 import { UsernameLabel } from "@/components/ui/username-label";
@@ -56,14 +57,14 @@ export function CrewInvitePage({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
+  const fetchCandidates = (params: { search?: string; offset?: number }) =>
+    ApiClient.get<CandidatesResult>(`/api/crews/${crewId}/invite-candidates`, params).catch(() => null);
+
   const runSearch = (value: string) => {
     setQuery(value);
     setLoading(true);
     startTransition(async () => {
-      const result = await getCrewInviteCandidates({
-        groupId: crewId,
-        search: value.trim() || undefined,
-      });
+      const result = await fetchCandidates({ search: value.trim() || undefined });
       setCandidates(result?.candidates ?? []);
       setTotal(result?.total ?? 0);
       setLoading(false);
@@ -73,11 +74,7 @@ export function CrewInvitePage({
   const loadMore = () => {
     setLoadingMore(true);
     startTransition(async () => {
-      const result = await getCrewInviteCandidates({
-        groupId: crewId,
-        search: query.trim() || undefined,
-        offset: candidates.length,
-      });
+      const result = await fetchCandidates({ search: query.trim() || undefined, offset: candidates.length });
       setCandidates((c) => [...c, ...(result?.candidates ?? [])]);
       setLoadingMore(false);
     });

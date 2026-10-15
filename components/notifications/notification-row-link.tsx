@@ -31,7 +31,7 @@ export function NotificationRowLink({
       className={className}
       style={style}
       prefetch={false}
-      onClick={() => startTransition(() => markNotificationOpenedAction(id))}
+      onClick={() => startTransition(async () => { await markNotificationOpenedAction(id); })}
     >
       {children}
     </Link>

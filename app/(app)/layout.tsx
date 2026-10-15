@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/modules/identity/server/session";
-import { getMyUnreadNotificationCount } from "@/modules/notifications/actions/notificationController";
+import { getMyUnreadNotificationCount } from "@/modules/notifications/server/notificationReads";
 import { maybeSendSessionReminders } from "@/modules/notifications";
 import { AppHeader } from "@/components/layout/app-header";
 import { BottomNav } from "@/components/layout/bottom-nav";

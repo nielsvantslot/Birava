@@ -11,11 +11,8 @@ import {
   sessionTitle,
   type DrinkSession,
 } from "@/modules/sessions/domain/sessions";
-import {
-  getSession,
-  getMyDrinkHistory,
-} from "@/modules/checkins/actions/drinkController";
-import { getSessionCheers, getSessionComments, getCommentCounts } from "@/modules/social/actions/socialController";
+import { getSession, getMyDrinkHistory } from "@/modules/checkins/server/drinkReads";
+import { getSessionCheers, getSessionComments, getCommentCounts } from "@/modules/social/server/socialReads";
 import { formatTime, relativeDayTime } from "@/lib/dates";
 import { avatarSrc } from "@/lib/utils";
 import { SessionMap, MapPin } from "@/components/drink/session-map";

@@ -26,6 +26,14 @@ type PublicActionConfig<S extends ZodType | undefined> = ActionConfig<S> & {
 type ActionArgs<S extends ZodType | undefined> = S extends ZodType ? [input: z.input<S>] : [];
 
 /**
+ * What a caller sees: the handler's result, plus the failure shape. When the
+ * result type already accepts a failure (every web DTO is all-optional with
+ * an `error?`), the failure folds into it, so callers keep reading
+ * `result.error` and the success fields without narrowing.
+ */
+export type ActionResult<R> = ActionFailure extends R ? R : R | ActionFailure;
+
+/**
  * Builds server actions. Same steps as `RouteGateway` (authenticate, rate
  * limit, validate, run, map errors) with results in place of HTTP: a failing
  * action returns an `ActionFailure` (a superset of the `{ error?: string }`
@@ -45,7 +53,7 @@ export class ActionGateway<TUser extends { id: string }> {
   authed<S extends ZodType | undefined = undefined, R = void>(
     config: AuthedActionConfig<S>,
     handler: (args: { user: TUser; input: Infer<S> }) => Promise<R>
-  ): (...args: ActionArgs<S>) => Promise<R | ActionFailure> {
+  ): (...args: ActionArgs<S>) => Promise<ActionResult<R>> {
     return this.build<S, R>(config, async (raw) => {
       const user = await this.services.authenticator.authenticate();
       if (!user) throw ApiError.unauthenticated();
@@ -59,7 +67,7 @@ export class ActionGateway<TUser extends { id: string }> {
   public<S extends ZodType | undefined = undefined, R = void>(
     config: PublicActionConfig<S>,
     handler: (args: { input: Infer<S> }) => Promise<R>
-  ): (...args: ActionArgs<S>) => Promise<R | ActionFailure> {
+  ): (...args: ActionArgs<S>) => Promise<ActionResult<R>> {
     return this.build<S, R>(config, async (raw) => {
       if (config.rateLimit) {
         await this.rateLimits.consume(config.rateLimit, config.name, await this.services.clientIpFromHeaders());
@@ -76,7 +84,7 @@ export class ActionGateway<TUser extends { id: string }> {
   private build<S extends ZodType | undefined, R>(
     config: ActionConfig<S>,
     run: (raw: unknown) => Promise<R>
-  ): (...args: ActionArgs<S>) => Promise<R | ActionFailure> {
+  ): (...args: ActionArgs<S>) => Promise<ActionResult<R>> {
     return (async (...args: unknown[]) => {
       try {
         return await run(args[0]);
@@ -85,6 +93,6 @@ export class ActionGateway<TUser extends { id: string }> {
         this.services.logger.error("server action threw", { action: config.name, error });
         throw error;
       }
-    }) as (...args: ActionArgs<S>) => Promise<R | ActionFailure>;
+    }) as (...args: ActionArgs<S>) => Promise<ActionResult<R>>;
   }
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getMyDrinkSuggestions } from "@/modules/checkins/actions/drinkController";
+import { ApiClient } from "@/lib/gateway/ApiClient";
+import type { DrinkSuggestionsDTO } from "@/modules/checkins/server/drinkReads";
 
 /**
  * Autocomplete suggestions from the user's own recent check-ins. Fetched after
@@ -16,10 +17,12 @@ export function useDrinkSuggestions(editing: boolean) {
 
   useEffect(() => {
     if (editing) return;
-    getMyDrinkSuggestions().then(({ names, venues }) => {
-      setNameSuggestions(names);
-      setVenueSuggestions(venues);
-    });
+    ApiClient.get<DrinkSuggestionsDTO>("/api/drink-suggestions")
+      .then(({ names, venues }) => {
+        setNameSuggestions(names);
+        setVenueSuggestions(venues);
+      })
+      .catch(() => {});
   }, [editing]);
 
   return { nameSuggestions, venueSuggestions };

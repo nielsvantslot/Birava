@@ -1,5 +1,5 @@
 import { getCurrentUser } from "@/modules/identity/server/session";
-import { getMyFollowingIds } from "@/modules/social/actions/socialController";
+import { getMyFollowingIds } from "@/modules/social/server/socialReads";
 import { PeopleClient } from "@/components/drink/people-client";
 
 export default async function PeoplePage() {

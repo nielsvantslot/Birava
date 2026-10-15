@@ -74,6 +74,10 @@ vi.mock("next/server", async (importOriginal) => ({
 // outright.
 vi.mock("next/cache", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/cache")>()),
+  // Revalidation only means something inside a real request; the actions call
+  // it after every mutation, so make it a no-op rather than throw.
+  revalidatePath: () => {},
+  revalidateTag: () => {},
   unstable_cache:
     <T extends (...args: never[]) => unknown>(fn: T) =>
     (...args: Parameters<T>) =>

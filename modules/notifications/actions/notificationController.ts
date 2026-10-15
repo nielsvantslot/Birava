@@ -1,14 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getCurrentUser } from "@/modules/identity/server/session";
-import { throwNotAuthenticated } from "@/modules/identity/server/authErrors";
-import {
-  getNotifications,
-  getUnreadCount,
-  hasAnyPushSubscription,
-  getNotificationPreferences,
-} from "@/modules/notifications/server/notificationQueries";
+import { gateway } from "@/modules/identity/server/gateway";
 import {
   markAllRead,
   markNotificationOpened,
@@ -19,89 +12,46 @@ import {
   removePushSubscription as removePushSubscriptionCommand,
 } from "@/modules/notifications/application/pushSubscriptionCommands";
 import {
-  GetMyNotificationsDTO,
-  NotificationDTO,
-  RemovePushSubscriptionDTO,
-  SavePushSubscriptionDTO,
-  NotificationPreferencesDTO,
-  UpdateNotificationPreferenceDTO,
-} from "@/lib/dtos";
+  notificationIdInput,
+  removePushSubscriptionInput,
+  savePushSubscriptionInput,
+  updateNotificationPreferenceInput,
+} from "@/modules/notifications/contract/notificationContract";
 
-export async function getMyNotifications(
-  input: GetMyNotificationsDTO = { limit: 30, offset: 0 }
-): Promise<NotificationDTO[]> {
-  const user = await getCurrentUser();
-  if (!user) return [];
+// Mutations only: reads live in modules/notifications/server/notificationReads.ts (a Server Action is a public POST endpoint).
 
-  return getNotifications(user.id, input);
-}
-
-export async function getMyUnreadNotificationCount(): Promise<number> {
-  const user = await getCurrentUser();
-  if (!user) return 0;
-
-  return getUnreadCount(user.id);
-}
-
-/** Whether the current user has push enabled on any device. */
-export async function getMyHasPushSubscription(): Promise<boolean> {
-  const user = await getCurrentUser();
-  if (!user) return false;
-
-  return hasAnyPushSubscription(user.id);
-}
-
-export async function markNotificationsRead(): Promise<void> {
-  const user = await getCurrentUser();
-  if (!user) throwNotAuthenticated();
-
+export const markNotificationsRead = gateway.action.authed({ name: "notifications.mark-all-read" }, async ({ user }) => {
   await markAllRead(user.id);
   revalidatePath("/notifications");
   revalidatePath("/dashboard");
-}
+});
 
 /** Fired on click-through of a single notification row (see notification-row-link.tsx) — not blocking navigation. */
-export async function markNotificationOpenedAction(notificationId: string): Promise<void> {
-  const user = await getCurrentUser();
-  if (!user) throwNotAuthenticated();
+export const markNotificationOpenedAction = gateway.action.authed(
+  { name: "notifications.mark-opened", input: notificationIdInput },
+  async ({ user, input }) => {
+    await markNotificationOpened(input, user.id);
+  }
+);
 
-  await markNotificationOpened(notificationId, user.id);
-}
+export const subscribeToPush = gateway.action.authed(
+  { name: "notifications.subscribe-push", input: savePushSubscriptionInput },
+  async ({ user, input }) => {
+    await savePushSubscriptionCommand(user.id, input);
+  }
+);
 
-export async function subscribeToPush(input: SavePushSubscriptionDTO): Promise<void> {
-  const user = await getCurrentUser();
-  if (!user) throwNotAuthenticated();
+export const unsubscribeFromPush = gateway.action.authed(
+  { name: "notifications.unsubscribe-push", input: removePushSubscriptionInput },
+  async ({ user, input }) => {
+    await removePushSubscriptionCommand(user.id, input.endpoint);
+  }
+);
 
-  await savePushSubscriptionCommand(user.id, input);
-}
-
-export async function unsubscribeFromPush(input: RemovePushSubscriptionDTO): Promise<void> {
-  const user = await getCurrentUser();
-  if (!user) throwNotAuthenticated();
-
-  await removePushSubscriptionCommand(user.id, input.endpoint);
-}
-
-const DEFAULT_PREFERENCES: NotificationPreferencesDTO = {
-  notifyCrewCheckin: true,
-  notifyCheer: true,
-  notifyCrewActivity: true,
-  notifyAchievement: true,
-  notifyFollowing: true,
-  notifySessionReminder: true,
-};
-
-export async function getMyNotificationPreferences(): Promise<NotificationPreferencesDTO> {
-  const user = await getCurrentUser();
-  if (!user) return DEFAULT_PREFERENCES;
-
-  return getNotificationPreferences(user.id);
-}
-
-export async function updateNotificationPreference(input: UpdateNotificationPreferenceDTO): Promise<void> {
-  const user = await getCurrentUser();
-  if (!user) throwNotAuthenticated();
-
-  await updateNotificationPreferenceCommand(user.id, input);
-  revalidatePath("/settings");
-}
+export const updateNotificationPreference = gateway.action.authed(
+  { name: "notifications.update-preference", input: updateNotificationPreferenceInput },
+  async ({ user, input }) => {
+    await updateNotificationPreferenceCommand(user.id, input);
+    revalidatePath("/settings");
+  }
+);

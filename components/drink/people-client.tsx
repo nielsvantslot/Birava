@@ -5,7 +5,7 @@ import Link from "next/link";
 import { FollowButton } from "@/components/drink/follow-button";
 import { Avatar } from "@/components/ui/avatar";
 import { UsernameLabel } from "@/components/ui/username-label";
-import { searchUsers } from "@/modules/social/actions/socialController";
+import { ApiClient } from "@/lib/gateway/ApiClient";
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -55,9 +55,9 @@ export function PeopleClient({
     debounceRef.current = setTimeout(() => {
       const requestId = ++requestIdRef.current;
       startTransition(async () => {
-        const data = await searchUsers({ query: trimmed });
-        if (requestIdRef.current !== requestId) return;
-        setResults(data as UserResult[]);
+        const data = await ApiClient.get<UserResult[]>("/api/people/search", { q: trimmed }).catch(() => null);
+        if (data === null || requestIdRef.current !== requestId) return;
+        setResults(data);
         setSearched(true);
       });
     }, SEARCH_DEBOUNCE_MS);

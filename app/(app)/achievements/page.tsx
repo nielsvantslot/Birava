@@ -1,6 +1,6 @@
 import { getCurrentUser } from "@/modules/identity/server/session";
 import { getUserTimeZone } from "@/lib/timezone";
-import { getMyDrinkHistory } from "@/modules/checkins/actions/drinkController";
+import { getMyDrinkHistory } from "@/modules/checkins/server/drinkReads";
 import { groupIntoSessions, activeWeeks } from "@/modules/sessions/domain/sessions";
 import { computeAchievements } from "@/modules/achievements/domain/achievements";
 import { AchievementsView } from "@/components/drink/achievements-view";

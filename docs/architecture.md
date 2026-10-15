@@ -4,7 +4,7 @@ A living map of Birava's backend. **Keep this updated** whenever a new layer, ro
 
 ## Layered request flow
 
-Every request enters through either a Route Handler (`app/api/**`) or a Server Action (`modules/*/actions/*.ts`, all `"use server"`), and both funnel down through the same domain layer. Neither layer talks to Prisma directly.
+Every request enters through either a Route Handler (`app/api/**`) or a Server Action (`modules/*/actions/*.ts`, all `"use server"`, mutations only; pages read through `modules/*/server/*Reads.ts`), both built by the gateway (see below), and both funnel down through the same domain layer. Neither layer talks to Prisma directly.
 
 ```mermaid
 flowchart TB

@@ -35,7 +35,7 @@ Failing routes return `{ "error": { "code", "message", "fields?" } }` with a clo
 
 - Authenticated mutations are limited to 300 per user per minute per endpoint (generous enough for an offline queue flushing), with per-endpoint overrides. Reads are not counted unless asked.
 - Mutating routes reject a mismatched `Origin`, or an explicit `Sec-Fetch-Site: cross-site` when `Origin` is absent, on top of SameSite cookies. Server Actions get this from Next. Cron routes are exempt because they authenticate with a bearer secret, not a cookie.
-- Reads that a page needs are query functions called directly by pages, not server actions: an action is a public endpoint and should only be a mutation.
+- Reads that a page needs are query functions (`modules/*/server/*Reads.ts`) called directly by pages, not server actions: an action is a public endpoint and should only be a mutation. The four reads a browser component needs at runtime (the feed's next page, people search, drink suggestions, crew invite candidates) are gateway GET routes read through `ApiClient`. This also closed a leak: the old public read actions (another user's history, follow counts) were callable by anyone as POST endpoints.
 
 ## Gate
 
