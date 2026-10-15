@@ -1,5 +1,6 @@
 import { purgeExpiredDeletedAccounts } from "@/lib/commands/userCommands";
 import { verifyCronRequest } from "@/lib/auth/verifyCronRequest";
+import { CronRunLogger } from "@/lib/logging/CronRunLogger";
 
 // @vercel/blob's del() (via drinkPhotoService/avatarPhotoService) needs Node, not edge.
 export const runtime = "nodejs";
@@ -21,6 +22,6 @@ export async function GET(request: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const result = await purgeExpiredDeletedAccounts();
+  const result = await CronRunLogger.run("purge-deleted-accounts", purgeExpiredDeletedAccounts);
   return Response.json(result);
 }

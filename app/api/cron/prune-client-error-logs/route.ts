@@ -1,6 +1,7 @@
 import { pruneClientErrorLogs } from "@/lib/commands/clientErrorLogCommands";
 import { RateLimitBucketPruner } from "@/lib/rateLimit/RateLimitBucketPruner";
 import { verifyCronRequest } from "@/lib/auth/verifyCronRequest";
+import { CronRunLogger } from "@/lib/logging/CronRunLogger";
 
 // Invoked once daily by .github/workflows/prune-client-error-logs.yml —
 // GitHub Actions, same as session-reminders/cleanup-orphaned-blobs, rather
@@ -13,9 +14,12 @@ export async function GET(request: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const [clientErrorLogResult, rateLimitBucketsDeleted] = await Promise.all([
-    pruneClientErrorLogs(),
-    RateLimitBucketPruner.prune(),
-  ]);
-  return Response.json({ ...clientErrorLogResult, rateLimitBucketsDeleted });
+  const result = await CronRunLogger.run("prune-client-error-logs", async () => {
+    const [clientErrorLogResult, rateLimitBucketsDeleted] = await Promise.all([
+      pruneClientErrorLogs(),
+      RateLimitBucketPruner.prune(),
+    ]);
+    return { ...clientErrorLogResult, rateLimitBucketsDeleted };
+  });
+  return Response.json(result);
 }
