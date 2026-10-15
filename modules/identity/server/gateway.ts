@@ -1,5 +1,7 @@
 import { headers } from "next/headers";
+import { db } from "@/lib/db";
 import { Gateway } from "@/lib/gateway/Gateway";
+import { PostgresIdempotencyStore } from "@/lib/gateway/PostgresIdempotencyStore";
 import type { SessionUserDTO } from "@/lib/dtos";
 import { LoggerFactory } from "@/lib/logging/LoggerFactory";
 import { ClientIpResolver } from "@/lib/rateLimit/ClientIpResolver";
@@ -19,6 +21,7 @@ export const gateway = new Gateway<SessionUserDTO>({
   authenticator: { authenticate: () => getCurrentUser() },
   cronVerifier: { verify: verifyCronRequest },
   rateLimiter: RateLimiterFactory.create(),
+  idempotency: new PostgresIdempotencyStore(db),
   logger: LoggerFactory.create("gateway"),
   clientIp: (request) => ClientIpResolver.resolve(request),
   clientIpFromHeaders: async () => ClientIpResolver.resolve(new Request("http://internal.invalid", { headers: await headers() })),

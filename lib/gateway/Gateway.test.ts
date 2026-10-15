@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { ILogger } from "@/lib/logging/ILogger";
 import type { IRateLimiter } from "@/lib/rateLimit/IRateLimiter";
 import { ApiError } from "./ApiError";
+import type { IIdempotencyStore, IdempotencyBegin, IdempotencyScope, StoredResponse } from "./IIdempotencyStore";
 import { Gateway } from "./Gateway";
 import type { GatewayServices } from "./GatewayServices";
 
@@ -33,6 +34,28 @@ class CountingLimiter implements IRateLimiter {
   }
 }
 
+class MemoryIdempotencyStore implements IIdempotencyStore {
+  readonly rows = new Map<string, { hash: string; response: StoredResponse | null }>();
+  private id = (s: IdempotencyScope) => `${s.userId}|${s.key}|${s.route}`;
+  async begin(scope: IdempotencyScope, hash: string): Promise<IdempotencyBegin> {
+    const existing = this.rows.get(this.id(scope));
+    if (!existing) {
+      this.rows.set(this.id(scope), { hash, response: null });
+      return { state: "started" };
+    }
+    if (existing.hash !== hash) return { state: "conflict", reason: "different-request" };
+    if (!existing.response) return { state: "conflict", reason: "in-progress" };
+    return { state: "replay", response: existing.response };
+  }
+  async complete(scope: IdempotencyScope, response: StoredResponse) {
+    const row = this.rows.get(this.id(scope));
+    if (row) row.response = response;
+  }
+  async abandon(scope: IdempotencyScope) {
+    this.rows.delete(this.id(scope));
+  }
+}
+
 class BrokenLimiter implements IRateLimiter {
   async consume(): Promise<never> {
     throw new Error("database unavailable");
@@ -47,6 +70,7 @@ function setup(options: { user?: User | null; cronOk?: boolean; brokenLimiter?: 
     authenticator: { authenticate: async () => user },
     cronVerifier: { verify: () => options.cronOk ?? true },
     rateLimiter: limiter,
+    idempotency: new MemoryIdempotencyStore(),
     logger,
     clientIp: () => "1.2.3.4",
     clientIpFromHeaders: async () => "1.2.3.4",
@@ -299,6 +323,89 @@ describe("route gateway: invalid input messages", () => {
     const route = gateway.route.authed({ name: "t", body: z.object({ url: z.string() }), invalidMessage: "Invalid upload." }, async () => ({}));
 
     expect((await errorOf(await route(post({}), ctx))).error.message).toBe("Invalid upload.");
+  });
+});
+
+describe("route gateway: Idempotency-Key", () => {
+  const KEY = "retry-key-0001";
+
+  it("runs a mutation once and replays the first response for a repeat with the same key", async () => {
+    const { gateway } = setup();
+    let runs = 0;
+    const route = gateway.route.authed({ name: "t", body: z.object({ n: z.number() }) }, async () => ({ run: ++runs }));
+
+    const first = await route(post({ n: 1 }, { "idempotency-key": KEY }), ctx);
+    const second = await route(post({ n: 1 }, { "idempotency-key": KEY }), ctx);
+
+    expect(await first.json()).toEqual({ run: 1 });
+    expect(await second.json()).toEqual({ run: 1 });
+    expect(second.headers.get("Idempotent-Replay")).toBe("true");
+    expect(first.headers.get("Idempotent-Replay")).toBeNull();
+    expect(runs).toBe(1);
+  });
+
+  it("runs again for a different key, and always when there is no key", async () => {
+    const { gateway } = setup();
+    let runs = 0;
+    const route = gateway.route.authed({ name: "t" }, async () => ({ run: ++runs }));
+
+    await route(post({}, { "idempotency-key": KEY }), ctx);
+    await route(post({}, { "idempotency-key": "another-key-02" }), ctx);
+    await route(post({}), ctx);
+    await route(post({}), ctx);
+
+    expect(runs).toBe(4);
+  });
+
+  it("answers 409 when a key is reused for a different request body", async () => {
+    const { gateway } = setup();
+    const route = gateway.route.authed({ name: "t" }, async () => ({ ok: true }));
+
+    await route(post({ a: 1 }, { "idempotency-key": KEY }), ctx);
+    const reused = await route(post({ a: 2 }, { "idempotency-key": KEY }), ctx);
+
+    expect(reused.status).toBe(409);
+    expect((await errorOf(reused)).error.code).toBe("CONFLICT");
+  });
+
+  it("does not keep a failed request, so the same key can be retried", async () => {
+    const { gateway } = setup();
+    let attempt = 0;
+    const route = gateway.route.authed({ name: "t" }, async () => {
+      if (++attempt === 1) throw ApiError.notFound("not yet");
+      return { ok: true };
+    });
+
+    expect((await route(post({}, { "idempotency-key": KEY }), ctx)).status).toBe(404);
+    const retry = await route(post({}, { "idempotency-key": KEY }), ctx);
+
+    expect(retry.status).toBe(200);
+    expect(attempt).toBe(2);
+  });
+
+  it("replays an empty 204, and refuses a malformed key", async () => {
+    const { gateway } = setup();
+    const route = gateway.route.authed({ name: "t" }, async () => null);
+
+    await route(post({}, { "idempotency-key": KEY }), ctx);
+    const replay = await route(post({}, { "idempotency-key": KEY }), ctx);
+    expect(replay.status).toBe(204);
+    expect(replay.headers.get("Idempotent-Replay")).toBe("true");
+
+    const bad = await route(post({}, { "idempotency-key": "x" }), ctx);
+    expect(bad.status).toBe(400);
+  });
+
+  it("ignores the header on a read", async () => {
+    const { gateway } = setup();
+    let runs = 0;
+    const route = gateway.route.authed({ name: "t" }, async () => ({ run: ++runs }));
+    const read = () => new Request("http://app.test/api/x", { headers: { "idempotency-key": KEY } });
+
+    await route(read(), ctx);
+    await route(read(), ctx);
+
+    expect(runs).toBe(2);
   });
 });
 

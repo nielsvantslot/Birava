@@ -291,7 +291,7 @@ Feature code is organised into modules (`modules/<name>/{contract,domain,applica
 
 ## Gateway (added 2026-10-15, v2 phase 2)
 
-Everything the outside world can call is built through one gateway: `gateway.route.authed|public|cron` for Route Handlers and `gateway.action.authed|public` for Server Actions (`lib/gateway`, composed in `modules/identity/server/gateway.ts`; decision in [ADR 0002](adr/0002-gateway.md)). Each call runs the same steps: origin check (mutating routes), authentication, rate limit, zod input validation (`modules/<name>/contract`), the handler, then error mapping to `{ error: { code, message, fields? } }`.
+Everything the outside world can call is built through one gateway: `gateway.route.authed|public|cron` for Route Handlers and `gateway.action.authed|public` for Server Actions (`lib/gateway`, composed in `modules/identity/server/gateway.ts`; decision in [ADR 0002](adr/0002-gateway.md)). Each call runs the same steps: origin check (mutating routes), authentication, rate limit, zod input validation (`modules/<name>/contract`), the handler, then error mapping to `{ error: { code, message, fields? } }`. A mutating authed route also replays the first response for a repeated `Idempotency-Key` (stored in `IdempotencyKey`, pruned daily by the prune-client-error-logs cron).
 
 ```mermaid
 flowchart LR
