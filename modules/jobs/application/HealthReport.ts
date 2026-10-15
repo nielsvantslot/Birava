@@ -59,7 +59,8 @@ export class HealthReport {
       ]);
       return { ok: true };
     } catch (error) {
-      return { ok: false, error: error instanceof Error ? error.message : "unreachable" };
+      // The public body says what failed, never why: the detail (a host, a driver message) goes to the logs, not to anyone who asks.
+      return { ok: false, error: error instanceof Error && error.message === "timed out" ? "timed out" : "unreachable" };
     } finally {
       clearTimeout(timer);
     }
@@ -73,7 +74,7 @@ export class HealthReport {
       const ageHours = Math.round(((now.getTime() - latest.getTime()) / 3_600_000) * 10) / 10;
       return { ok: ageHours <= BACKUP_STALE_AFTER_HOURS, latestAt: latest.toISOString(), ageHours };
     } catch (error) {
-      return { ok: false, latestAt: null, ageHours: null, error: error instanceof Error ? error.message : "could not list backups" };
+      return { ok: false, latestAt: null, ageHours: null, error: "could not list backups" };
     }
   }
 
@@ -85,13 +86,12 @@ export class HealthReport {
     } catch (error) {
       // The run table is unreadable (usually the database itself is down, which the database check reports too):
       // say so per job instead of failing the whole report.
-      const message = error instanceof Error ? error.message : "could not read job runs";
       return this.jobs.map((job) => ({
         job: job.name,
         ok: false,
         lastSuccessAt: null,
         lastSuccessAgeMinutes: null,
-        lastError: message,
+        lastRunFailed: false,
         reason: "unknown" as const,
       }));
     }

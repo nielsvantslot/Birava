@@ -4,7 +4,7 @@ import { loginInput } from "@/modules/identity/contract/authContract";
 import { cancelAccountDeletion } from "@/modules/identity";
 import { issueSessionToken, revokeAllSessions, revokeSessionToken } from "@/modules/identity/server/session";
 import { getSessionUserById, verifyCredentials } from "@/modules/identity/server/userQueries";
-import type { V1Guards } from "../V1Guards";
+import { V1Guards } from "../V1Guards";
 import type { V1Env } from "../V1Services";
 import { V1Responses, meSchema } from "../V1Schemas";
 import { V1Security, type V1Route } from "../V1Route";
@@ -44,6 +44,7 @@ export class AuthRoutes {
       const { email, password } = c.req.valid("json");
       const normalized = email.trim().toLowerCase();
       if (!normalized || !password) throw ApiError.validation("Email and password are required.");
+      await guards.consumeAccountAttempt(normalized);
 
       const userId = await verifyCredentials(normalized, password);
       if (!userId) throw ApiError.unauthenticated("Invalid email or password.");
@@ -65,8 +66,12 @@ export class AuthRoutes {
       responses: { 204: { description: "Token revoked" }, ...V1Responses.errors(401, 429) },
     }));
     app.openapi(revokeToken, async (c) => {
+      // With a cookie session present the caller is the cookie user, not the bearer token's owner: refuse rather than
+      // revoke a token that may belong to someone else.
       const token = /^Bearer\s+(\S+)$/i.exec(c.req.header("authorization") ?? "")?.[1];
-      if (!token) throw ApiError.validation("Send the token to revoke as a bearer token.");
+      if (!token || V1Guards.hasSessionCookie(c.req.header("cookie"))) {
+        throw ApiError.validation("Send the token to revoke as a bearer token, without a session cookie.");
+      }
       await revokeSessionToken(token);
       return c.body(null, 204);
     });

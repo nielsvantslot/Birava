@@ -69,7 +69,7 @@ describe("NotificationDispatcher", () => {
     await dispatcher.dispatch([cheer("alice"), cheer("deleted-user"), cheer("bob")]);
 
     expect(notifications.rows.map((r) => r.userId)).toEqual(["alice", "bob"]);
-    expect(push.sent.map((s) => s.userId).sort()).toEqual(["alice", "bob", "deleted-user"]);
+    expect(push.sent.map((s) => s.userId).sort()).toEqual(["alice", "bob"]); // none for the row that was never written
   });
 
   it("passes the notification id to the push so the service worker can report an open", async () => {

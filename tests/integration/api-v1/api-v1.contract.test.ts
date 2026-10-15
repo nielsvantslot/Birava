@@ -156,15 +156,28 @@ describe.each(operations.map((o) => [o.operationId, o] as const))("%s", (operati
   }
 });
 
-describe("sign-in is limited per IP, not per user", () => {
+describe("sign-in is limited per IP and per account", () => {
   it("answers 429 with Retry-After after 30 attempts in five minutes", async () => {
     const world = await V1World.create();
-    const attempt = () => client.call("POST", "/auth/token", { body: { email: world.user.email, password: "wrong" } });
+    void world;
+    // A different account each time, so only the per-IP limit can be the one that trips.
+    const attempt = (i: number) => client.call("POST", "/auth/token", { body: { email: `nobody${i}@example.com`, password: "wrong" } });
 
-    for (let i = 0; i < 30; i++) expect((await attempt()).status).toBe(401);
-    const limited = await attempt();
+    for (let i = 0; i < 30; i++) expect((await attempt(i)).status).toBe(401);
+    const limited = await attempt(30);
 
     await expectEnvelope(limited, 429, "RATE_LIMITED");
     expect(Number(limited.headers.get("Retry-After"))).toBeGreaterThan(0);
+  });
+
+  it("also limits guesses at one account, so rotating IPs does not help", async () => {
+    const world = await V1World.create();
+    const attempt = (ip: string) =>
+      client.call("POST", "/auth/token", { body: { email: world.user.email, password: "wrong" }, headers: { "x-forwarded-for": ip } });
+
+    for (let i = 0; i < 10; i++) expect((await attempt(`198.51.100.${i}`)).status).toBe(401);
+    const limited = await attempt("198.51.100.99");
+
+    await expectEnvelope(limited, 429, "RATE_LIMITED");
   });
 });
