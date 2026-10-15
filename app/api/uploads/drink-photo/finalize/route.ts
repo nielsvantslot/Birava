@@ -1,8 +1,13 @@
-import { PhotoUploadRouteFactory } from "@/modules/photo-upload/PhotoUploadRouteFactory";
+import { PhotoUploadRouteHandlers } from "@/modules/photo-upload/PhotoUploadRouteHandlers";
 import { drinkPhotoService } from "@/modules/media/server/photoUpload";
-import { getCurrentUser } from "@/modules/identity/server/session";
+import { UploadErrorMapper } from "@/modules/media/server/UploadErrorMapper";
+import { uploadUrlInput } from "@/modules/media/contract/uploadContract";
+import { gateway } from "@/modules/identity/server/gateway";
 
-export const POST = PhotoUploadRouteFactory.createFinalizeRoute<RouteContext<"/api/uploads/drink-photo/finalize">>(
-  drinkPhotoService,
-  async () => getCurrentUser()
+export const POST = gateway.route.authed(
+  { name: "uploads.drink-photo.finalize", body: uploadUrlInput },
+  ({ request, user, input }) =>
+    UploadErrorMapper.run(() =>
+      PhotoUploadRouteHandlers.finalize(drinkPhotoService, { url: input.body.url, request, ownerId: user.id })
+    )
 );

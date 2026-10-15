@@ -8,6 +8,8 @@ import { OriginGuard } from "./OriginGuard";
 import { DEFAULT_USER_RATE_LIMIT, RateLimitGuard } from "./RateLimitGuard";
 
 type InputSchemas = {
+  /** Validates the dynamic route segments (for example `{ id: z.uuid() }`). */
+  params?: ZodType;
   /** Validates the JSON body. */
   body?: ZodType;
   /** Validates the query string, as a plain object of its first values. */
@@ -32,19 +34,22 @@ type PublicRouteConfig<S extends InputSchemas> = RouteConfig<S> & {
 };
 
 type Parsed<S extends InputSchemas> = {
+  params: Part<S, "params">;
   body: Part<S, "body">;
   query: Part<S, "query">;
   form: Part<S, "form">;
 };
 
-type HandlerArgs<TUser, Ctx extends RouteContextLike, S extends InputSchemas> = {
+type HandlerArgs<TUser, S extends InputSchemas> = {
   request: Request;
   user: TUser;
-  params: Awaited<Ctx["params"]>;
   input: Parsed<S>;
 };
 
-type PublicHandlerArgs<Ctx extends RouteContextLike, S extends InputSchemas> = Omit<HandlerArgs<never, Ctx, S>, "user">;
+type PublicHandlerArgs<S extends InputSchemas> = Omit<HandlerArgs<never, S>, "user">;
+
+/** What a handler may return: a Response (streams, images), null for 204, or any value to send as JSON. */
+type HandlerResult = Promise<unknown>;
 
 /**
  * Builds Next route handlers. Every handler passes through the same steps in
@@ -61,34 +66,34 @@ export class RouteGateway<TUser extends { id: string }> {
   }
 
   /** A route for signed-in users. */
-  authed<Ctx extends RouteContextLike = RouteContextLike, S extends InputSchemas = InputSchemas>(
+  authed<S extends InputSchemas>(
     config: AuthedRouteConfig<S>,
-    handler: (args: HandlerArgs<TUser, Ctx, S>) => Promise<Response | object | null | undefined>
-  ): (request: Request, context: Ctx) => Promise<Response> {
-    return this.build<Ctx, S>(config, async (request, context) => {
+    handler: (args: HandlerArgs<TUser, S>) => HandlerResult
+  ): (request: Request, context: RouteContextLike) => Promise<Response> {
+    return this.build(config, async (request, context) => {
       OriginGuard.assertSameOrigin(request);
       const user = await this.services.authenticator.authenticate();
       if (!user) throw ApiError.unauthenticated();
       const limit = config.rateLimit === undefined ? this.defaultFor(request) : config.rateLimit;
       if (limit) await this.rateLimits.consume(limit, config.name, limit.scope === "user" ? user.id : this.services.clientIp(request));
-      const input = await this.parseInput(request, config);
-      return handler({ request, user, params: (await context?.params) as Awaited<Ctx["params"]>, input });
+      const input = await this.parseInput(request, context, config);
+      return handler({ request, user, input });
     });
   }
 
   /** A route anyone can call (login, signup, the error beacon). */
-  public<Ctx extends RouteContextLike = RouteContextLike, S extends InputSchemas = InputSchemas>(
+  public<S extends InputSchemas>(
     config: PublicRouteConfig<S>,
-    handler: (args: PublicHandlerArgs<Ctx, S>) => Promise<Response | object | null | undefined>
-  ): (request: Request, context: Ctx) => Promise<Response> {
-    return this.build<Ctx, S>(config, async (request, context) => {
+    handler: (args: PublicHandlerArgs<S>) => HandlerResult
+  ): (request: Request, context: RouteContextLike) => Promise<Response> {
+    return this.build(config, async (request, context) => {
       OriginGuard.assertSameOrigin(request);
       if (config.rateLimit) {
         const subject = config.rateLimit.scope === "user" ? "anonymous" : this.services.clientIp(request);
         await this.rateLimits.consume(config.rateLimit, config.name, subject);
       }
-      const input = await this.parseInput(request, config);
-      return handler({ request, params: (await context?.params) as Awaited<Ctx["params"]>, input });
+      const input = await this.parseInput(request, context, config);
+      return handler({ request, input });
     });
   }
 
@@ -98,9 +103,9 @@ export class RouteGateway<TUser extends { id: string }> {
    */
   cron(
     config: { name: string },
-    handler: (args: { request: Request }) => Promise<Response | object | null | undefined>
+    handler: (args: { request: Request }) => HandlerResult
   ): (request: Request) => Promise<Response> {
-    const wrapped = this.build<RouteContextLike, InputSchemas>(config as RouteConfig<InputSchemas>, async (request) => {
+    const wrapped = this.build(config, async (request) => {
       if (!this.services.cronVerifier.verify(request)) throw ApiError.unauthenticated("Unauthorized");
       return handler({ request });
     });
@@ -111,8 +116,15 @@ export class RouteGateway<TUser extends { id: string }> {
     return OriginGuard.isUnsafe(request.method) ? DEFAULT_USER_RATE_LIMIT : false;
   }
 
-  private async parseInput<S extends InputSchemas>(request: Request, config: RouteConfig<S>): Promise<Parsed<S>> {
+  private async parseInput<S extends InputSchemas>(
+    request: Request,
+    context: RouteContextLike | undefined,
+    config: RouteConfig<S>
+  ): Promise<Parsed<S>> {
     const parsed: Record<string, unknown> = {};
+    if (config.params) {
+      parsed.params = InputParser.parse(config.params, (await context?.params) ?? {}, "Invalid address.");
+    }
     if (config.query) {
       const query = Object.fromEntries(new URL(request.url).searchParams.entries());
       parsed.query = InputParser.parse(config.query, query, "Invalid query.");
@@ -130,10 +142,10 @@ export class RouteGateway<TUser extends { id: string }> {
     return parsed as Parsed<S>;
   }
 
-  private build<Ctx extends RouteContextLike, S extends InputSchemas>(
-    config: RouteConfig<S>,
-    run: (request: Request, context: Ctx) => Promise<Response | object | null | undefined>
-  ): (request: Request, context: Ctx) => Promise<Response> {
+  private build(
+    config: { name: string },
+    run: (request: Request, context: RouteContextLike) => HandlerResult
+  ): (request: Request, context: RouteContextLike) => Promise<Response> {
     return async (request, context) => {
       const logger = this.services.logger.child({ route: config.name, method: request.method });
       try {

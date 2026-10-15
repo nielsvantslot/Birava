@@ -1,6 +1,9 @@
+import { z } from "zod";
 import crypto from "crypto";
 import sharp from "sharp";
-import { requireUser } from "@/modules/identity/server/requireUser";
+import { ApiError } from "@/lib/gateway/ApiError";
+import { gateway } from "@/modules/identity/server/gateway";
+import { photoResizeQuery } from "@/modules/media/contract/uploadContract";
 import { drinkPhotoService } from "@/modules/media/server/photoUpload";
 import { StreamBufferConverter } from "@/modules/photo-upload/StreamBufferConverter";
 import { getViewableDrinkPhotoUrl } from "@/modules/checkins/server/drinkEntryQueries";
@@ -20,12 +23,12 @@ type Resize = { width: number; cacheKey: string };
 // into next.config.ts's images.deviceSizes) so next/image only ever
 // requests widths this route actually serves. Anything else falls back to
 // the full image rather than resizing to an unbounded, attacker-chosen size.
-function parseResize(searchParams: URLSearchParams): Resize | null {
-  if (searchParams.get("size") === "thumb") {
+function parseResize(query: { size?: string; w?: string }): Resize | null {
+  if (query.size === "thumb") {
     return { width: THUMB_WIDTH, cacheKey: "thumb" };
   }
 
-  const w = Number(searchParams.get("w"));
+  const w = Number(query.w);
   if (HERO_WIDTHS.includes(w)) {
     return { width: w, cacheKey: `w${w}` };
   }
@@ -33,13 +36,14 @@ function parseResize(searchParams: URLSearchParams): Resize | null {
   return null;
 }
 
-export const GET = requireUser<RouteContext<"/api/photos/[entryId]">>(
-  async (request, _user, { params }) => {
-    const { entryId } = await params;
-    const resize = parseResize(new URL(request.url).searchParams);
+export const GET = gateway.route.authed(
+  { name: "photos.get", params: z.object({ entryId: z.string().min(1) }), query: photoResizeQuery },
+  async ({ request, input }) => {
+    const { entryId } = input.params;
+    const resize = parseResize(input.query);
 
     const photoUrl = await getViewableDrinkPhotoUrl(entryId);
-    if (!photoUrl) return new Response("Not found", { status: 404 });
+    if (!photoUrl) throw ApiError.notFound();
 
     // The bytes behind a given photoUrl never change (an edit swaps in a new
     // URL), so the URL is a perfect content validator; hashing it also lets an
@@ -55,7 +59,7 @@ export const GET = requireUser<RouteContext<"/api/photos/[entryId]">>(
     }
 
     const photo = await drinkPhotoService.read(photoUrl);
-    if (!photo) return new Response("Not found", { status: 404 });
+    if (!photo) throw ApiError.notFound();
 
     if (!resize) {
       return new Response(photo.stream, {

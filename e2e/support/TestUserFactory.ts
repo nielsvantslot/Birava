@@ -1,5 +1,6 @@
 import type { APIRequestContext } from "@playwright/test";
 import type { ITestUserFactory, TestUserCredentials } from "./ITestUserFactory";
+import { ErrorEnvelope } from "../../lib/gateway/ErrorEnvelope";
 
 const FIXED_CREDENTIALS: TestUserCredentials = {
   username: "e2e_test_user",
@@ -40,8 +41,8 @@ export class TestUserFactory implements ITestUserFactory {
     });
 
     if (!response.ok()) {
-      const body = await response.json().catch(() => ({}) as { error?: unknown });
-      const alreadyExists = typeof body.error === "string" && /already|taken|exists/i.test(body.error);
+      const body: unknown = await response.json().catch(() => ({}));
+      const alreadyExists = /already|taken|exists/i.test(ErrorEnvelope.messageFrom(body, ""));
       if (!alreadyExists) {
         throw new Error(`Failed to ensure the E2E test user: ${response.status()} ${JSON.stringify(body)}`);
       }

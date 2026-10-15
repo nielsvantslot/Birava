@@ -75,11 +75,11 @@ describe("route gateway: authentication", () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it("passes the signed-in user, route params and parsed input to the handler", async () => {
+  it("passes the signed-in user and the validated params and body to the handler", async () => {
     const { gateway } = setup();
-    const route = gateway.route.authed<{ params: Promise<{ id: string }> }, { body: z.ZodObject<{ n: z.ZodNumber }> }>(
-      { name: "t", body: z.object({ n: z.number() }) },
-      async ({ user, params, input }) => ({ who: user.id, id: params.id, n: input.body.n })
+    const route = gateway.route.authed(
+      { name: "t", params: z.object({ id: z.string() }), body: z.object({ n: z.number() }) },
+      async ({ user, input }) => ({ who: user.id, id: input.params.id, n: input.body.n })
     );
 
     const response = await route(post({ n: 3 }), { params: Promise.resolve({ id: "abc" }) });
