@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { PhotoUploadPreparer, PhotoMetadataStripFailedError } from "@/modules/photo-upload/client";
-import type { PhotoUploadResultDto } from "@/modules/photo-upload/client";
 import { showToast } from "@/components/ui/toast-pill";
 import { DRINK_PHOTO_MAX_DIMENSION, DRINK_PHOTO_MAX_UPLOAD_BYTES, drinkPhotoUploadEndpoints } from "@/modules/media/domain/photoUploadConfig";
 import type { PendingCheckinPhoto } from "@/modules/checkins/client/pendingCheckins";
+import type { DrinkEntry } from "@/lib/types";
 import { PhotoPreUploadTracker } from "./PhotoPreUploadTracker";
 
 // JPEG canvas-encode quality (0-1) is a client-only concern — the server's
@@ -116,11 +116,25 @@ export function usePhotoAttachment({
     clearPhotoUi();
   };
 
-  /** Edit path: waits for the pre-upload (or starts a fresh one) and hands back its result. */
-  const uploadForEdit = (file: File): Promise<PhotoUploadResultDto> => tracker.resultForEdit(file, endpoints());
+  /**
+   * Edit path: the photo fields to save. Keeps the entry's stored photo when
+   * untouched; otherwise waits for the pre-upload (or starts a fresh one).
+   */
+  const resolveForEdit = async (
+    entry: DrinkEntry
+  ): Promise<{ photoUrl: string | null; photoLqip: string | null } | { error: string }> => {
+    if (!photoFile) {
+      const keep = photoPreview !== null;
+      return { photoUrl: keep ? (entry.photo_url ?? null) : null, photoLqip: keep ? (entry.photo_lqip ?? null) : null };
+    }
+    const uploaded = await tracker.resultForEdit(photoFile, endpoints());
+    if ("error" in uploaded) return { error: uploaded.error };
+    return { photoUrl: uploaded.url, photoLqip: uploaded.lqip };
+  };
 
   /** Create path: what the offline queue should store for the picked photo. */
-  const photoForQueue = async (file: File | null): Promise<PendingCheckinPhoto> => {
+  const photoForQueue = async (): Promise<PendingCheckinPhoto> => {
+    const file = photoFile;
     if (!file) return { kind: "none" };
     // Use the pre-upload only if it actually already resolved successfully.
     // Anything else (still in flight, or it resolved with an error) falls
@@ -150,7 +164,7 @@ export function usePhotoAttachment({
     handlePhotoChange,
     handleRemovePhoto,
     clearPhotoUi,
-    uploadForEdit,
+    resolveForEdit,
     photoForQueue,
   };
 }

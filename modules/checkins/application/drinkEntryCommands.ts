@@ -331,7 +331,7 @@ async function insertCheckin(
 async function collectCreateEvents(
   userId: string,
   actor: { username: string; avatarUrl: string | null },
-  created: DrinkEntryRow,
+  sessionId: string,
   isNewSession: boolean,
   newlyEarned: { label: string }[]
 ): Promise<NotificationEvent[]> {
@@ -353,7 +353,7 @@ async function collectCreateEvents(
       // The session's id, not the entry's own id — they only coincide
       // when this check-in started a brand-new session (always true
       // here), but Notification.entryId is what /sessions/[id] links use.
-      entryId: created.sessionId,
+      entryId: sessionId,
     }))
   );
 
@@ -378,7 +378,7 @@ async function collectCreateEvents(
         // The session's id — this check-in may have attached to an
         // existing session rather than started a new one, in which case
         // created.id itself isn't a valid /sessions/[id] target.
-        entryId: created.sessionId,
+        entryId: sessionId,
         groupId: m.groupId,
         groupName: groupNames.get(m.groupId),
       }))
@@ -413,9 +413,9 @@ export async function createDrinkEntry(
   const { entry: created, before, isNewSession } = result;
 
   // A replay of an already-committed create: achievements/notifications
-  // already fired for the original attempt, and `before` was never read (see
-  // above), so there's nothing left to do beyond handing back the same
-  // success shape the original caller got.
+  // already fired for the original attempt, and the baseline was never read
+  // (see insertCheckin), so there's nothing left to do beyond handing back
+  // the same success shape the original caller got.
   if (result.replay) {
     return { achievementUnlocked: false, id: created.id, revalidatedPaths: [`/sessions/${created.sessionId}`] };
   }
@@ -439,7 +439,7 @@ export async function createDrinkEntry(
   };
   const newlyEarned = newlyEarnedAchievements(beforeEntries, afterEntry, tz);
 
-  queueNotifications(await collectCreateEvents(userId, actor, created, isNewSession, newlyEarned));
+  queueNotifications(await collectCreateEvents(userId, actor, created.sessionId, isNewSession, newlyEarned));
 
   return {
     achievementUnlocked: newlyEarned.length > 0,

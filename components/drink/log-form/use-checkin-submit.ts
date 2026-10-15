@@ -52,30 +52,26 @@ export function useCheckinSubmit({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const submitEdit = async (entry: DrinkEntry) => {
-    const { photoFile, photoPreview } = photo;
-    let photoUrl: string | null = !photoFile && photoPreview ? (entry.photo_url ?? null) : null;
-    let photoLqip: string | null = !photoFile && photoPreview ? (entry.photo_lqip ?? null) : null;
+  const payload = () => ({
+    drinkName: fields.name.trim() || null,
+    drinkType: fields.type,
+    venue: fields.venue.trim() || null,
+    lat: fields.coords?.lat ?? null,
+    lng: fields.coords?.lng ?? null,
+  });
 
-    if (photoFile) {
-      const uploadResult = await photo.uploadForEdit(photoFile);
-      if ("error" in uploadResult) {
-        setError(uploadResult.error);
-        return;
-      }
-      photoUrl = uploadResult.url;
-      photoLqip = uploadResult.lqip;
+  const submitEdit = async (entry: DrinkEntry) => {
+    const resolved = await photo.resolveForEdit(entry);
+    if ("error" in resolved) {
+      setError(resolved.error);
+      return;
     }
 
     const result = await editDrink({
       id: entry.id,
-      drinkName: fields.name.trim() || null,
-      drinkType: fields.type,
-      venue: fields.venue.trim() || null,
-      lat: fields.coords?.lat ?? null,
-      lng: fields.coords?.lng ?? null,
-      photoUrl,
-      photoLqip,
+      ...payload(),
+      photoUrl: resolved.photoUrl,
+      photoLqip: resolved.photoLqip,
     });
     if (result.error) {
       setError(result.error);
@@ -88,19 +84,13 @@ export function useCheckinSubmit({
   };
 
   const submitCreate = async () => {
-    const photoForQueue = await photo.photoForQueue(photo.photoFile);
+    const photoForQueue = await photo.photoForQueue();
 
     await addPendingCheckin({
       id: crypto.randomUUID(),
       userId,
       createdAt: Date.now(),
-      payload: {
-        drinkName: fields.name.trim() || null,
-        drinkType: fields.type,
-        venue: fields.venue.trim() || null,
-        lat: fields.coords?.lat ?? null,
-        lng: fields.coords?.lng ?? null,
-      },
+      payload: payload(),
       photo: photoForQueue,
     });
 
