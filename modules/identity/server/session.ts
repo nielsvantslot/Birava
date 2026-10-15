@@ -47,11 +47,38 @@ async function readSessionToken() {
   return store.get(SESSION_COOKIE)?.value ?? null;
 }
 
-export async function createUserSession(userId: string) {
+/**
+ * Starts a session without touching cookies: the opaque token a native client
+ * keeps and sends as `Authorization: Bearer <token>`. It is a row in the same
+ * Session table a browser's cookie points at, so every way of ending sessions
+ * (logout, logout everywhere, account deletion) covers both kinds.
+ */
+export async function issueSessionToken(userId: string): Promise<{ token: string; expiresAt: Date }> {
   const token = crypto.randomUUID();
   const expiresAt = expiryDate();
-
   await sessionRepository.create({ userId, sessionToken: token, expiresAt });
+  return { token, expiresAt };
+}
+
+/** Ends one session by its token (cookie or bearer alike). */
+export async function revokeSessionToken(token: string): Promise<void> {
+  await sessionRepository.deleteByToken(token);
+}
+
+/** Ends every session a user has, on every device and in every client. */
+export async function revokeAllSessions(userId: string): Promise<void> {
+  await sessionRepository.deleteAllForUser(userId);
+}
+
+/** The bearer token a request carries, if any. */
+async function readBearerToken(): Promise<string | null> {
+  const header = (await headers()).get("authorization");
+  const match = header ? /^Bearer\s+([\w-]{16,128})$/i.exec(header) : null;
+  return match?.[1] ?? null;
+}
+
+export async function createUserSession(userId: string) {
+  const { token, expiresAt } = await issueSessionToken(userId);
 
   const store = await cookies();
   store.set(SESSION_COOKIE, token, {
@@ -89,7 +116,7 @@ export const getCurrentUser = cache(async (): Promise<SessionUserDTO | null> => 
     if (isSessionUserDTO(parsed)) return parsed;
   }
 
-  const token = await readSessionToken();
+  const token = (await readSessionToken()) ?? (await readBearerToken());
   if (!token) return null;
 
   const session = await sessionRepository.findWithUser(token);

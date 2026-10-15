@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { verifyPassword } from "@/modules/identity/application/password";
-import { ProfileMapper, UserSummaryMapper } from "@/lib/mappers";
-import { ProfileDTO, UserSummaryDTO } from "@/lib/dtos";
+import { ProfileMapper, SessionUserMapper, UserSummaryMapper } from "@/lib/mappers";
+import { ProfileDTO, SessionUserDTO, UserSummaryDTO } from "@/lib/dtos";
 import { AUTHOR_FIELDS } from "@/modules/identity/server/authorSelect";
 import { VISIBLE_USER_WHERE } from "@/modules/identity/server/userVisibility";
 import { ViewableUrlResolver } from "@/modules/media/server/ViewableUrlResolver";
@@ -24,6 +24,15 @@ export async function verifyCredentials(email: string, password: string): Promis
 
   const valid = await verifyPassword(password, user.passwordHash);
   return valid ? user.id : null;
+}
+
+/** A user as the session sees them, by id (for answering a sign-in with who just signed in). */
+export async function getSessionUserById(userId: string): Promise<SessionUserDTO | null> {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, username: true, avatarUrl: true, createdAt: true, isDeveloper: true },
+  });
+  return user ? SessionUserMapper.toDTO(user) : null;
 }
 
 /** Null for a pending-deletion account too — hidden from other users for the whole GDPR grace period, not just gone after the purge. */

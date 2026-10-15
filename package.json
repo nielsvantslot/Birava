@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
+    "openapi:generate": "tsx scripts/generate-openapi.ts",
     "budgets:check": "tsx scripts/check-bundle-budgets.ts",
     "migrations:check": "tsx scripts/check-migrations.ts",
     "depcruise": "depcruise app components lib modules middleware.ts instrumentation.ts scripts --config .dependency-cruiser.cjs",
@@ -38,6 +39,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@hono/zod-openapi": "^1.6.3",
     "@opentelemetry/api": "^1.9.1",
     "@prisma/client": "^6.16.2",
     "@radix-ui/react-dialog": "^1.1.18",
@@ -53,6 +55,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "heic-convert": "^2.1.0",
+    "hono": "^4.13.13",
     "lucide-react": "^1.22.0",
     "next": "15.5.20",
     "prisma": "^6.16.2",

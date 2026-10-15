@@ -43,6 +43,7 @@ export class NotificationDispatcher {
   async dispatch(events: NotificationEvent[]): Promise<void> {
     if (events.length === 0) return;
 
+    let persisted = events;
     try {
       await this.notifications.createMany(events);
     } catch {
@@ -53,15 +54,17 @@ export class NotificationDispatcher {
       // Falling back to one-at-a-time isolates the actually-bad row instead,
       // matching the per-recipient isolation the push-send phase below
       // already has via Promise.allSettled.
-      await Promise.allSettled(events.map((event) => this.notifications.create(event)));
+      const results = await Promise.allSettled(events.map((event) => this.notifications.create(event)));
+      // A row that could not be written has nothing for a push to link to, so it gets no push either.
+      persisted = events.filter((_, i) => results[i]!.status === "fulfilled");
     }
 
     // Sparse: only categories a user explicitly turned off have a row (see
     // notificationCommands.ts), so absence means the category is still at
     // its default: enabled.
-    const disabled = await this.notifications.disabledCategories([...new Set(events.map((e) => e.userId))]);
+    const disabled = await this.notifications.disabledCategories([...new Set(persisted.map((e) => e.userId))]);
 
-    const pushAllowed = events.filter((e) => !disabled.get(e.userId)?.has(PREFERENCE_KEY_BY_TYPE[e.type]));
+    const pushAllowed = persisted.filter((e) => !disabled.get(e.userId)?.has(PREFERENCE_KEY_BY_TYPE[e.type]));
     if (pushAllowed.length === 0) return;
 
     await Promise.allSettled(

@@ -309,6 +309,10 @@ flowchart LR
     Handler --> Map["Map ApiError to envelope<br/>log anything unexpected"]
 ```
 
+## Public API v1 (added 2026-10-15, v2 phase 4)
+
+`/api/v1` is a versioned HTTP API for native clients: one Hono app mounted through `gateway.route.mounted` (`app/api/v1/_hono`), one OpenAPI 3.1 document generated from its route definitions (served at `/api/v1/openapi.json`, committed at `docs/api/openapi.v1.json`). Handlers call the same actions and reads as the web UI, so behaviour cannot drift. Clients sign in with `POST /auth/token` and send the opaque token as `Authorization: Bearer`; it is a row in the same `Session` table as a browser cookie, and `getCurrentUser()` resolves either. See [ADR 0003](adr/0003-public-api-v1.md) for the versioning policy, the contract-test gate and the decision to keep web mutations on Server Actions.
+
 ## Key boundaries to preserve
 
 - **Prisma models never cross the `modules/*/server` / `modules/*/application` boundary un-mapped.** Every query/command returns a `lib/dtos/*` class (see `lib/mappers/*` for the conversion), not a raw Prisma row — the one intentional, documented exception is `modules/checkins/actions/drinkController.ts`'s read functions, which still return the legacy `DrinkEntry`/`DrinkSession` shape (`lib/types.ts`/`modules/sessions/domain/sessions.ts`) the session-grouping engine is built on.

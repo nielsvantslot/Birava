@@ -20,15 +20,27 @@ describe("JobHealth.evaluate", () => {
     expect(status).toMatchObject({ ok: true, reason: "ok", lastSuccessAgeMinutes: 40 });
   });
 
-  it("is stale once the last success is older than three intervals, and carries the last error", () => {
-    const status = JobHealth.evaluate(reminders, snapshot(ago(50 * MINUTE_MS), { at: ago(MINUTE_MS), error: "db down" }), NOW, ago(DAY_MS));
+  it("is stale once the last success is older than three intervals", () => {
+    const status = JobHealth.evaluate(reminders, snapshot(ago(50 * MINUTE_MS), { at: ago(2 * 3_600_000), error: "db down" }), NOW, ago(DAY_MS));
 
-    expect(status).toMatchObject({ ok: false, reason: "stale", lastError: "db down" });
+    expect(status).toMatchObject({ ok: false, reason: "stale", lastRunFailed: false });
   });
 
   it("scales the allowance to the job: a daily job may be up to three days quiet", () => {
     expect(JobHealth.evaluate(daily, snapshot(ago(2.9 * DAY_MS)), NOW, ago(10 * DAY_MS)).ok).toBe(true);
     expect(JobHealth.evaluate(daily, snapshot(ago(3.1 * DAY_MS)), NOW, ago(10 * DAY_MS)).ok).toBe(false);
+  });
+
+  it("is failing as soon as the newest run failed after the last success, even inside the allowance", () => {
+    const status = JobHealth.evaluate(daily, snapshot(ago(2 * 3_600_000), { at: ago(60_000), error: "boom" }), NOW, ago(10 * DAY_MS));
+
+    expect(status).toMatchObject({ ok: false, reason: "failing", lastRunFailed: true });
+  });
+
+  it("is healthy again once a run succeeds after the failure", () => {
+    const status = JobHealth.evaluate(daily, snapshot(ago(60_000), { at: ago(2 * 3_600_000), error: "old" }), NOW, ago(10 * DAY_MS));
+
+    expect(status).toMatchObject({ ok: true, reason: "ok", lastRunFailed: false });
   });
 
   it("gives a job that has never succeeded the same allowance from when tracking began, so a fresh deploy is not an outage", () => {
@@ -40,8 +52,8 @@ describe("JobHealth.evaluate", () => {
     expect(JobHealth.evaluate(daily, undefined, NOW, ago(4 * DAY_MS))).toMatchObject({ ok: false, reason: "never-ran" });
     expect(JobHealth.evaluate(reminders, snapshot(null, { at: ago(MINUTE_MS), error: "boom" }), NOW, ago(DAY_MS))).toMatchObject({
       ok: false,
-      reason: "never-ran",
-      lastError: "boom",
+      reason: "failing",
+      lastRunFailed: true,
     });
   });
 });

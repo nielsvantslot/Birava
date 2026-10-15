@@ -53,10 +53,10 @@ describe("gateway coverage", () => {
             continue;
           }
           if (ROUTE_CONFIG_EXPORTS.includes(name)) continue;
-          const built = /^export\s+const\s+\w+\s*=\s*gateway\.route\.(authed|public|cron)\(/.test(line);
+          const built = /^export\s+const\s+\w+\s*=\s*gateway\.route\.(authed|public|cron|mounted)\(/.test(line);
           if (!built || !HTTP_METHODS.includes(name)) offenders.push(line);
         }
-        expect(offenders, "every exported handler must be `export const <METHOD> = gateway.route.authed|public|cron(...)`").toEqual([]);
+        expect(offenders, "every exported handler must be `export const <METHOD> = gateway.route.authed|public|cron|mounted(...)`").toEqual([]);
       });
     }
   });

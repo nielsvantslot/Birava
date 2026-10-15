@@ -13,8 +13,9 @@ export type JobHealthStatus = {
   lastSuccessAt: string | null;
   /** How long ago the last success was, in minutes; null if it never succeeded. */
   lastSuccessAgeMinutes: number | null;
-  lastError: string | null;
-  reason: "ok" | "not-yet-run" | "never-ran" | "stale" | "unknown";
+  /** Whether the most recent failed run is newer than the last success. Details stay in the logs and the run table, not in a public body. */
+  lastRunFailed: boolean;
+  reason: "ok" | "not-yet-run" | "never-ran" | "stale" | "failing" | "unknown";
 };
 
 /**
@@ -33,8 +34,21 @@ export class JobHealth {
     trackingSince: Date | null
   ): JobHealthStatus {
     const lastSuccessAt = snapshot?.lastSuccessAt ?? null;
-    const lastError = snapshot?.lastFailure?.error ?? null;
+    const failure = snapshot?.lastFailure ?? null;
+    const lastRunFailed = failure !== null && (lastSuccessAt === null || failure.at.getTime() > lastSuccessAt.getTime());
     const allowanceMs = job.expectedEveryMs * STALE_AFTER_INTERVALS;
+
+    // A job that fails every run is broken now, however recent its last success was.
+    if (lastRunFailed) {
+      return {
+        job: job.name,
+        ok: false,
+        lastSuccessAt: lastSuccessAt?.toISOString() ?? null,
+        lastSuccessAgeMinutes: lastSuccessAt ? Math.round((now.getTime() - lastSuccessAt.getTime()) / 60_000) : null,
+        lastRunFailed,
+        reason: "failing",
+      };
+    }
 
     if (!lastSuccessAt) {
       const waitedMs = trackingSince ? now.getTime() - trackingSince.getTime() : 0;
@@ -44,7 +58,7 @@ export class JobHealth {
         ok: stillWithinAllowance,
         lastSuccessAt: null,
         lastSuccessAgeMinutes: null,
-        lastError,
+        lastRunFailed,
         reason: stillWithinAllowance ? "not-yet-run" : "never-ran",
       };
     }
@@ -56,7 +70,7 @@ export class JobHealth {
       ok,
       lastSuccessAt: lastSuccessAt.toISOString(),
       lastSuccessAgeMinutes: Math.round(ageMs / 60_000),
-      lastError,
+      lastRunFailed,
       reason: ok ? "ok" : "stale",
     };
   }

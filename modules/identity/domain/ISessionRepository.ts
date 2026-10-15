@@ -19,4 +19,6 @@ export interface ISessionRepository {
   /** The session for a token with its user, or null when there is none. Expiry is the caller's decision. */
   findWithUser(sessionToken: string): Promise<SessionRecord | null>;
   deleteByToken(sessionToken: string): Promise<void>;
+  /** Ends every session a user has. */
+  deleteAllForUser(userId: string): Promise<void>;
 }
