@@ -1,7 +1,7 @@
 import crypto from "crypto";
-import { requireUser } from "@/lib/auth/requireUser";
-import { avatarPhotoService } from "@/lib/avatarPhoto";
-import { getViewableAvatarUrl } from "@/lib/queries/userQueries";
+import { requireUser } from "@/modules/identity/server/requireUser";
+import { avatarPhotoService } from "@/modules/media/server/avatarPhoto";
+import { getViewableAvatarUrl } from "@/modules/identity/server/userQueries";
 
 // Avatars are stored private (mirrors check-in photos, /api/photos/[entryId])
 // — a browser can't fetch a private blob directly, so every <img> renders

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth/session";
-import { getMyFollowingIds } from "@/lib/controllers/socialController";
+import { getCurrentUser } from "@/modules/identity/server/session";
+import { getMyFollowingIds } from "@/modules/social/actions/socialController";
 import { OnboardingFlow } from "./onboarding-flow";
 
 /** Signup's redirect target — see onboarding-flow.tsx for the actual steps. */

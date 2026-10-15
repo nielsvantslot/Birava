@@ -3,7 +3,7 @@
  * still GPG-encrypted, for .github/workflows/restore-drill.yml to decrypt
  * and pg_restore into a scratch Neon branch.
  */
-import { downloadBackup, getLatestBackup } from "../lib/backupBlobs";
+import { downloadBackup, getLatestBackup } from "../lib/backup/backupBlobs";
 
 async function main() {
   const outPath = process.argv[2];

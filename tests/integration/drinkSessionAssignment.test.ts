@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { createDrinkEntry, deleteDrinkEntry } from "@/lib/commands/drinkEntryCommands";
+import { createDrinkEntry, deleteDrinkEntry } from "@/modules/checkins/application/drinkEntryCommands";
 import { DrinkEntryFixtureFactory } from "./fixtures/DrinkEntryFixtureFactory";
 
 const fixtures = new DrinkEntryFixtureFactory(db);
@@ -167,7 +167,7 @@ describe("createDrinkEntry session placement", () => {
   });
 
   it("handles a colliding cheer and a clear cheer in the same merge without either interfering with the other", async () => {
-    // Regression test for the parallelized merge (lib/commands/drinkEntryCommands.ts):
+    // Regression test for the parallelized merge (modules/checkins/application/drinkEntryCommands.ts):
     // the collision-delete and clear-reassign now run concurrently via
     // Promise.all since they target disjoint user-id sets — this pins that
     // both branches still land correctly when a single merge needs both at once.

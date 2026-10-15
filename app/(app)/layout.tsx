@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import { after } from "next/server";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth/session";
-import { getMyUnreadNotificationCount } from "@/lib/controllers/notificationController";
-import { maybeSendSessionReminders } from "@/lib/commands/sessionReminderCommands";
+import { getCurrentUser } from "@/modules/identity/server/session";
+import { getMyUnreadNotificationCount } from "@/modules/notifications/actions/notificationController";
+import { maybeSendSessionReminders } from "@/modules/notifications";
 import { AppHeader } from "@/components/layout/app-header";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
@@ -15,7 +15,7 @@ import { OfflineBanner } from "@/components/offline-banner";
 import { UpdateAvailableBanner } from "@/components/update-available-banner";
 import { PendingCheckinsSync } from "@/components/drink/pending-checkins-sync";
 import { PendingCheckinsIndicator } from "@/components/drink/pending-checkins-indicator";
-import { drinkPhotoService } from "@/lib/photoUpload";
+import { drinkPhotoService } from "@/modules/media/server/photoUpload";
 
 export default function AppLayout({
   children,

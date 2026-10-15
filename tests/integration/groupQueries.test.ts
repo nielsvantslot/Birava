@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { createDrinkEntry } from "@/lib/commands/drinkEntryCommands";
-import { getCrewDetailForViewer, getGroupIdsForUser } from "@/lib/queries/groupQueries";
+import { createDrinkEntry } from "@/modules/checkins/application/drinkEntryCommands";
+import { getCrewDetailForViewer, getGroupIdsForUser } from "@/modules/crews/server/groupQueries";
 
 const HOUR = 60 * 60 * 1000;
 

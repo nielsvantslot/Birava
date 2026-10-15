@@ -1,6 +1,6 @@
 name: Prune client error logs
 
-# Keeps the ClientErrorLog table (lib/commands/clientErrorLogCommands.ts)
+# Keeps the ClientErrorLog table (modules/diagnostics/application/clientErrorLogCommands.ts)
 # bounded on Neon's free-tier storage — same GitHub Actions scheduling
 # pattern as session-reminders.yml/cleanup-orphaned-blobs.yml rather than
 # vercel.json's native cron, so every scheduled job lives on one platform.

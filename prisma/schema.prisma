@@ -26,7 +26,7 @@ model User {
   isDeveloper             Boolean                  @default(false)
   /// Set when the user requests account deletion (GDPR erasure) — starts a
   /// 7-day grace period during which the account is logged out everywhere
-  /// and hidden from other users (see lib/commands/userCommands.ts). Logging
+  /// and hidden from other users (see modules/identity/application/userCommands.ts). Logging
   /// back in clears this. The purge cron hard-deletes accounts past the
   /// window (app/api/cron/purge-deleted-accounts/route.ts).
   deletionRequestedAt     DateTime?                @db.Timestamptz(6)
@@ -50,13 +50,13 @@ model User {
 }
 
 /// Per-category notification preferences — gates whether queueNotifications
-/// (lib/notify.ts) sends push for that category; the in-app Notification
+/// (modules/notifications/server/notify.ts) sends push for that category; the in-app Notification
 /// row is always created regardless. The master PushSubscription on/off is
 /// a separate, coarser switch.
 ///
 /// Sparse by design: a category defaults to enabled, so a row only exists
 /// once a user has explicitly touched that toggle (see
-/// lib/commands/notificationCommands.ts). Extracted from what used to be
+/// modules/notifications/application/notificationCommands.ts). Extracted from what used to be
 /// six Boolean columns directly on User — a settings concern with its own
 /// independent change lifecycle, not identity data, sharing a row with the
 /// password hash for no benefit.
@@ -194,7 +194,7 @@ model DrinkEntry {
 }
 
 /// A physical place check-ins happen at — extracted from DrinkEntry's old
-/// free-text venue/lat/lng (see lib/venueMatching.ts for how a typed name
+/// free-text venue/lat/lng (see modules/venues/domain/venueMatching.ts for how a typed name
 /// and/or captured coordinates get resolved to one of these rows, or
 /// create a new one). Matching is a heuristic (name and/or rough
 /// proximity), not a DB constraint, so there is deliberately no unique
@@ -217,7 +217,7 @@ model Venue {
 }
 
 /// A drink session: check-ins auto-grouped by a 4-hour inactivity gap
-/// (lib/sessions.ts's SESSION_GAP_MS). Its id is always its anchor (first)
+/// (modules/sessions/domain/sessions.ts's SESSION_GAP_MS). Its id is always its anchor (first)
 /// check-in's id, set explicitly at creation — never DB-generated — so
 /// existing /sessions/[id] links, share images, and Cheer/Comment rows stay
 /// valid across merges/splits without a redirect table.
@@ -227,7 +227,7 @@ model DrinkSession {
   startedAt                DateTime     @db.Timestamptz(6)
   endedAt                  DateTime     @db.Timestamptz(6)
   name                     String?
-  /// Cached rendered share-image variants (lib/shareImageCache.ts) — storage
+  /// Cached rendered share-image variants (modules/sessions/infrastructure/shareImageCache.ts) — storage
   /// keys/URLs, not the bytes themselves. Null means "not cached, or stale":
   /// every command that changes this session's entries or name nulls both
   /// out, and app/api/sessions/[id]/share-image/route.tsx regenerates and
@@ -309,7 +309,7 @@ model Notification {
   /// (components/notifications/notification-row-link.tsx), independent of the
   /// bulk `readAt` set by markAllRead. The only per-item "did they actually
   /// see this one" signal — used by the session-reminder algorithm
-  /// (lib/sessionReminderAlgorithm.ts) to score engagement and decide whether
+  /// (modules/notifications/domain/sessionReminderAlgorithm.ts) to score engagement and decide whether
   /// a user is worth escalating reminders to.
   openedAt         DateTime?
   createdAt        DateTime         @default(now()) @db.Timestamptz(6)
@@ -333,7 +333,7 @@ model Notification {
 ///
 /// Unauthenticated pages can report too (userId is nullable) — a crash on
 /// /login is exactly the kind of thing worth seeing. Pruned by
-/// pruneClientErrorLogs (lib/commands/clientErrorLogCommands.ts, run daily
+/// pruneClientErrorLogs (modules/diagnostics/application/clientErrorLogCommands.ts, run daily
 /// via app/api/cron/prune-client-error-logs/route.ts) — unbounded growth
 /// isn't acceptable on Neon's free-tier storage.
 model ClientErrorLog {

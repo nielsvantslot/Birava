@@ -1,7 +1,7 @@
-import { createUserSession } from "@/lib/auth/session";
+import { createUserSession } from "@/modules/identity/server/session";
 import { JsonSerializer } from "@/lib/http/jsonSerializer";
-import { verifyCredentials } from "@/lib/queries/userQueries";
-import { cancelAccountDeletion } from "@/lib/commands/userCommands";
+import { verifyCredentials } from "@/modules/identity/server/userQueries";
+import { cancelAccountDeletion } from "@/modules/identity";
 import { AuthResultDTO, LoginDTO } from "@/lib/dtos";
 import { RateLimiterFactory } from "@/lib/rateLimit/RateLimiterFactory";
 import { ClientIpResolver } from "@/lib/rateLimit/ClientIpResolver";
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
 
   // Logging back in during the GDPR-erasure grace period cancels it — the
   // purge cron only ever acts on accounts still flagged past the 7-day
-  // window (lib/commands/userCommands.ts's requestAccountDeletion doc
+  // window (modules/identity/application/userCommands.ts's requestAccountDeletion doc
   // comment), so this is the deletion's only cancellation path.
   const cancelledDeletion = await cancelAccountDeletion(userId);
   return Response.json({ success: true, ...(cancelledDeletion && { cancelledDeletion: true }) } satisfies AuthResultDTO);

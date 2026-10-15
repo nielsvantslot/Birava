@@ -1,5 +1,5 @@
-import { sendSessionReminders } from "@/lib/commands/sessionReminderCommands";
-import { verifyCronRequest } from "@/lib/auth/verifyCronRequest";
+import { sendSessionReminders } from "@/modules/notifications";
+import { verifyCronRequest } from "@/modules/identity/server/verifyCronRequest";
 import { CronRunLogger } from "@/lib/logging/CronRunLogger";
 
 // Invoked every 15 min by .github/workflows/session-reminders.yml — not

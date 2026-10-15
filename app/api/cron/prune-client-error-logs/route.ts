@@ -1,6 +1,6 @@
-import { pruneClientErrorLogs } from "@/lib/commands/clientErrorLogCommands";
+import { pruneClientErrorLogs } from "@/modules/diagnostics";
 import { RateLimitBucketPruner } from "@/lib/rateLimit/RateLimitBucketPruner";
-import { verifyCronRequest } from "@/lib/auth/verifyCronRequest";
+import { verifyCronRequest } from "@/modules/identity/server/verifyCronRequest";
 import { CronRunLogger } from "@/lib/logging/CronRunLogger";
 
 // Invoked once daily by .github/workflows/prune-client-error-logs.yml —

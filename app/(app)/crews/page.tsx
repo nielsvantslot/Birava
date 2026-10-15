@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { getMyCrews } from "@/lib/controllers/groupController";
+import { getMyCrews } from "@/modules/crews/actions/groupController";
 import { CreateCrewForm, JoinCrewForm } from "@/components/drink/crews-forms";
 import { CrewsList } from "@/components/drink/crews-list";
 import { CrewsListSkeleton } from "@/components/ui/skeleton";

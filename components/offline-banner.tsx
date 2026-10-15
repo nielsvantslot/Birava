@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
  * offline is the service worker's last-cached copy of that URL (public/sw.js),
  * not a live render, so this tells the user what they're looking at isn't
  * necessarily current — logging a drink still works regardless (queued via
- * lib/offline/pendingCheckins.ts).
+ * modules/checkins/client/pendingCheckins.ts).
  */
 export function OfflineBanner() {
   const [isOffline, setIsOffline] = useState(false);

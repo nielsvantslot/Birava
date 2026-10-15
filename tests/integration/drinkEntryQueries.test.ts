@@ -1,8 +1,8 @@
 import { randomUUID } from "crypto";
 import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { getDrinkEntryForUser, getRecentDrinkHistoryForLegend } from "@/lib/queries/drinkEntryQueries";
-import { LOCAL_LEGEND_WINDOW_MS } from "@/lib/sessions";
+import { getDrinkEntryForUser, getRecentDrinkHistoryForLegend } from "@/modules/checkins/server/drinkEntryQueries";
+import { LOCAL_LEGEND_WINDOW_MS } from "@/modules/sessions/domain/sessions";
 import { DrinkEntryFixtureFactory } from "./fixtures/DrinkEntryFixtureFactory";
 
 const fixtures = new DrinkEntryFixtureFactory(db);

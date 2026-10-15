@@ -51,7 +51,7 @@ describe("product invariants", () => {
   });
 
   it("uses the exact wrong-code message for crews", () => {
-    const literals = scanner.scan("lib/commands/groupCommands.ts").copy;
+    const literals = scanner.scan("modules/crews/application/groupCommands.ts").copy;
     const codeMessages = literals.filter((s) => /code/i.test(s) && /(match|invalid|wrong|incorrect)/i.test(s));
     expect(codeMessages.length).toBeGreaterThan(0);
     expect([...new Set(codeMessages)]).toEqual(["That code doesn't match any crew."]);
@@ -90,7 +90,7 @@ describe("product invariants", () => {
 
     it("is not referenced from components or pages", () => {
       // session-map.tsx draws the Local Legend pin (an achievement) with
-      // MAP_HONEY from lib/mapProjection.ts.
+      // MAP_HONEY from modules/sessions/domain/mapProjection.ts.
       const files = scanner
         .list(["app", "components"], [".ts", ".tsx"])
         .filter((f) => f !== "components/drink/session-map.tsx");

@@ -1,5 +1,5 @@
 import { NotificationSettings } from "@/components/notifications/notification-settings";
-import { getMyNotificationPreferences } from "@/lib/controllers/notificationController";
+import { getMyNotificationPreferences } from "@/modules/notifications/actions/notificationController";
 
 export default async function NotificationSettingsPage() {
   const preferences = await getMyNotificationPreferences();

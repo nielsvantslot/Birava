@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server";
-import { updateSession } from "@/lib/auth/proxy-session";
+import { updateSession } from "@/modules/identity/server/proxy-session";
 
 export const runtime = "nodejs";
 
@@ -14,7 +14,7 @@ export async function middleware(request: NextRequest) {
 // route trusting that header completely unstripped: a request straight to
 // e.g. /api/photos/[entryId] with a hand-crafted
 // `x-birava-session-user: {"id":"<any-uuid>",...}` header was treated by
-// getCurrentUser() (lib/auth/session.ts) as a fully authenticated session
+// getCurrentUser() (modules/identity/server/session.ts) as a fully authenticated session
 // for that user, no cookie required — a full auth bypass. See
 // updateSession()'s isApiRoute branch for why this doesn't also redirect
 // API calls to the HTML /login page.

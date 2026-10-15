@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser } from "@/modules/identity/server/session";
 import { getUserTimeZone } from "@/lib/timezone";
 import { DrinkEntry } from "@/lib/types";
 import {
@@ -10,12 +10,12 @@ import {
   sessionMinutes,
   sessionTitle,
   type DrinkSession,
-} from "@/lib/sessions";
+} from "@/modules/sessions/domain/sessions";
 import {
   getSession,
   getMyDrinkHistory,
-} from "@/lib/controllers/drinkController";
-import { getSessionCheers, getSessionComments, getCommentCounts } from "@/lib/controllers/socialController";
+} from "@/modules/checkins/actions/drinkController";
+import { getSessionCheers, getSessionComments, getCommentCounts } from "@/modules/social/actions/socialController";
 import { formatTime, relativeDayTime } from "@/lib/dates";
 import { avatarSrc } from "@/lib/utils";
 import { SessionMap, MapPin } from "@/components/drink/session-map";

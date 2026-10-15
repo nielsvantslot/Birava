@@ -23,8 +23,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { PrismaClient } from "@prisma/client";
-import { downloadBackup, listBackups, type BackupBlob } from "../lib/backupBlobs";
-import { verifyRestoredDatabase } from "../lib/backupVerification";
+import { downloadBackup, listBackups, type BackupBlob } from "../lib/backup/backupBlobs";
+import { verifyRestoredDatabase } from "../lib/backup/backupVerification";
 
 type Args = {
   list: boolean;

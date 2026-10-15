@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser } from "@/modules/identity/server/session";
 import { SignOutButton } from "@/components/drink/sign-out-button";
 import { DeleteAccountButton } from "@/components/drink/delete-account-button";
 import { getAppVersion } from "@/lib/version";
@@ -31,7 +31,7 @@ export default async function SettingsPage() {
         </Link>
         {/* Named "Push notifications", not "Notifications" — in-app
             notifications aren't configurable and are always on
-            (lib/notify.ts always writes the Notification row); everything
+            (modules/notifications/server/notify.ts always writes the Notification row); everything
             on that screen, master switch and categories alike, only ever
             gates push. */}
         <Link href="/settings/notifications" className="row" prefetch={false}>

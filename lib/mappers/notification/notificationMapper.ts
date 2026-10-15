@@ -1,6 +1,6 @@
 import type { Notification as NotificationRow } from "@prisma/client";
 import type { NotificationDTO } from "@/lib/dtos";
-import { describeNotification } from "@/lib/notifications";
+import { describeNotification } from "@/modules/notifications/domain/notifications";
 
 export class NotificationMapper {
   static toDTO(row: NotificationRow): NotificationDTO {

@@ -10,7 +10,7 @@ export class NotificationPreferencesMapper {
   /**
    * `overrides` is sparse (NotificationPreference only stores rows for
    * categories a user has explicitly turned off — see
-   * lib/commands/notificationCommands.ts) — every category not present
+   * modules/notifications/application/notificationCommands.ts) — every category not present
    * here is still enabled, the default. Unrecognized keys are ignored
    * rather than thrown on, in case a row ever predates a renamed/removed
    * category.

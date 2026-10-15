@@ -1,16 +1,16 @@
 import { Suspense } from "react";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser } from "@/modules/identity/server/session";
 import { getUserTimeZone } from "@/lib/timezone";
 import {
   getMyDrinkEntry,
   getMyRecentDrinks,
-} from "@/lib/controllers/drinkController";
+} from "@/modules/checkins/actions/drinkController";
 import { DrinkEntry } from "@/lib/types";
 import { relativeDay } from "@/lib/dates";
 import { CheckinForm } from "@/components/drink/log-drink-form";
 import { PendingCheckinsPanel } from "@/components/drink/pending-checkins-panel";
 import { RecentDrinkRow } from "@/components/drink/recent-drink-row";
-import { drinkPhotoService } from "@/lib/photoUpload";
+import { drinkPhotoService } from "@/modules/media/server/photoUpload";
 
 function recentMeta(entry: DrinkEntry, tz: string): string {
   return [

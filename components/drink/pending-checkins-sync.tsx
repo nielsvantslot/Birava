@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { flushPendingCheckins } from "@/lib/offline/syncPendingCheckins";
+import { flushPendingCheckins } from "@/modules/checkins/client/syncPendingCheckins";
 
 // Covers a tab that never fires `online`/`visibilitychange` at all — e.g. a
 // captive portal, a degraded/flaky connection where the browser never
@@ -17,7 +17,7 @@ import { flushPendingCheckins } from "@/lib/offline/syncPendingCheckins";
 const RETRY_POLL_MS = 45_000;
 
 /**
- * Flushes the offline check-in queue (lib/offline/pendingCheckins.ts)
+ * Flushes the offline check-in queue (modules/checkins/client/pendingCheckins.ts)
  * whenever there's a reasonable chance connectivity just came back: on
  * mount, when the browser fires `online`, when the tab regains visibility,
  * and on a bounded interval as a backstop for the cases above where none of

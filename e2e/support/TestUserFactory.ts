@@ -11,7 +11,7 @@ const FIXED_CREDENTIALS: TestUserCredentials = {
  * A second fixed account, distinct from FIXED_CREDENTIALS — for specs that
  * need two real, independent users interacting (e.g. a follow/cheer
  * notification, which the app never creates for your own actions —
- * lib/notify.ts's queueNotifications filters userId === actorId).
+ * modules/notifications/server/notify.ts's queueNotifications filters userId === actorId).
  */
 export const SECONDARY_CREDENTIALS: TestUserCredentials = {
   username: "e2e_test_user_2",

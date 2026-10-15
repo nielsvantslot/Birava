@@ -9,7 +9,7 @@ import { TestUserFactory } from "./support/TestUserFactory";
 // whether that fetch had actually been redirected first. fetch() follows
 // redirects transparently, so an authenticated client-side transition to
 // /login (middleware bounces an authenticated visitor straight to
-// /dashboard — lib/auth/proxy-session.ts's isAuthPage branch) resulted in
+// /dashboard — modules/identity/server/proxy-session.ts's isAuthPage branch) resulted in
 // the *dashboard's* Flight payload getting cached under the /login cache
 // key. Confirmed live: a later, logged-out visit to /login served that
 // stale dashboard payload instead of the sign-in form. The same mechanism

@@ -83,7 +83,7 @@ reusable factory. A small app-level factory class is the idiomatic place for
 that decision:
 
 ```ts
-// lib/photoUpload.ts
+// modules/media/server/photoUpload.ts
 import path from "path";
 import { PhotoUploadServiceFactory } from "@/modules/photo-upload/services/PhotoUploadServiceFactory";
 import { SharpImageProcessor } from "@/modules/photo-upload/services/SharpImageProcessor";
@@ -128,7 +128,7 @@ feature needs:
 // app/api/photos/upload/route.ts — the plain multipart path (works regardless of directUpload)
 import { PhotoUploadRouteFactory } from "@/modules/photo-upload/PhotoUploadRouteFactory";
 import { photoUploadService } from "@/lib/photoUpload";
-import { getCurrentUser } from "@/lib/auth/session"; // however this project resolves the caller
+import { getCurrentUser } from "@/modules/identity/server/session"; // however this project resolves the caller
 
 export const POST = PhotoUploadRouteFactory.createUploadRoute(photoUploadService, async () => getCurrentUser());
 ```

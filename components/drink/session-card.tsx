@@ -5,7 +5,7 @@ import {
   DrinkSession,
   sessionMinutes,
   sessionTitle,
-} from "@/lib/sessions";
+} from "@/modules/sessions/domain/sessions";
 import { formatTime, relativeDayTime } from "@/lib/dates";
 import { drinkPhotoSrc } from "@/lib/utils";
 import { PluralFormatter } from "@/lib/format/pluralFormatter";

@@ -1,5 +1,5 @@
-import { cleanupOrphanedBlobs } from "@/lib/commands/photoCleanupCommands";
-import { verifyCronRequest } from "@/lib/auth/verifyCronRequest";
+import { cleanupOrphanedBlobs } from "@/modules/media";
+import { verifyCronRequest } from "@/modules/identity/server/verifyCronRequest";
 import { CronRunLogger } from "@/lib/logging/CronRunLogger";
 
 // sharp isn't involved, but @vercel/blob's list()/del() need Node, not edge.

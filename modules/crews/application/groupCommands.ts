@@ -1,0 +1,290 @@
+import { Group, Prisma } from "@prisma/client";
+import { db } from "@/lib/db";
+import { generateInviteCode } from "@/lib/utils";
+import { queueNotifications } from "@/modules/notifications/server/notify";
+import {
+  ActionResultDTO,
+  CreateGroupDTO,
+  CreateGroupResultDTO,
+  JoinGroupDTO,
+  JoinGroupResultDTO,
+  LeaveGroupDTO,
+  RenameGroupDTO,
+  RegenerateInviteCodeDTO,
+  RegenerateInviteCodeResultDTO,
+  SetCrewVisibilityDTO,
+  SetMemberRoleDTO,
+  KickMemberDTO,
+  UnbanMemberDTO,
+  CloseGroupDTO,
+  DeleteGroupDTO,
+} from "@/lib/dtos";
+
+/** The "load the crew, confirm the caller owns it" check repeated at the start of every owner-only command below. */
+async function requireOwnedGroup(
+  groupId: string,
+  userId: string,
+  action: string
+): Promise<{ group: Group } | { error: string }> {
+  const group = await db.group.findUnique({ where: { id: groupId } });
+  if (!group) return { error: "Crew not found" };
+  if (group.ownerId !== userId) return { error: `Only the crew owner can ${action}` };
+  return { group };
+}
+
+export async function createGroup(
+  ownerId: string,
+  input: CreateGroupDTO
+): Promise<CreateGroupResultDTO> {
+  let group;
+  try {
+    group = await db.group.create({
+      data: {
+        name: input.name.trim(),
+        inviteCode: generateInviteCode(),
+        ownerId,
+        members: { create: { userId: ownerId, role: "OWNER" } },
+      },
+    });
+  } catch {
+    return { error: "Failed to create crew." };
+  }
+
+  return { inviteCode: group.inviteCode };
+}
+
+export async function joinGroup(
+  userId: string,
+  input: JoinGroupDTO,
+  actor: { username: string; avatarUrl: string | null }
+): Promise<JoinGroupResultDTO> {
+  const group = await db.group.findUnique({
+    where: { inviteCode: input.inviteCode.trim().toUpperCase() },
+  });
+  if (!group) return { error: "That code doesn't match any crew." };
+
+  const banned = await db.groupBan.findUnique({
+    where: { groupId_userId: { groupId: group.id, userId } },
+  });
+  if (banned) {
+    return { error: "You were removed from this crew and can't rejoin with this code." };
+  }
+
+  const existingMembership = await db.groupMember.findUnique({
+    where: { groupId_userId: { groupId: group.id, userId } },
+    select: { userId: true },
+  });
+  const alreadyMember = existingMembership !== null;
+
+  if (group.closedAt && !alreadyMember) {
+    return { error: "This crew is closed and isn't accepting new members." };
+  }
+
+  try {
+    await db.groupMember.upsert({
+      where: { groupId_userId: { groupId: group.id, userId } },
+      update: {},
+      create: { groupId: group.id, userId },
+    });
+  } catch (error) {
+    // The owner can delete the crew in the window between the findUnique
+    // above and this upsert — surfaces as a foreign-key violation rather
+    // than a graceful "not found" without this catch.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      return { error: "That code doesn't match any crew." };
+    }
+    throw error;
+  }
+
+  if (!alreadyMember) {
+    const otherMembers = await db.groupMember.findMany({
+      where: { groupId: group.id, userId: { not: userId } },
+      select: { userId: true },
+    });
+    queueNotifications(
+      otherMembers.map((m) => ({
+        userId: m.userId,
+        type: "CREW_JOIN" as const,
+        actorId: userId,
+        actorUsername: actor.username,
+        actorAvatarUrl: actor.avatarUrl,
+        groupId: group.id,
+        groupName: group.name,
+      }))
+    );
+  }
+
+  return { groupName: group.name };
+}
+
+export async function leaveGroup(userId: string, input: LeaveGroupDTO): Promise<ActionResultDTO> {
+  const group = await db.group.findUnique({ where: { id: input.groupId } });
+  if (!group) return { error: "Crew not found" };
+  if (group.ownerId === userId) {
+    return { error: "Crew owners can't leave their own crew" };
+  }
+
+  await db.groupMember.deleteMany({
+    where: { groupId: input.groupId, userId },
+  });
+
+  return {};
+}
+
+/** Owner-only: PUBLIC lets any member share/see the invite code; PRIVATE limits that to owner + admins. */
+export async function setCrewVisibility(userId: string, input: SetCrewVisibilityDTO): Promise<ActionResultDTO> {
+  const found = await requireOwnedGroup(input.groupId, userId, "change visibility");
+  if ("error" in found) return found;
+
+  await db.group.update({
+    where: { id: input.groupId },
+    data: { visibility: input.visibility },
+  });
+
+  return {};
+}
+
+/** Owner-only: renames the crew. The invite code, id, and every stat/link built on it are untouched. */
+export async function renameGroup(userId: string, input: RenameGroupDTO): Promise<ActionResultDTO> {
+  const found = await requireOwnedGroup(input.groupId, userId, "rename the crew");
+  if ("error" in found) return found;
+
+  const name = input.name.trim();
+  if (name.length < 2) return { error: "Crew name must be at least 2 characters" };
+  if (name.length > 50) return { error: "Crew name must be 50 characters or fewer" };
+
+  await db.group.update({ where: { id: input.groupId }, data: { name } });
+  return {};
+}
+
+/**
+ * Owner-only: rotates the invite code, invalidating the old one immediately
+ * — anyone who saved/shared it can no longer join with it. A closed crew
+ * doesn't accept new members at all, so there's nothing to regenerate for.
+ */
+export async function regenerateInviteCode(
+  userId: string,
+  input: RegenerateInviteCodeDTO
+): Promise<RegenerateInviteCodeResultDTO> {
+  const found = await requireOwnedGroup(input.groupId, userId, "regenerate the invite code");
+  if ("error" in found) return found;
+  if (found.group.closedAt) return { error: "This crew is closed and isn't accepting new members" };
+
+  // generateInviteCode's 6-char base36 space makes a collision astronomically
+  // unlikely, but the column is unique — retry on the rare clash instead of
+  // trusting that away.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const inviteCode = generateInviteCode();
+    try {
+      await db.group.update({ where: { id: input.groupId }, data: { inviteCode } });
+      return { inviteCode };
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) {
+        throw error;
+      }
+    }
+  }
+  return { error: "Couldn't generate a new code — try again" };
+}
+
+/**
+ * Owner-only: stops new check-ins from counting toward the crew's
+ * leaderboard from this point on (scoreCrew's closedAt upper bound) and
+ * blocks new members from joining. Doesn't touch existing stats/members —
+ * everyone keeps logging normally everywhere else in the app.
+ */
+export async function closeGroup(userId: string, input: CloseGroupDTO): Promise<ActionResultDTO> {
+  const found = await requireOwnedGroup(input.groupId, userId, "close it");
+  if ("error" in found) return found;
+  if (found.group.closedAt) return { error: "Crew is already closed" };
+
+  await db.group.update({
+    where: { id: input.groupId },
+    data: { closedAt: new Date() },
+  });
+
+  return {};
+}
+
+/** Owner-only: promote a member to admin, or demote an admin back to member. The owner's own role can't be changed this way. */
+export async function setMemberRole(userId: string, input: SetMemberRoleDTO): Promise<ActionResultDTO> {
+  const found = await requireOwnedGroup(input.groupId, userId, "change roles");
+  if ("error" in found) return found;
+  if (input.userId === found.group.ownerId) return { error: "The owner's role can't be changed" };
+
+  const target = await db.groupMember.findUnique({
+    where: { groupId_userId: { groupId: input.groupId, userId: input.userId } },
+  });
+  if (!target) return { error: "That person isn't a member of this crew" };
+
+  await db.groupMember.update({
+    where: { groupId_userId: { groupId: input.groupId, userId: input.userId } },
+    data: { role: input.role },
+  });
+
+  return {};
+}
+
+/**
+ * Owner or admin: removes a member and bans them from rejoining via the
+ * existing invite code (joinGroup checks GroupBan). Admins can kick plain
+ * members but not the owner or other admins — only the owner can do that.
+ */
+export async function kickMember(userId: string, input: KickMemberDTO): Promise<ActionResultDTO> {
+  const group = await db.group.findUnique({ where: { id: input.groupId } });
+  if (!group) return { error: "Crew not found" };
+  if (input.userId === group.ownerId) return { error: "The crew owner can't be kicked" };
+
+  const actorIsOwner = group.ownerId === userId;
+  if (!actorIsOwner) {
+    const actor = await db.groupMember.findUnique({
+      where: { groupId_userId: { groupId: input.groupId, userId } },
+    });
+    if (!actor || actor.role !== "ADMIN") {
+      return { error: "Only the crew owner or an admin can remove members" };
+    }
+    const target = await db.groupMember.findUnique({
+      where: { groupId_userId: { groupId: input.groupId, userId: input.userId } },
+    });
+    if (target?.role === "ADMIN") {
+      return { error: "Only the crew owner can remove an admin" };
+    }
+  }
+
+  await db.$transaction([
+    db.groupMember.deleteMany({ where: { groupId: input.groupId, userId: input.userId } }),
+    db.groupBan.upsert({
+      where: { groupId_userId: { groupId: input.groupId, userId: input.userId } },
+      update: { bannedAt: new Date() },
+      create: { groupId: input.groupId, userId: input.userId },
+    }),
+  ]);
+
+  return {};
+}
+
+/** Owner-only: lifts a previous kick so the user can rejoin via the invite code again. */
+export async function unbanMember(userId: string, input: UnbanMemberDTO): Promise<ActionResultDTO> {
+  const found = await requireOwnedGroup(input.groupId, userId, "lift a removal");
+  if ("error" in found) return found;
+
+  await db.groupBan.deleteMany({ where: { groupId: input.groupId, userId: input.userId } });
+
+  return {};
+}
+
+/**
+ * Owner-only: permanently deletes the crew. GroupMember/GroupBan/GroupInvite
+ * cascade-delete via their onDelete: Cascade relations to Group — nobody's
+ * check-in history (DrinkEntry) is crew-owned, so this never touches anyone's
+ * logged drinks, only the crew's roster/roles/bans/invites and the crew
+ * itself. Unlike closeGroup, there's no undo.
+ */
+export async function deleteGroup(userId: string, input: DeleteGroupDTO): Promise<ActionResultDTO> {
+  const found = await requireOwnedGroup(input.groupId, userId, "delete it");
+  if ("error" in found) return found;
+
+  await db.group.delete({ where: { id: input.groupId } });
+
+  return {};
+}

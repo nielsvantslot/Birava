@@ -4,16 +4,16 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { PhotoUploadPreparer, PhotoUploader, PhotoMetadataStripFailedError } from "@/modules/photo-upload/client";
 import type { PhotoUploadResultDto } from "@/modules/photo-upload/client";
-import { editDrink, deleteDrink, getMyDrinkSuggestions } from "@/lib/controllers/drinkController";
+import { editDrink, deleteDrink, getMyDrinkSuggestions } from "@/modules/checkins/actions/drinkController";
 import { showToast } from "@/components/ui/toast-pill";
 import { confirmModal } from "@/components/ui/confirm-modal";
 import { FieldError } from "@/components/ui/field-error";
 import { DrinkEntry, DrinkType, DRINK_TYPES } from "@/lib/types";
 import { drinkPhotoSrc, cn } from "@/lib/utils";
-import { DRINK_PHOTO_MAX_DIMENSION, DRINK_PHOTO_MAX_UPLOAD_BYTES, drinkPhotoUploadEndpoints } from "@/lib/photoUploadConfig";
-import { addPendingCheckin } from "@/lib/offline/pendingCheckins";
-import type { PendingCheckinPhoto } from "@/lib/offline/pendingCheckins";
-import { flushPendingCheckins } from "@/lib/offline/syncPendingCheckins";
+import { DRINK_PHOTO_MAX_DIMENSION, DRINK_PHOTO_MAX_UPLOAD_BYTES, drinkPhotoUploadEndpoints } from "@/modules/media/domain/photoUploadConfig";
+import { addPendingCheckin } from "@/modules/checkins/client/pendingCheckins";
+import type { PendingCheckinPhoto } from "@/modules/checkins/client/pendingCheckins";
+import { flushPendingCheckins } from "@/modules/checkins/client/syncPendingCheckins";
 import { invalidateCachedPages } from "@/lib/swCache";
 import { FormDirtyTracker } from "@/lib/serviceWorkerUpdate/FormDirtyTracker";
 
@@ -34,7 +34,7 @@ function getPosition(options: PositionOptions): Promise<Coords> {
 }
 
 // JPEG canvas-encode quality (0-1) is a client-only concern — the server's
-// WebP quality (0-100, lib/photoUpload.ts) is a different encoder/scale, not
+// WebP quality (0-100, modules/media/server/photoUpload.ts) is a different encoder/scale, not
 // the same number, so it isn't shared here.
 const PHOTO_COMPRESS_CONFIG = { maxDimension: DRINK_PHOTO_MAX_DIMENSION, quality: 0.85 };
 

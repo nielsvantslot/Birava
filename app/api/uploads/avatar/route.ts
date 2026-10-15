@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
-import { getCurrentUser } from "@/lib/auth/session";
-import { storeAvatar } from "@/lib/commands/userCommands";
+import { getCurrentUser } from "@/modules/identity/server/session";
+import { storeAvatar } from "@/modules/identity";
 import { PhotoUploadError } from "@/modules/photo-upload/Errors/PhotoUploadError";
 import { AvatarUploadResultDTO } from "@/lib/dtos";
 
