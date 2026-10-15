@@ -22,6 +22,7 @@ jobs:
         run: |
           curl -sS --fail-with-body --max-time 30 "https://www.birava.nl/api/health"
 
-      - name: Staging
-        run: |
-          curl -sS --fail-with-body --max-time 30 "https://staging.birava.nl/api/health"
+      # Staging is not checked: it sits behind Vercel deployment protection, so an
+      # unauthenticated request gets a 302 to Vercel SSO, which curl would report as
+      # success without ever reaching the app. Check it by hand, or add a Vercel
+      # protection-bypass secret and header here.
