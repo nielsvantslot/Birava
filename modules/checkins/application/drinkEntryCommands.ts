@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import type { Prisma } from "@prisma/client";
+import type { DrinkEntry as DrinkEntryRow, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { newlyEarnedAchievements } from "@/modules/achievements/domain/achievements";
 import { SESSION_GAP_MS, MAX_BACKDATE_MS } from "@/modules/sessions/domain/sessions";
@@ -33,6 +33,86 @@ function resolveCreatedAt(clientCreatedAt: number | null | undefined): Date {
   return new Date(withinTrustWindow ? clientCreatedAt : now);
 }
 
+/** Clears a share-image cache pair in an update's `data`, in place. */
+const CLEAR_SHARE_IMAGE_CACHE = {
+  shareImageOpaqueUrl: null,
+  shareImageTransparentUrl: null,
+} as const;
+
+/**
+ * Merges two sessions a backdated check-in bridges — the earlier one
+ * (`survivorId`) survives and absorbs the later (`loserId`). Returns the loser's
+ * cached share-image URLs, which the caller deletes once the transaction commits.
+ */
+async function mergeSessions(
+  tx: Tx,
+  survivorId: string,
+  loserId: string
+): Promise<{ sessionId: string; isNewSession: boolean; orphanedShareImageUrls: string[] }> {
+  // Everything in this first wave is mutually independent — none reads a
+  // value another produces, so they run concurrently on the same tx
+  // connection (the same pattern already used above for prev/next) instead
+  // of one sequential round trip apiece. The Cheer read covers both
+  // sessions at once (partitioned in JS below) rather than two separate
+  // finds. Reassigning Comment/Notification here, ahead of the delete
+  // below, matters: Comment is FK'd to DrinkSession with onDelete: Cascade,
+  // so without reassigning it first it would be silently deleted along
+  // with the loser row, even though the check-ins it's about are still
+  // very much alive (now under the survivor's id). Notification isn't an
+  // FK (frozen-at-write-time by design) so it can't violate a constraint
+  // either way, but leaving it pointed at a session that's about to stop
+  // existing would 404 an otherwise-valid link.
+  const [loser, cheerRows] = await Promise.all([
+    tx.drinkSession.findUniqueOrThrow({ where: { id: loserId } }),
+    tx.cheer.findMany({
+      where: { sessionId: { in: [loserId, survivorId] } },
+      select: { sessionId: true, userId: true },
+    }),
+    tx.drinkEntry.updateMany({ where: { sessionId: loserId }, data: { sessionId: survivorId } }),
+    tx.comment.updateMany({ where: { sessionId: loserId }, data: { sessionId: survivorId } }),
+    tx.notification.updateMany({ where: { entryId: loserId }, data: { entryId: survivorId } }),
+  ]);
+
+  const loserCheerUserIds = cheerRows.filter((c) => c.sessionId === loserId).map((c) => c.userId);
+  const survivorCheerUserIds = new Set(
+    cheerRows.filter((c) => c.sessionId === survivorId).map((c) => c.userId)
+  );
+  // If the same user cheered both sessions, reassigning would collide on
+  // the (sessionId, userId) primary key — drop the loser's copy rather
+  // than double-count what's really the same cheer.
+  const colliding = loserCheerUserIds.filter((id) => survivorCheerUserIds.has(id));
+  const clear = loserCheerUserIds.filter((id) => !survivorCheerUserIds.has(id));
+
+  // Second wave: the two Cheer cleanup calls target disjoint user-id sets
+  // (colliding vs. clear) so they can't conflict with each other, and the
+  // survivor's endedAt bump touches a different table entirely — all three
+  // run concurrently rather than one after another.
+  await Promise.all([
+    colliding.length > 0
+      ? tx.cheer.deleteMany({ where: { sessionId: loserId, userId: { in: colliding } } })
+      : null,
+    clear.length > 0
+      ? tx.cheer.updateMany({ where: { sessionId: loserId, userId: { in: clear } }, data: { sessionId: survivorId } })
+      : null,
+    tx.drinkSession.update({
+      where: { id: survivorId },
+      data: { endedAt: loser.endedAt, ...CLEAR_SHARE_IMAGE_CACHE },
+    }),
+  ]);
+
+  // Must be last: everything above that could still reference loserId
+  // (Cheer/Comment/Notification reassignment) has already landed, so the
+  // cascade this delete triggers has nothing left to sweep up.
+  await tx.drinkSession.delete({ where: { id: loserId } });
+  // The loser row is gone for good — its own cached render (if any) is
+  // never regenerated in place, unlike ordinary invalidation, so it's
+  // worth actually deleting rather than leaving it orphaned in storage.
+  const orphanedShareImageUrls = [loser.shareImageOpaqueUrl, loser.shareImageTransparentUrl].filter(
+    (url): url is string => !!url
+  );
+  return { sessionId: survivorId, isNewSession: false, orphanedShareImageUrls };
+}
+
 /**
  * Places a new check-in into whichever session it belongs to — attaching to
  * the session before or after it, merging two sessions it bridges, or
@@ -45,12 +125,6 @@ function resolveCreatedAt(clientCreatedAt: number | null | undefined): Date {
  * entries immediately bordering it, each case below has a closed-form bounds
  * update (or none) rather than needing a full re-aggregate.
  */
-/** Clears a share-image cache pair in an update's `data`, in place. */
-const CLEAR_SHARE_IMAGE_CACHE = {
-  shareImageOpaqueUrl: null,
-  shareImageTransparentUrl: null,
-} as const;
-
 async function assignSessionForNewEntry(
   tx: Tx,
   userId: string,
@@ -76,72 +150,7 @@ async function assignSessionForNewEntry(
   const nextInGap = next !== null && next.createdAt.getTime() - time <= SESSION_GAP_MS;
 
   if (prev && next && prevInGap && nextInGap && prev.sessionId !== next.sessionId) {
-    // Bridges two sessions — the earlier one survives and absorbs the later.
-    const survivorId = prev.sessionId;
-    const loserId = next.sessionId;
-
-    // Everything in this first wave is mutually independent — none reads a
-    // value another produces, so they run concurrently on the same tx
-    // connection (the same pattern already used above for prev/next) instead
-    // of one sequential round trip apiece. The Cheer read covers both
-    // sessions at once (partitioned in JS below) rather than two separate
-    // finds. Reassigning Comment/Notification here, ahead of the delete
-    // below, matters: Comment is FK'd to DrinkSession with onDelete: Cascade,
-    // so without reassigning it first it would be silently deleted along
-    // with the loser row, even though the check-ins it's about are still
-    // very much alive (now under the survivor's id). Notification isn't an
-    // FK (frozen-at-write-time by design) so it can't violate a constraint
-    // either way, but leaving it pointed at a session that's about to stop
-    // existing would 404 an otherwise-valid link.
-    const [loser, cheerRows] = await Promise.all([
-      tx.drinkSession.findUniqueOrThrow({ where: { id: loserId } }),
-      tx.cheer.findMany({
-        where: { sessionId: { in: [loserId, survivorId] } },
-        select: { sessionId: true, userId: true },
-      }),
-      tx.drinkEntry.updateMany({ where: { sessionId: loserId }, data: { sessionId: survivorId } }),
-      tx.comment.updateMany({ where: { sessionId: loserId }, data: { sessionId: survivorId } }),
-      tx.notification.updateMany({ where: { entryId: loserId }, data: { entryId: survivorId } }),
-    ]);
-
-    const loserCheerUserIds = cheerRows.filter((c) => c.sessionId === loserId).map((c) => c.userId);
-    const survivorCheerUserIds = new Set(
-      cheerRows.filter((c) => c.sessionId === survivorId).map((c) => c.userId)
-    );
-    // If the same user cheered both sessions, reassigning would collide on
-    // the (sessionId, userId) primary key — drop the loser's copy rather
-    // than double-count what's really the same cheer.
-    const colliding = loserCheerUserIds.filter((id) => survivorCheerUserIds.has(id));
-    const clear = loserCheerUserIds.filter((id) => !survivorCheerUserIds.has(id));
-
-    // Second wave: the two Cheer cleanup calls target disjoint user-id sets
-    // (colliding vs. clear) so they can't conflict with each other, and the
-    // survivor's endedAt bump touches a different table entirely — all three
-    // run concurrently rather than one after another.
-    await Promise.all([
-      colliding.length > 0
-        ? tx.cheer.deleteMany({ where: { sessionId: loserId, userId: { in: colliding } } })
-        : null,
-      clear.length > 0
-        ? tx.cheer.updateMany({ where: { sessionId: loserId, userId: { in: clear } }, data: { sessionId: survivorId } })
-        : null,
-      tx.drinkSession.update({
-        where: { id: survivorId },
-        data: { endedAt: loser.endedAt, ...CLEAR_SHARE_IMAGE_CACHE },
-      }),
-    ]);
-
-    // Must be last: everything above that could still reference loserId
-    // (Cheer/Comment/Notification reassignment) has already landed, so the
-    // cascade this delete triggers has nothing left to sweep up.
-    await tx.drinkSession.delete({ where: { id: loserId } });
-    // The loser row is gone for good — its own cached render (if any) is
-    // never regenerated in place, unlike ordinary invalidation, so it's
-    // worth actually deleting rather than leaving it orphaned in storage.
-    const orphanedShareImageUrls = [loser.shareImageOpaqueUrl, loser.shareImageTransparentUrl].filter(
-      (url): url is string => !!url
-    );
-    return { sessionId: survivorId, isNewSession: false, orphanedShareImageUrls };
+    return mergeSessions(tx, prev.sessionId, next.sessionId);
   }
 
   if (prev && prevInGap) {
@@ -175,6 +184,209 @@ async function assignSessionForNewEntry(
   return { sessionId: entryId, isNewSession: true, orphanedShareImageUrls: [] };
 }
 
+type AchievementBaselineRow = {
+  userId: string;
+  createdAt: Date;
+  drinkType: DrinkEntryRow["drinkType"];
+  venue: { name: string | null } | null;
+};
+
+type CreateTxResult =
+  | {
+      entry: DrinkEntryRow;
+      before: AchievementBaselineRow[];
+      isNewSession: boolean;
+      orphanedShareImageUrls: string[];
+      replay: false;
+    }
+  | {
+      entry: DrinkEntryRow;
+      before: [];
+      isNewSession: false;
+      orphanedShareImageUrls: [];
+      replay: true;
+    };
+
+/**
+ * The pre-write snapshot the achievement diff compares against, read once
+ * *after* the advisory lock, not before the transaction opens — the "after"
+ * set is provably "before + the new row", so there's no need for a second
+ * full-table scan, but reading it before the lock let two concurrent
+ * check-ins for the same user (an offline sync burst flushing several at
+ * once) both see the same pre-write achievement snapshot, both independently
+ * compute newlyEarnedAchievements as "just crossed the threshold", and both
+ * fire the same "Achievement Unlocked" notification for something that
+ * should only ever fire once. Can't use getDrinkHistory's 60s cache here
+ * regardless (it needs fresh pre-write state).
+ *
+ * Two bounded reads instead of one unconditional full-history scan: every
+ * achievement only ever cares about *distinct* drink types (≤4 total,
+ * `distinct` pushes that dedup to the DB) or venue/week state, which by
+ * construction only venued check-ins can contribute to (see
+ * achievements.ts's aggregate(), which skips any entry with no venue) — so
+ * check-ins with neither a new type nor a venue don't need to be read at
+ * all. A user who's logged thousands of check-ins over years no longer pays
+ * for a full-table scan on every single one just to answer "have all 4
+ * types been seen" and "which venues, in which weeks".
+ */
+async function readAchievementBaseline(tx: Tx, userId: string, createdAt: Date): Promise<AchievementBaselineRow[]> {
+  const [distinctTypes, venuedBefore] = await Promise.all([
+    tx.drinkEntry.findMany({
+      where: { userId },
+      distinct: ["drinkType"],
+      select: { drinkType: true },
+    }),
+    tx.drinkEntry.findMany({
+      where: { userId, venueId: { not: null } },
+      select: { createdAt: true, drinkType: true, venue: { select: { name: true } } },
+    }),
+  ]);
+  // Reassembled into the same shape the single full-history fetch used
+  // to produce, so newlyEarnedAchievements is untouched. The synthetic
+  // distinct-type rows carry no venue, so aggregate()/getLocalLegendVenue
+  // (which both skip any entry with no venue) treat them as contributing to
+  // drink_type only — their created_at is a dead field for that reason and
+  // reuses this check-in's own timestamp rather than a fake one.
+  return [
+    ...distinctTypes.map((t) => ({ userId, createdAt, drinkType: t.drinkType, venue: null })),
+    ...venuedBefore.map((e) => ({ userId, createdAt: e.createdAt, drinkType: e.drinkType, venue: e.venue })),
+  ];
+}
+
+/**
+ * The create write itself, inside the caller's transaction: lock, replay
+ * check, achievement baseline, session placement, venue resolution, insert.
+ */
+async function insertCheckin(
+  tx: Tx,
+  userId: string,
+  entryId: string,
+  createdAt: Date,
+  input: CreateDrinkEntryDTO
+): Promise<CreateTxResult> {
+  // Session assignment is read-then-write (find neighbours, then attach/
+  // merge/create) with no row locking of its own — two concurrent
+  // creates for the same user (double-submit, two tabs/devices) could
+  // each see the same "no session yet" state and each create their own,
+  // instead of one correctly attaching to the other. A transaction-scoped
+  // advisory lock keyed by userId serializes session mutations per user
+  // (auto-released at commit/rollback) without blocking other users.
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
+
+  // Idempotency check, inside the same advisory-locked transaction: a
+  // retried sync (client timeout where the server actually committed, or
+  // two tabs flushing the same queued entry at once) reaches this same
+  // entryId a second time. The lock above already serializes this against
+  // the original attempt, so whichever request commits first "wins" the
+  // create and every later one just finds it here and replays the
+  // original result instead of re-running session assignment (which
+  // would otherwise see its own already-created entry as a neighbour and
+  // corrupt the session bounds it's trying to compute).
+  //
+  // Scoped to { id, userId }, not id alone — clientId is attacker-
+  // reachable input (addDrink is a "use server" export, a real POST
+  // endpoint, not just the offline queue's own caller), and DrinkEntry
+  // ids are visible to other users via shareable /sessions/[id] links. An
+  // id-only lookup would let a caller pass another user's real entry id
+  // as clientId and get back a "replay" of that entry — discarding their
+  // own submitted drink/venue/photo with no error, and describing
+  // someone else's row as if it were their own.
+  const existingEntry = await tx.drinkEntry.findFirst({ where: { id: entryId, userId } });
+  if (existingEntry) {
+    return {
+      entry: existingEntry,
+      before: [],
+      isNewSession: false,
+      orphanedShareImageUrls: [],
+      replay: true,
+    };
+  }
+
+  const before = await readAchievementBaseline(tx, userId, createdAt);
+  const assignment = await assignSessionForNewEntry(tx, userId, entryId, createdAt);
+  const venueId = await resolveVenueId(tx, input.venue, input.lat, input.lng);
+  const entry = await tx.drinkEntry.create({
+    data: {
+      id: entryId,
+      userId,
+      sessionId: assignment.sessionId,
+      drinkName: input.drinkName,
+      drinkType: input.drinkType,
+      venueId,
+      photoUrl: input.photoUrl,
+      photoLqip: input.photoLqip,
+      createdAt,
+    },
+  });
+  return {
+    entry,
+    before,
+    isNewSession: assignment.isNewSession,
+    orphanedShareImageUrls: assignment.orphanedShareImageUrls,
+    replay: false,
+  };
+}
+
+/** Who to tell about a freshly committed check-in: achievements, followers (new session), crew-mates (new session). */
+async function collectCreateEvents(
+  userId: string,
+  actor: { username: string; avatarUrl: string | null },
+  sessionId: string,
+  isNewSession: boolean,
+  newlyEarned: { label: string }[]
+): Promise<NotificationEvent[]> {
+  const events: NotificationEvent[] = newlyEarned.map((a) => ({
+    userId,
+    type: "ACHIEVEMENT",
+    achievementLabel: a.label,
+  }));
+  if (!isNewSession) return events;
+
+  const followerIds = await getFollowerIds(userId);
+  events.push(
+    ...followerIds.map((followerId) => ({
+      userId: followerId,
+      type: "SESSION_START" as const,
+      actorId: userId,
+      actorUsername: actor.username,
+      actorAvatarUrl: actor.avatarUrl,
+      // The session's id, not the entry's own id — they only coincide
+      // when this check-in started a brand-new session (always true
+      // here), but Notification.entryId is what /sessions/[id] links use.
+      entryId: sessionId,
+    }))
+  );
+
+  const memberships = await db.groupMember.findMany({
+    where: { userId },
+    select: { groupId: true, group: { select: { name: true } } },
+  });
+  if (memberships.length > 0) {
+    const groupIds = memberships.map((m) => m.groupId);
+    const otherMembers = await db.groupMember.findMany({
+      where: { groupId: { in: groupIds }, userId: { not: userId } },
+      select: { userId: true, groupId: true },
+    });
+    const groupNames = new Map(memberships.map((m) => [m.groupId, m.group.name]));
+    events.push(
+      ...otherMembers.map((m) => ({
+        userId: m.userId,
+        type: "CREW_CHECKIN" as const,
+        actorId: userId,
+        actorUsername: actor.username,
+        actorAvatarUrl: actor.avatarUrl,
+        // The session's id — this check-in may have attached to an
+        // existing session rather than started a new one, in which case
+        // created.id itself isn't a valid /sessions/[id] target.
+        entryId: sessionId,
+        groupId: m.groupId,
+        groupName: groupNames.get(m.groupId),
+      }))
+    );
+  }
+  return events;
+}
+
 export async function createDrinkEntry(
   userId: string,
   input: CreateDrinkEntryDTO,
@@ -189,133 +401,22 @@ export async function createDrinkEntry(
   // exactly the same row instead of a new one.
   const entryId = input.clientId ?? randomUUID();
 
-  let created;
-  let isNewSession: boolean;
-  let before;
-  let replay = false;
+  let result: CreateTxResult;
   try {
-    const result = await db.$transaction(async (tx) => {
-      // Session assignment is read-then-write (find neighbours, then attach/
-      // merge/create) with no row locking of its own — two concurrent
-      // creates for the same user (double-submit, two tabs/devices) could
-      // each see the same "no session yet" state and each create their own,
-      // instead of one correctly attaching to the other. A transaction-scoped
-      // advisory lock keyed by userId serializes session mutations per user
-      // (auto-released at commit/rollback) without blocking other users.
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
-
-      // Idempotency check, inside the same advisory-locked transaction: a
-      // retried sync (client timeout where the server actually committed, or
-      // two tabs flushing the same queued entry at once) reaches this same
-      // entryId a second time. The lock above already serializes this against
-      // the original attempt, so whichever request commits first "wins" the
-      // create and every later one just finds it here and replays the
-      // original result instead of re-running session assignment (which
-      // would otherwise see its own already-created entry as a neighbour and
-      // corrupt the session bounds it's trying to compute).
-      //
-      // Scoped to { id, userId }, not id alone — clientId is attacker-
-      // reachable input (addDrink is a "use server" export, a real POST
-      // endpoint, not just the offline queue's own caller), and DrinkEntry
-      // ids are visible to other users via shareable /sessions/[id] links. An
-      // id-only lookup would let a caller pass another user's real entry id
-      // as clientId and get back a "replay" of that entry — discarding their
-      // own submitted drink/venue/photo with no error, and describing
-      // someone else's row as if it were their own.
-      const existingEntry = await tx.drinkEntry.findFirst({ where: { id: entryId, userId } });
-      if (existingEntry) {
-        return {
-          entry: existingEntry,
-          before: [],
-          isNewSession: false,
-          orphanedShareImageUrls: [],
-          replay: true as const,
-        };
-      }
-
-      // Read history once *after* the lock, not before the transaction
-      // opens — the "after" set is provably "before + the new row", so
-      // there's no need for a second full-table scan, but reading it before
-      // the lock let two concurrent check-ins for the same user (an offline
-      // sync burst flushing several at once) both see the same pre-write
-      // achievement snapshot, both independently compute
-      // newlyEarnedAchievements as "just crossed the threshold", and both
-      // fire the same "Achievement Unlocked" notification for something
-      // that should only ever fire once. Can't use getDrinkHistory's 60s
-      // cache here regardless (it needs fresh pre-write state).
-      //
-      // Two bounded reads instead of one unconditional full-history scan:
-      // every achievement below only ever cares about *distinct* drink
-      // types (≤4 total, `distinct` pushes that dedup to the DB) or
-      // venue/week state, which by construction only venued check-ins can
-      // contribute to (see achievements.ts's aggregate(), which skips any
-      // entry with no venue) — so check-ins with neither a new type nor a
-      // venue don't need to be read at all. A user who's logged thousands
-      // of check-ins over years no longer pays for a full-table scan on
-      // every single one just to answer "have all 4 types been seen" and
-      // "which venues, in which weeks".
-      const [distinctTypes, venuedBefore] = await Promise.all([
-        tx.drinkEntry.findMany({
-          where: { userId },
-          distinct: ["drinkType"],
-          select: { drinkType: true },
-        }),
-        tx.drinkEntry.findMany({
-          where: { userId, venueId: { not: null } },
-          select: { createdAt: true, drinkType: true, venue: { select: { name: true } } },
-        }),
-      ]);
-      // Reassembled into the same shape the single full-history fetch used
-      // to produce, so newlyEarnedAchievements below is untouched. The
-      // synthetic distinct-type rows carry no venue, so aggregate()/
-      // getLocalLegendVenue (which both skip any entry with no venue) treat
-      // them as contributing to drink_type only — their created_at is a
-      // dead field for that reason and reuses this check-in's own timestamp
-      // rather than a fake one.
-      const before = [
-        ...distinctTypes.map((t) => ({ userId, createdAt, drinkType: t.drinkType, venue: null })),
-        ...venuedBefore.map((e) => ({ userId, createdAt: e.createdAt, drinkType: e.drinkType, venue: e.venue })),
-      ];
-
-      const assignment = await assignSessionForNewEntry(tx, userId, entryId, createdAt);
-      const venueId = await resolveVenueId(tx, input.venue, input.lat, input.lng);
-      const entry = await tx.drinkEntry.create({
-        data: {
-          id: entryId,
-          userId,
-          sessionId: assignment.sessionId,
-          drinkName: input.drinkName,
-          drinkType: input.drinkType,
-          venueId,
-          photoUrl: input.photoUrl,
-          photoLqip: input.photoLqip,
-          createdAt,
-        },
-      });
-      return {
-        entry,
-        before,
-        isNewSession: assignment.isNewSession,
-        orphanedShareImageUrls: assignment.orphanedShareImageUrls,
-        replay: false as const,
-      };
-    });
-    created = result.entry;
-    before = result.before;
-    isNewSession = result.isNewSession;
-    replay = result.replay;
+    result = await db.$transaction((tx) => insertCheckin(tx, userId, entryId, createdAt, input));
     if (result.orphanedShareImageUrls.length > 0) {
       await Promise.all(result.orphanedShareImageUrls.map((url) => shareImageCache.remove(url)));
     }
   } catch {
     return { error: "Failed to save check-in." };
   }
+  const { entry: created, before, isNewSession } = result;
 
   // A replay of an already-committed create: achievements/notifications
-  // already fired for the original attempt, and `before` was never read (see
-  // above), so there's nothing left to do beyond handing back the same
-  // success shape the original caller got.
-  if (replay) {
+  // already fired for the original attempt, and the baseline was never read
+  // (see insertCheckin), so there's nothing left to do beyond handing back
+  // the same success shape the original caller got.
+  if (result.replay) {
     return { achievementUnlocked: false, id: created.id, revalidatedPaths: [`/sessions/${created.sessionId}`] };
   }
 
@@ -337,64 +438,14 @@ export async function createDrinkEntry(
     venue: input.venue,
   };
   const newlyEarned = newlyEarnedAchievements(beforeEntries, afterEntry, tz);
-  const achievementUnlocked = newlyEarned.length > 0;
 
-  const events: NotificationEvent[] = newlyEarned.map((a) => ({
-    userId,
-    type: "ACHIEVEMENT",
-    achievementLabel: a.label,
-  }));
+  queueNotifications(await collectCreateEvents(userId, actor, created.sessionId, isNewSession, newlyEarned));
 
-  if (isNewSession) {
-    const followerIds = await getFollowerIds(userId);
-    events.push(
-      ...followerIds.map((followerId) => ({
-        userId: followerId,
-        type: "SESSION_START" as const,
-        actorId: userId,
-        actorUsername: actor.username,
-        actorAvatarUrl: actor.avatarUrl,
-        // The session's id, not the entry's own id — they only coincide
-        // when this check-in started a brand-new session (always true
-        // here), but Notification.entryId is what /sessions/[id] links use.
-        entryId: created.sessionId,
-      }))
-    );
-  }
-
-  const memberships = isNewSession
-    ? await db.groupMember.findMany({
-        where: { userId },
-        select: { groupId: true, group: { select: { name: true } } },
-      })
-    : [];
-  if (memberships.length > 0) {
-    const groupIds = memberships.map((m) => m.groupId);
-    const otherMembers = await db.groupMember.findMany({
-      where: { groupId: { in: groupIds }, userId: { not: userId } },
-      select: { userId: true, groupId: true },
-    });
-    const groupNames = new Map(memberships.map((m) => [m.groupId, m.group.name]));
-    events.push(
-      ...otherMembers.map((m) => ({
-        userId: m.userId,
-        type: "CREW_CHECKIN" as const,
-        actorId: userId,
-        actorUsername: actor.username,
-        actorAvatarUrl: actor.avatarUrl,
-        // The session's id — this check-in may have attached to an
-        // existing session rather than started a new one, in which case
-        // created.id itself isn't a valid /sessions/[id] target.
-        entryId: created.sessionId,
-        groupId: m.groupId,
-        groupName: groupNames.get(m.groupId),
-      }))
-    );
-  }
-
-  queueNotifications(events);
-
-  return { achievementUnlocked, id: created.id, revalidatedPaths: [`/sessions/${created.sessionId}`] };
+  return {
+    achievementUnlocked: newlyEarned.length > 0,
+    id: created.id,
+    revalidatedPaths: [`/sessions/${created.sessionId}`],
+  };
 }
 
 export async function updateDrinkEntry(
