@@ -29,16 +29,33 @@ export class V1Guards {
     c.set("user", user);
 
     if (!OriginGuard.isUnsafe(c.req.method)) return next();
-    if (!c.req.header("authorization")) OriginGuard.assertSameOrigin(c.req.raw);
+    // Only a request that carries a bearer token and no session cookie is immune to cross-site forgery: a browser
+    // attaches cookies by itself, so a cookie session (which getCurrentUser prefers) always gets the origin check,
+    // whatever other headers come with it.
+    if (V1Guards.hasSessionCookie(c.req.header("cookie")) || !c.req.header("authorization")) OriginGuard.assertSameOrigin(c.req.raw);
 
     const routeName = `v1:${c.req.method}:${c.req.routePath}`;
-    await this.rateLimits.consume(this.services.mutationRateLimit ?? DEFAULT_USER_RATE_LIMIT, routeName, user.id);
-
+    // The limit is spent inside the idempotent run, so replaying a response (a safe retry) costs nothing.
     return this.idempotency.run(c.req.raw, user.id, routeName, async () => {
+      await this.rateLimits.consume(this.services.mutationRateLimit ?? DEFAULT_USER_RATE_LIMIT, routeName, user.id);
       await next();
       return c.res;
     });
   };
+
+  /** True when the Cookie header carries this app's session cookie. */
+  static hasSessionCookie(cookieHeader: string | undefined): boolean {
+    return /(?:^|;\s*)birava_session=/.test(cookieHeader ?? "");
+  }
+
+  /** Counts one sign-in attempt against an account, so rotating IPs does not buy unlimited guesses at one password. */
+  async consumeAccountAttempt(email: string): Promise<void> {
+    await this.rateLimits.consume(
+      { bucket: "v1-token-account", limit: 10, windowMs: 15 * 60 * 1000, scope: "user", message: "Too many attempts for this account. Try again later." },
+      "v1-token-account",
+      email
+    );
+  }
 
   /** For public endpoints (sign in): limited per IP. */
   forPublic(spec: IpRateLimitSpec): MiddlewareHandler<V1Env> {

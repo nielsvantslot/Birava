@@ -6,6 +6,7 @@ const DESTRUCTIVE: { pattern: RegExp; why: string }[] = [
   { pattern: /\bdrop\s+type\b/i, why: "drops a type" },
   { pattern: /\bdrop\s+schema\b/i, why: "drops a schema and everything in it" },
   { pattern: /\balter\s+column\b[^;]*\btype\b/i, why: "changes a column's type (Prisma's generated version can drop and recreate it, resetting values)" },
+  { pattern: /\brename\s+(column|to)\b/i, why: "renames a column or table: running code that still uses the old name breaks until it is deployed" },
   { pattern: /\btruncate\b/i, why: "empties a table" },
   { pattern: /\bdelete\s+from\b/i, why: "deletes rows" },
 ];
@@ -16,7 +17,8 @@ export class DestructiveStatementScanner {
     // Blank out string literals first, so a ";" or "--" inside one can't split or hide a statement, and a word in a
     // literal (a default of 'type', a comment string) can't trigger a false positive.
     const withoutLiterals = sql.replace(/'(?:[^']|'')*'/g, "''");
-    const withoutComments = withoutLiterals.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+    const withoutIdentifiers = withoutLiterals.replace(/"(?:[^"]|"")*"/g, '""');
+    const withoutComments = withoutIdentifiers.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
     const found: DestructiveStatement[] = [];
     for (const statement of withoutComments.split(";").map((s) => s.trim()).filter(Boolean)) {
       for (const { pattern, why } of DESTRUCTIVE) {

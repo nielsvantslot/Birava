@@ -4,7 +4,7 @@ import type { RateLimitSpec } from "@/lib/gateway/Models";
 import type { ILogger } from "@/lib/logging/ILogger";
 import type { IRateLimiter } from "@/lib/rateLimit/IRateLimiter";
 
-/** What the /api/v1 app needs from the outside world. Production wiring is in V1App.ts; tests pass their own (a tiny rate limit, a fixed user). */
+/** What the /api/v1 app needs from the outside world. Production wiring is in V1Mount.ts; tests pass their own (a tiny rate limit, a fixed user). */
 export type V1Services = {
   /** The signed-in user for this request (cookie or bearer token), or null. */
   authenticate: () => Promise<SessionUserDTO | null>;

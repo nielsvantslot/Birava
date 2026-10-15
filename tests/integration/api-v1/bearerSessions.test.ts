@@ -90,4 +90,19 @@ describe("bearer-token sessions for native clients", () => {
     expect(body).toMatchObject({ cancelledDeletion: true });
     expect((await db.user.findUniqueOrThrow({ where: { id: user.id } })).deletionRequestedAt).toBeNull();
   });
+
+  it("still applies the origin check when a session cookie rides along with a bearer header, and will not revoke a token then", async () => {
+    const user = await fixtures.createUser();
+    const client = new V1TestClient();
+    const token = (await signIn(client, user.email)).body.token!;
+    const withCookie = { cookie: "birava_session=anything", origin: "https://evil.example" };
+
+    const forged = await client.call("POST", "/crews", { token, body: { name: "Crew" }, headers: withCookie });
+    expect(forged.status).toBe(403);
+    expect(((await forged.json()) as { error: { code: string } }).error.code).toBe("ORIGIN_MISMATCH");
+
+    const revoke = await client.call("DELETE", "/auth/token", { token, headers: { cookie: "birava_session=anything" } });
+    expect(revoke.status).toBe(400);
+    expect((await client.call("GET", "/me", { token })).status).toBe(200);
+  });
 });

@@ -26,6 +26,10 @@ export class IdempotencyGuard {
   async run(request: Request, userId: string, route: string, execute: () => Promise<Response>): Promise<Response> {
     const key = request.headers.get("idempotency-key");
     if (key === null || !OriginGuard.isUnsafe(request.method)) return execute();
+    // An upload cannot be fingerprinted fairly: its Content-Type carries a boundary a retry regenerates, and hashing the
+    // bytes means buffering the whole file. Uploads are made safe to retry another way (they land under a client-chosen
+    // path and are finalized once), so a key on one is ignored rather than answered wrongly.
+    if ((request.headers.get("content-type") ?? "").startsWith("multipart/")) return execute();
     if (!KEY_PATTERN.test(key)) throw ApiError.validation("Invalid Idempotency-Key header.");
 
     const scope: IdempotencyScope = { userId, key, route };
@@ -73,13 +77,10 @@ export class IdempotencyGuard {
     }
   }
 
-  /** What identifies "the same request": method, path and query, and the body (only its size for an upload, which is too big to hash). */
+  /** What identifies "the same request": method, path and query, and the body . */
   private async fingerprint(request: Request): Promise<string> {
     const url = new URL(request.url);
-    const contentType = request.headers.get("content-type") ?? "";
-    const body = contentType.startsWith("multipart/")
-      ? `${contentType}|${request.headers.get("content-length") ?? ""}`
-      : await request.clone().text();
+    const body = await request.clone().text();
     return createHash("sha256").update(`${request.method} ${url.pathname}${url.search}\n${body}`).digest("hex");
   }
 

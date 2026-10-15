@@ -70,7 +70,8 @@ describe("HealthReport", () => {
 
     expect(stale.ok).toBe(false);
     expect(missing.backup).toMatchObject({ ok: false, error: "no backups found" });
-    expect(broken.backup).toMatchObject({ ok: false, error: "blob unreachable" });
+    expect(broken.backup).toMatchObject({ ok: false, error: "could not list backups" });
+    expect(JSON.stringify(broken)).not.toContain("blob unreachable");
   });
 
   it("goes unhealthy when the database does not answer, and says so without throwing", async () => {
@@ -87,7 +88,7 @@ describe("HealthReport", () => {
     ).build();
 
     expect(report.ok).toBe(false);
-    expect(report.database).toEqual({ ok: false, error: "connection refused" });
+    expect(report.database).toEqual({ ok: false, error: "unreachable" });
   });
 
   it("omits the backup section where there are no backups (local, staging)", async () => {
@@ -107,6 +108,6 @@ describe("HealthReport", () => {
 
     expect(report.ok).toBe(false);
     expect(report.jobs.map((j) => j.reason)).toEqual(["unknown", "unknown"]);
-    expect(report.jobs[0]?.lastError).toBe("connection refused");
+    expect(JSON.stringify(report)).not.toContain("connection refused");
   });
 });
