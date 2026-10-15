@@ -10,51 +10,18 @@
  * same bus pattern as components/ui/toast-pill.tsx.
  */
 
-import type { DrinkType } from "@/lib/types";
+import type { PendingCheckin } from "@/modules/checkins/domain/outbox/PendingCheckin";
+
+export type {
+  PendingCheckin,
+  PendingCheckinPayload,
+  PendingCheckinPhoto,
+} from "@/modules/checkins/domain/outbox/PendingCheckin";
 
 const DB_NAME = "birava-offline";
 const DB_VERSION = 1;
 const STORE_NAME = "pending-checkins";
 const CHANGE_EVENT = "birava:pending-checkins-changed";
-
-export type PendingCheckinPhoto =
-  | { kind: "none" }
-  | { kind: "uploaded"; url: string; lqip: string | null }
-  | { kind: "raw"; arrayBuffer: ArrayBuffer; type: string; name: string };
-
-export type PendingCheckinPayload = {
-  drinkName: string | null;
-  drinkType: DrinkType;
-  venue: string | null;
-  lat: number | null;
-  lng: number | null;
-};
-
-export type PendingCheckin = {
-  id: string;
-  /**
-   * Whoever was logged in when this entry was queued — not just metadata,
-   * but the thing getAllPendingCheckins filters by. This store is a single
-   * shared IndexedDB database per *device/browser*, not per account: without
-   * this, a shared or handed-off device (a different person logging in
-   * after a previous user logged out, or logs out while something is still
-   * queued) would flush the previous user's still-queued check-in — with
-   * its real drinkName/venue/photo — as a brand-new entry under whoever is
-   * logged in when the next sync trigger fires. Optional only for entries
-   * that predate this field (queued by a build shipped before this fix);
-   * getAllPendingCheckins treats a missing userId as belonging to whoever
-   * asks, matching this field's absence in behavior before this fix existed
-   * — required here (so every new call site is compiler-enforced to supply
-   * it) even though an already-stored pre-fix record won't actually have it
-   * at runtime; getAllPendingCheckins is written defensively against that.
-   */
-  userId: string;
-  createdAt: number;
-  status: "queued" | "syncing" | "failed";
-  lastError?: string;
-  payload: PendingCheckinPayload;
-  photo: PendingCheckinPhoto;
-};
 
 function openDb(): Promise<IDBDatabase | null> {
   if (typeof indexedDB === "undefined") return Promise.resolve(null);
