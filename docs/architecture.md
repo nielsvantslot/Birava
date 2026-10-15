@@ -285,6 +285,10 @@ Three cross-cutting pieces every layer above relies on:
 
 **Decision (2026-10-13): no third-party error tracker yet.** Sentry's free-tier quotas could not be confirmed when this was decided, and `onRequestError` plus structured logs already satisfy "see a server failure without a user report" at no cost. The `ClientErrorLog` table stays for browser errors. Revisit when log search proves too slow to triage; Sentry (or any OTLP backend) can be added without touching call sites, because errors already funnel through one hook.
 
+## Module boundaries (added 2026-10-15, v2 phase 1)
+
+Feature code is organised into modules (`modules/<name>/{contract,domain,application,infrastructure}` plus an `index.ts`), with `lib/` as the platform and shared kernel. The module map and the import rules are in [ADR 0001](adr/0001-module-map-and-dependency-rules.md). They are enforced by `.dependency-cruiser.cjs` (`npm run depcruise`, a CI step) and, for editor feedback, ESLint `no-restricted-imports`. Domain code cannot import Prisma, Next or React; other modules and the UI reach a module only through its index, `contract/` or `domain/`.
+
 ## Key boundaries to preserve
 
 - **Prisma models never cross the `lib/queries` / `lib/commands` boundary un-mapped.** Every query/command returns a `lib/dtos/*` class (see `lib/mappers/*` for the conversion), not a raw Prisma row — the one intentional, documented exception is `lib/controllers/drinkController.ts`'s read functions, which still return the legacy `DrinkEntry`/`DrinkSession` shape (`lib/types.ts`/`lib/sessions.ts`) the session-grouping engine is built on.

@@ -29,6 +29,35 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  // Module boundaries (docs/adr/0001-module-map-and-dependency-rules.md).
+  // dependency-cruiser is the authority in CI; these give editor feedback.
+  {
+    files: ["modules/*/domain/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            { group: ["next", "next/*", "react", "react-dom", "@prisma/client"], message: "Domain code is pure: no Next, React or Prisma." },
+            { group: ["**/application/**", "**/infrastructure/**", "@/app/**", "@/components/**"], message: "Domain code cannot depend on outer layers." },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}", "scripts/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            { group: ["@/modules/*/application/**", "@/modules/*/infrastructure/**"], message: "Import a module through its index, contract/ or domain/." },
+          ],
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;
