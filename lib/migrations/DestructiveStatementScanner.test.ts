@@ -38,4 +38,18 @@ describe("DestructiveStatementScanner", () => {
   it("ignores what is only mentioned in a comment", () => {
     expect(DestructiveStatementScanner.scan(`-- we used to DROP COLUMN "notes" here\nALTER TABLE "A" ADD COLUMN "b" TEXT;`)).toEqual([]);
   });
+
+  it("is not fooled by a semicolon or comment marker inside a string literal", () => {
+    const sql = "INSERT INTO \"Note\" VALUES ('a;--b'); ALTER TABLE \"A\" DROP COLUMN \"x\";";
+
+    expect(DestructiveStatementScanner.scan(sql).map((f) => f.why)).toEqual(["drops a column and the data in it"]);
+  });
+
+  it("does not flag a word that only appears inside a string literal", () => {
+    expect(DestructiveStatementScanner.scan("ALTER TABLE \"A\" ALTER COLUMN \"kind\" SET DEFAULT 'type';")).toEqual([]);
+  });
+
+  it("flags DROP SCHEMA", () => {
+    expect(DestructiveStatementScanner.scan('DROP SCHEMA "old" CASCADE;')).toHaveLength(1);
+  });
 });

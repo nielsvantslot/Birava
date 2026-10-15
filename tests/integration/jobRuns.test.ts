@@ -56,6 +56,22 @@ describe("job runs in Postgres", () => {
     expect(snapshots.size).toBe(4);
   });
 
+  it("counts a run still RUNNING long after it started as a failure, because its process was killed", async () => {
+    await db.jobRun.create({ data: { job: "cleanup-orphaned-blobs", status: "RUNNING", startedAt: new Date(Date.now() - 30 * 60 * 1000) } });
+    await db.jobRun.create({ data: { job: "session-reminders", status: "RUNNING", startedAt: new Date() } });
+
+    const snapshots = new Map((await runs.snapshots()).map((s) => [s.job, s]));
+
+    expect(snapshots.get("cleanup-orphaned-blobs")?.lastFailure?.error).toContain("never finished");
+    expect(snapshots.get("session-reminders")?.lastFailure).toBeNull(); // still within its window
+  });
+
+  it("knows when tracking began without any job having run", async () => {
+    expect(await db.jobRun.count()).toBe(0);
+
+    expect(await runs.trackingSince()).toBeInstanceOf(Date);
+  });
+
   it("prunes runs older than the cutoff, including one a dead process left RUNNING", async () => {
     await db.jobRun.create({ data: { job: "session-reminders", status: "RUNNING", startedAt: new Date(Date.now() - 40 * DAY_MS) } });
     await db.jobRun.create({ data: { job: "session-reminders", status: "SUCCEEDED", startedAt: new Date() } });

@@ -16,7 +16,7 @@ function runsWith(lastSuccess: Record<string, Date | null>, trackingSince: Date 
     succeed: async () => {},
     fail: async () => {},
     prune: async () => 0,
-    firstRunAt: async () => trackingSince,
+    trackingSince: async () => trackingSince,
     snapshots: async () =>
       Object.entries(lastSuccess).map(([job, lastSuccessAt]) => ({ job: job as IJob["name"], lastSuccessAt, lastFailure: null })),
   };
@@ -95,5 +95,18 @@ describe("HealthReport", () => {
 
     expect(report.backup).toBeUndefined();
     expect(report.ok).toBe(true);
+  });
+
+  it("reports every job as unknown, instead of failing the whole report, when the run table cannot be read", async () => {
+    const broken = runsWith({});
+    broken.snapshots = async () => {
+      throw new Error("connection refused");
+    };
+
+    const report = await new HealthReport(database, null, broken, [reminders, purge], () => NOW).build();
+
+    expect(report.ok).toBe(false);
+    expect(report.jobs.map((j) => j.reason)).toEqual(["unknown", "unknown"]);
+    expect(report.jobs[0]?.lastError).toBe("connection refused");
   });
 });

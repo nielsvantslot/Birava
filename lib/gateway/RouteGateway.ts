@@ -69,7 +69,7 @@ export class RouteGateway<TUser extends { id: string }> {
 
   constructor(private readonly services: GatewayServices<TUser>) {
     this.rateLimits = new RateLimitGuard(services.rateLimiter, services.logger);
-    this.idempotency = new IdempotencyGuard(services.idempotency);
+    this.idempotency = new IdempotencyGuard(services.idempotency, services.logger);
   }
 
   /** A route for signed-in users. */
@@ -85,7 +85,7 @@ export class RouteGateway<TUser extends { id: string }> {
       if (limit) await this.rateLimits.consume(limit, config.name, limit.scope === "user" ? user.id : this.services.clientIp(request));
       return this.idempotency.run(request, user.id, config.name, async () => {
         const input = await this.parseInput(request, context, config);
-        return this.toResponse(await handler({ request, user, input }));
+        return this.toResponse(await handler({ request, user, input }), true);
       });
     });
   }
@@ -150,11 +150,11 @@ export class RouteGateway<TUser extends { id: string }> {
     return parsed as Parsed<S>;
   }
 
-  /** A Response passes through, null becomes 204, anything else is sent as JSON that must not be cached (it is per user). */
-  private toResponse(result: unknown): Response {
+  /** A Response passes through, null becomes 204, anything else is sent as JSON. JSON for a signed-in user is per user, so it must not be cached. */
+  private toResponse(result: unknown, perUser = false): Response {
     if (result instanceof Response) return result;
     if (result === null || result === undefined) return new Response(null, { status: 204 });
-    return Response.json(result, { headers: { "Cache-Control": "private, no-store" } });
+    return Response.json(result, perUser ? { headers: { "Cache-Control": "private, no-store" } } : undefined);
   }
 
   private build(

@@ -32,7 +32,7 @@ class FakeRuns implements IJobRunRepository {
   async snapshots() {
     return [];
   }
-  async firstRunAt() {
+  async trackingSince() {
     return null;
   }
   async prune() {

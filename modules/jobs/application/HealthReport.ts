@@ -49,14 +49,19 @@ export class HealthReport {
   }
 
   private async checkDatabase(): Promise<HealthReportBody["database"]> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       await Promise.race([
         this.database.ping(),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timed out")), DATABASE_TIMEOUT_MS)),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error("timed out")), DATABASE_TIMEOUT_MS);
+        }),
       ]);
       return { ok: true };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error.message : "unreachable" };
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -73,8 +78,22 @@ export class HealthReport {
   }
 
   private async checkJobs(now: Date): Promise<JobHealthStatus[]> {
-    const [snapshots, trackingSince] = await Promise.all([this.runs.snapshots(), this.runs.firstRunAt()]);
-    const byJob = new Map(snapshots.map((snapshot) => [snapshot.job, snapshot]));
-    return this.jobs.map((job) => JobHealth.evaluate(job, byJob.get(job.name), now, trackingSince));
+    try {
+      const [snapshots, trackingSince] = await Promise.all([this.runs.snapshots(), this.runs.trackingSince()]);
+      const byJob = new Map(snapshots.map((snapshot) => [snapshot.job, snapshot]));
+      return this.jobs.map((job) => JobHealth.evaluate(job, byJob.get(job.name), now, trackingSince));
+    } catch (error) {
+      // The run table is unreadable (usually the database itself is down, which the database check reports too):
+      // say so per job instead of failing the whole report.
+      const message = error instanceof Error ? error.message : "could not read job runs";
+      return this.jobs.map((job) => ({
+        job: job.name,
+        ok: false,
+        lastSuccessAt: null,
+        lastSuccessAgeMinutes: null,
+        lastError: message,
+        reason: "unknown" as const,
+      }));
+    }
   }
 }

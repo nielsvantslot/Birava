@@ -14,14 +14,15 @@ export type JobHealthStatus = {
   /** How long ago the last success was, in minutes; null if it never succeeded. */
   lastSuccessAgeMinutes: number | null;
   lastError: string | null;
-  reason: "ok" | "not-yet-run" | "never-ran" | "stale";
+  reason: "ok" | "not-yet-run" | "never-ran" | "stale" | "unknown";
 };
 
 /**
  * Decides whether a job is on schedule: it has succeeded within a few of its
  * own intervals. A job that has never succeeded gets the same allowance
- * counted from when job runs were first recorded (`trackingSince`), so a fresh
- * deploy does not report every daily job as broken before its first run.
+ * counted from when job tracking began (`trackingSince`: when the run table
+ * was created, so it holds even if no job has ever run), so a fresh deploy does
+ * not report every daily job as broken before its first run.
  * Pure, so it is easy to test.
  */
 export class JobHealth {

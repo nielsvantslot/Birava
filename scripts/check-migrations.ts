@@ -101,6 +101,7 @@ class MigrationCheck {
     run("npx", ["tsx", "prisma/seed.ts"], worktree, { DATABASE_URL: url, SEED_DEMO: "true" });
 
     const before = await this.rowCounts(url);
+    const columnsBefore = await this.columns(url);
     const seeded = Object.values(before).reduce((a, b) => a + b, 0);
     console.log(`Baseline has ${Object.keys(before).length} tables and ${seeded} rows.`);
     if (seeded === 0) throw new Error("The baseline seed produced no rows, so this rehearsal would prove nothing.");
@@ -113,8 +114,20 @@ class MigrationCheck {
     if (lost.length > 0) {
       throw new Error(`Rows were lost in the upgrade: ${lost.map(([t, c]) => `${t} ${c} -> ${after[t]}`).join(", ")}`);
     }
-    const dropped = Object.keys(before).filter((table) => !(table in after));
-    if (dropped.length > 0) console.log(`Tables removed by the upgrade (check this is intended): ${dropped.join(", ")}`);
+    // Row counts can't see a column that was dropped and recreated (the Prisma type-change footgun), so compare the columns too.
+    const columnsAfter = await this.columns(url);
+    const removed = [
+      ...Object.keys(before).filter((table) => !(table in after)).map((table) => `table ${table}`),
+      ...Object.entries(columnsBefore).flatMap(([table, cols]) =>
+        table in columnsAfter ? [...cols].filter((c) => !columnsAfter[table]!.has(c)).map((c) => `column ${table}.${c}`) : []
+      ),
+    ];
+    if (removed.length > 0) {
+      console.log(`Removed by the upgrade: ${removed.join(", ")}`);
+      if (!this.allowDestructive) {
+        throw new Error("The upgrade removes tables or columns that existed in the baseline. If that is intended (the contract step of expand/contract), a human reviews it and adds the destructive-migration-reviewed label.");
+      }
+    }
 
     step("Checking the upgraded schema equals prisma/schema.prisma");
     this.assertNoSchemaDrift(url, process.cwd());
@@ -148,6 +161,20 @@ class MigrationCheck {
     }
     this.cleanup.push(() => void dropQuietly(this.adminUrl, name));
     return withDatabase(this.adminUrl, name);
+  }
+
+  private async columns(databaseUrl: string): Promise<Record<string, Set<string>>> {
+    const client = new PrismaClient({ datasourceUrl: databaseUrl });
+    try {
+      const rows = await client.$queryRaw<{ table_name: string; column_name: string }[]>`
+        SELECT table_name, column_name FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name <> '_prisma_migrations'`;
+      const byTable: Record<string, Set<string>> = {};
+      for (const { table_name, column_name } of rows) (byTable[table_name] ??= new Set()).add(column_name);
+      return byTable;
+    } finally {
+      await client.$disconnect();
+    }
   }
 
   private async rowCounts(databaseUrl: string): Promise<Record<string, number>> {
