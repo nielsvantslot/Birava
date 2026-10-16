@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { ContractFields } from "@/lib/gateway/ContractFields";
 import { NOTIFICATION_PREFERENCE_KEYS } from "@/lib/dtos";
+import { PushEndpointPolicy } from "@/modules/notifications/domain/PushEndpointPolicy";
 
 /** `subscribeToPush`: a browser PushSubscription's JSON. */
 export const savePushSubscriptionInput = z.object({
-  endpoint: z.string().min(1).max(2048),
+  endpoint: z.string().min(1).max(2048).refine(PushEndpointPolicy.isAllowed, "That isn't a push service endpoint."),
   keys: z.object({
     p256dh: z.string().min(1).max(512),
     auth: z.string().min(1).max(512),
