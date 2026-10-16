@@ -387,11 +387,17 @@ async function collectCreateEvents(
   return events;
 }
 
+const INVALID_PHOTO_ERROR = "That photo isn't valid. Pick it again.";
+
 export async function createDrinkEntry(
   userId: string,
   input: CreateDrinkEntryDTO,
   actor: { username: string; avatarUrl: string | null }
 ): Promise<AddDrinkResultDTO> {
+  if (input.photoUrl && !drinkPhotoService.isIssuedUrl(input.photoUrl, userId)) {
+    return { error: INVALID_PHOTO_ERROR };
+  }
+
   const tz = await getUserTimeZone();
 
   const createdAt = resolveCreatedAt(input.createdAt);
@@ -452,6 +458,12 @@ export async function updateDrinkEntry(
   userId: string,
   input: UpdateDrinkEntryDTO
 ): Promise<ActionResultDTO> {
+  // Keeping the photo the row already has is always fine; any other URL must be one we issued to this user.
+  if (input.photoUrl && !drinkPhotoService.isIssuedUrl(input.photoUrl, userId)) {
+    const stored = await db.drinkEntry.findFirst({ where: { id: input.id, userId }, select: { photoUrl: true } });
+    if (stored?.photoUrl !== input.photoUrl) return { error: INVALID_PHOTO_ERROR };
+  }
+
   let existing: { photoUrl: string | null; sessionId: string } | null = null;
 
   try {

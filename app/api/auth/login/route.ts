@@ -1,7 +1,8 @@
 import { ApiError } from "@/lib/gateway/ApiError";
 import { createUserSession } from "@/modules/identity/server/session";
 import { verifyCredentials } from "@/modules/identity/server/userQueries";
-import { gateway } from "@/modules/identity/server/gateway";
+import { gateway, gatewayServices } from "@/modules/identity/server/gateway";
+import { RateLimitGuard } from "@/lib/gateway/RateLimitGuard";
 import { cancelAccountDeletion } from "@/modules/identity";
 import { loginInput } from "@/modules/identity/contract/authContract";
 import type { AuthResultDTO } from "@/lib/dtos";
@@ -13,6 +14,10 @@ import type { AuthResultDTO } from "@/lib/dtos";
 // collapses onto one shared "login:unknown" bucket (see the matching note
 // on the signup limit in app/api/signup/route.ts) — 10 was already exceeded
 // within a single CI run.
+// The per-IP limit above trusts the client IP; a second limit keyed on the account itself stops password
+// guessing against one email from rotating addresses. Generous enough that a real owner is never locked out.
+const accountLimits = new RateLimitGuard(gatewayServices.rateLimiter, gatewayServices.logger);
+
 export const POST = gateway.route.public(
   {
     name: "auth.login",
@@ -30,6 +35,12 @@ export const POST = gateway.route.public(
     const password = input.body.password;
 
     if (!email || !password) throw ApiError.validation("Email and password are required.");
+
+    await accountLimits.consume(
+      { bucket: "login-account", limit: 20, windowMs: 15 * 60 * 1000, scope: "user", message: "Too many attempts for this account. Try again later." },
+      "auth.login",
+      email
+    );
 
     const userId = await verifyCredentials(email, password);
     if (!userId) throw ApiError.unauthenticated("Invalid email or password.");

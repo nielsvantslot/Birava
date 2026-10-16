@@ -20,6 +20,8 @@ export interface IPhotoUploadService {
   remove(url: string, ownerId: string): Promise<void>;
   /** No ownership check — callers authorize reads themselves (e.g. viewing another user's public photo). */
   read(url: string): Promise<StoredFile | null>;
+  /** Is this a URL the pipeline issued to `ownerId`? Vet any URL a client sends back before storing it on a row. */
+  isIssuedUrl(url: string, ownerId: string): boolean;
   /** Stores an already-processed file as-is (no validation/processing). */
   store(file: File, ownerId: string): Promise<UploadResultDto>;
   /** Re-runs processing over a photo that's already in storage (e.g. a migration/backfill). */

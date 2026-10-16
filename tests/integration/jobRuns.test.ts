@@ -87,7 +87,7 @@ describe("GET /api/health", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    const body = (await response.json()) as { ok: boolean; database: { ok: boolean }; jobs: unknown[] };
-    expect(body).toMatchObject({ ok: true, database: { ok: true }, jobs: [] });
+    // The public answer carries no detail (backup age, job names); that needs the cron secret.
+    expect(await response.json()).toEqual({ ok: true });
   });
 });
