@@ -2,6 +2,7 @@ import { WebPushError } from "web-push";
 import { getWebPushClient } from "@/modules/notifications/infrastructure/webPushClient";
 import { Env } from "@/lib/env/Env";
 import { LoggerFactory } from "@/lib/logging/LoggerFactory";
+import { PushEndpointPolicy } from "@/modules/notifications/domain/PushEndpointPolicy";
 import type { IPushSender, PushPayload } from "@/modules/notifications/domain/IPushSender";
 import type { IPushSubscriptionRepository } from "@/modules/notifications/domain/IPushSubscriptionRepository";
 
@@ -22,6 +23,12 @@ export class WebPushSender implements IPushSender {
 
     await Promise.allSettled(
       subscriptions.map(async (sub) => {
+        // Rows saved before endpoints were vetted may point anywhere; never send to those, and drop them.
+        if (!PushEndpointPolicy.isAllowed(sub.endpoint)) {
+          logger.warn("dropping push subscription with a non-push endpoint", { userId });
+          await this.subscriptions.removeByEndpoint(sub.endpoint);
+          return;
+        }
         try {
           await webpush.sendNotification(
             {

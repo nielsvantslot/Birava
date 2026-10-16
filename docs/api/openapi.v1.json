@@ -41,10 +41,12 @@
                 "type": "object",
                 "properties": {
                   "email": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 254
                   },
                   "password": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 256
                   }
                 },
                 "required": [
