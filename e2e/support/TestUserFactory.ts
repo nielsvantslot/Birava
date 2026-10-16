@@ -36,16 +36,21 @@ export class TestUserFactory implements ITestUserFactory {
   ) {}
 
   async ensure(): Promise<TestUserCredentials> {
-    const response = await this.request.post(`${this.baseUrl}/api/signup`, {
-      data: this.credentials,
-    });
+    // The first request after the dev server starts compiles /api/signup on the spot, and that compile can
+    // answer a one-off 500 (a half-written build file). A server error is retried; anything else is final.
+    const attempts = 4;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      const response = await this.request.post(`${this.baseUrl}/api/signup`, { data: this.credentials });
+      if (response.ok()) break;
 
-    if (!response.ok()) {
       const body: unknown = await response.json().catch(() => ({}));
       const alreadyExists = /already|taken|exists/i.test(ErrorEnvelope.messageFrom(body, ""));
-      if (!alreadyExists) {
-        throw new Error(`Failed to ensure the E2E test user: ${response.status()} ${JSON.stringify(body)}`);
+      if (alreadyExists) break;
+      if (response.status() >= 500 && attempt < attempts) {
+        await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
+        continue;
       }
+      throw new Error(`Failed to ensure the E2E test user: ${response.status()} ${JSON.stringify(body)}`);
     }
 
     return this.credentials;
