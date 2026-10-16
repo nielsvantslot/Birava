@@ -1,6 +1,6 @@
 # Birava v3: from bootstrap to a professional, decoupled system
 
-- Status: draft 2 for review (2026-10-17), revised after three evidence audits (section 3)
+- Status: draft 3 for review (2026-10-17), revised after three evidence audits (section 3) and the owner's decisions (section 8)
 - Supersedes in part: ADR 0003 (web mutations stay on Server Actions), ADR 0004 (wait for a measured trigger before any split)
 - Builds on: ADR 0001 (modules), ADR 0002 (gateway), the `/api/v1` app, the jobs module, performance budgets, migration safety
 
@@ -18,9 +18,9 @@ Baselines are measured in Epic 0 and each target is checked at the gate of the e
 | **Decisive** | Every rule has one owner and one code path; web and native cannot disagree. | Each rule defined once (login policy, session-gap rule, name limits); `apps/web` imports no Prisma, no core and no `"use server"` write; no numeric rule constant in a route or action file. |
 | **Predictable** | Same input, same result; errors are typed; the API is versioned; builds reproduce. | Zero string-typed command results (today 56); zero log-less `catch` (today 40 bare); every v1 refusal has a typed code; ids are branded; pinned toolchain and Actions (SHA); p95 budgets per endpoint in CI. |
 | **Scalable** | Stateless API, paged reads, the first bottleneck known before it bites. | One cursor envelope on every list; ETags on hot reads; derived counters only when a budget trips (#361/#362); outbox-backed side effects; load scenario in CI; ADR 0004 triggers instrumented. |
-| **Maintainable** | A newcomer can find where a thing lives and change it safely. | No `lib/db` import and no `next/*` import in any `application/`; module cycles 0 (today `checkins <-> sessions`); application coverage floor raised from 35% to 70%; a correct README, CONTRIBUTING and per-package README; function-length ratchet in ESLint. |
+| **Maintainable** | A newcomer can find where a thing lives and change it safely. | No `lib/db` import and no `next/*` import in any `application/`; module cycles 0 (today `checkins <-> sessions`); application coverage floor raised from 35% to 70%; a correct README, CONTRIBUTING and per-package README; function-length ratchet in ESLint; after Epic 4 the web app has no framework-specific server runtime and `next` is not a dependency. |
 
-Operability targets (Epic 5) are the SLOs in section 6.
+Operability targets (Epic 6) are the SLOs in section 6.
 
 ## 3. Evidence (three audits, 2026-10-17)
 
@@ -49,14 +49,15 @@ Operability targets (Epic 5) are the SLOs in section 6.
 
 ## 4. Non-goals
 
-- No UI framework rewrite (Next.js stays as the web client; decoupling makes replacing it later a contained job).
+- No rewrite of the React components: the web client keeps them and changes how data and routes reach them.
 - No paid services and no always-on server.
-- No database split; no change to the product invariants; no new product features (password reset, verification, data export, account deletion are platform basics and are included).
+- No email in this phase (decision 2): no password reset or email verification. Known gap, recorded as such: a user who forgets their password has no self-service recovery until an email provider is chosen later.
+- No database split; no change to the product invariants; no new product features (data export, account deletion and a sessions list with revoke are platform basics and are included).
 
 ## 5. Target architecture
 
 ```
-apps/web         Next.js client. Pages, components, TanStack Query; a generated client only.
+apps/web         Vite + React SPA/PWA (TanStack Router, TanStack Query). Static assets, no server runtime. Uses the generated client only.
 apps/api         Hono app (today's /api/v1) plus job entry points. The only code that touches the database.
 packages/contracts   zod schemas, branded ids, error codes. Source of truth for validation, OpenAPI and the client.
 packages/core        domain, application (use-case classes), infrastructure (repositories), ports and adapters.
@@ -68,14 +69,16 @@ Principles applied, each with its fitness function (a rule in CI, not a guidelin
 - **DDD tactical:** `Session` and `Crew` aggregates with pure decision functions and repositories; value objects (`Coordinates`, `DrinkName`); branded ids; domain events through a transactional outbox.
 - **Errors as values:** `Result<T, DomainError>` with a closed code union; the edge maps codes to text and to HTTP; no log-less catches; post-commit cleanup is separate from the commit and logged.
 - **One owner per rule:** actions and v1 routes are thin adapters over the same use cases; policy constants live in domain or contract.
-- **Same-origin by design:** the browser always calls `app.birava.nl/api/...` (in-process now; a rewrite to a second Vercel project later), so cookies, SameSite and the origin check keep working and no CORS is introduced.
+- **Same-origin by design:** the browser always calls `app.birava.nl/api/...`; the SPA and the API are served from one origin (two Vercel projects joined by a rewrite, or one project during the transition), so cookies, SameSite and the origin check keep working and no CORS is introduced.
+- **Why leave Next.js:** with the web app a pure API client, Next adds a server runtime, a bundler and an upgrade treadmill for little benefit to a login-gated, offline-first PWA (SEO belongs to the separate marketing site). This repo already carries its costs: the blocked Next 16 upgrade (#374), the `NODE_ENV` build leak, Turbopack bind-mount errors, the Node-runtime middleware workaround and the dev-server compile race in CI. The trade-off accepted: no SSR or streaming (mitigated by the service worker caching the app shell), and the routing, layout, metadata, image and font features Next provided must be replaced by Vite-side equivalents.
 
 ## 6. Stages
 
-Each epic ships independently; its gate must pass before the next starts. Epic 5 runs in parallel.
+Each epic ships independently; its gate must pass before the next starts. Epic 6 runs in parallel.
 
 **Epic 0: Decide, baseline and quick wins.**
 - ADR 0005 (supersedes 0003 in part, updates 0004); measure every baseline in section 2.
+- Spikes: generated client (Hey API against the cleaned spec); Vite shell feasibility (render three real screens, for example the dashboard, a session and the log form, from the existing components with TanStack Router, covering the auth gate, service worker, manifest, image loader and fonts).
 - Quick wins from the audits: correct README, `CONTRIBUTING.md`, `SECURITY.md`, `CODEOWNERS`; delete the 14 dead exports; CI `timeout-minutes` and cancel-in-progress; stop deploying on red; pin Actions to SHAs; rollback and incident runbooks; align CI Node and Postgres with production; fix the health-check flapping.
 - Gate: ADR accepted, baselines recorded, CI pass rate measured weekly.
 
@@ -91,21 +94,24 @@ Each epic ships independently; its gate must pass before the next starts. Epic 5
 **Epic 2: Workspaces, contracts and API parity.**
 - npm workspaces plus Turborepo; `packages/contracts`, `packages/core`, `apps/*`; per-package CI jobs (#375).
 - API quality: register named schemas (single `Error`), real formats (uuid, date-time), strict objects, `onlyOwn` as a boolean; RFC 9457 problem details with a domain `reason` next to the code; declared `Idempotency-Key`; `X-Request-Id` and rate-limit headers; weak ETags and `If-Match` on hot reads; one cursor envelope on every list; `oasdiff` breaking-change check; versioning and deprecation policy; API reference page; `PUT/DELETE` cheer.
-- Parity for the web: profile and stats and achievements, comments and cheers lists, 12 crew actions, settings and preferences, push-token registration, signup, password reset and account deletion; typed camelCase aliases for the check-in shape (full fix deferred to a v2 of the API).
+- **Break v1 now and set the standard** (decision 3): v1 has no external client yet and the web does not use it, so it is corrected in place instead of versioned around its flaws. The standard: camelCase everywhere including check-ins; RFC 3339 timestamps in requests and responses; branded uuid ids; every list is `{ items, nextPageToken }`; every mutation returns the resource (or 204), never `{}`; RFC 9457 errors with a stable domain `reason`; `Idempotency-Key` on every unsafe operation. The version number starts to mean something at the first external client; from then on changes are additive and checked by `oasdiff`.
+- Parity for the web: profile and stats and achievements, comments and cheers lists, 12 crew actions, settings and preferences, push-token registration, signup and account deletion. No password-reset endpoint (decision 2).
 - Generated `packages/client` (Hey API) exercised in CI against the API.
 - Gate: a contract test per operation through the generated client; breaking-change check green.
 
-**Epic 3: Web as a client.** Screens move one vertical slice at a time to the generated client with TanStack Query, each slice deleting its Server Actions and direct reads; view-model builders replace presentation logic in the longest components. Gate per slice: its E2E specs pass unchanged and its p95 stays inside budget. Epic gate: depcruise forbids `apps/web` from importing core, Prisma or any `"use server"` write.
+**Epic 3: Web as a client (still inside Next).** Screens move one vertical slice at a time to the generated client with TanStack Query, each slice deleting its Server Actions and direct reads; view-model builders replace presentation logic in the longest components. Doing this inside Next first keeps every step shippable and changes only data access, not routing. Gate per slice: its E2E specs pass unchanged and its p95 stays inside budget. Epic gate: depcruise forbids `apps/web` from importing core, Prisma or any `"use server"` write.
 
-**Epic 4: Events and the optional split.** Domain events with a transactional outbox, drained by the jobs module; notifications and achievements become idempotent consumers. A separate Vercel project for `apps/api` behind the web project's rewrite only if an ADR 0004 trigger is measured. Gate: events replay safely; the split decision records its number.
+**Epic 4: Retire Next.js (gated on the Epic 0 spike).** With data access already behind the client, the shell swap is routing, layout, metadata, auth gate, image and font handling only: TanStack Router with route-level code splitting; a client auth gate (a 401 from the API redirects to login) replacing `middleware.ts`; the existing TypeScript service worker caches the app shell and keeps offline behaviour; the manifest and icons move to static assets; deploy as static files plus the API functions on the free tier. Cut over in one release behind the rewrite, keeping the old Next build deployable for rollback until the first week is clean. Gate: all E2E specs (including WebKit) pass against the SPA, p95 and bundle budgets hold, the Lighthouse PWA and performance scores do not regress, and `next` is removed from `package.json`.
 
-**Epic 5: Operability and professional baseline (parallel).**
+**Epic 5: Events and the optional API split.** Domain events with a transactional outbox, drained by the jobs module; notifications and achievements become idempotent consumers. A separate Vercel project for `apps/api` behind the web project's rewrite only if an ADR 0004 trigger is measured. Gate: events replay safely; the split decision records its number.
+
+**Epic 6: Operability and professional baseline (parallel).**
 - SLOs and alerting: availability 99.5% from an external monitor with 1 to 5 minute probes, check-in write success 99.5%, p95 feed under 800 ms and write under 600 ms, outbox sync success 99%, job freshness and backup freshness (already in `/api/health`), client errors under 1 per 1000 sessions; page on burn rate, not blips. Error-budget summary posted daily.
 - Observability: point OpenTelemetry at a free-tier exporter, error aggregation on a free tier, request-id correlation from browser to database.
 - Release engineering: conventional commits, release-please, tags on production releases only; a feature-flag table to separate deploy from release; a decision on collapsing the branch flow (see section 8).
 - Supply chain and security: CodeQL, `npm audit`, SBOM, secret scanning, the pentest leftovers (trusted `APP_ORIGIN` for blob callbacks, explicit `Origin` fallback for actions), a rotation table.
-- Account basics: password reset, email verification, data export (access and portability), sessions list with revoke.
-- Quality: accessibility checks in CI, flake labelling for E2E, a stricter coverage ratchet; Prisma 7 (#373) with a full-data rehearsal; Next 16 re-check (#374).
+- Account basics: data export (access and portability), sessions list with revoke. Email-dependent items (password reset, verification) are deferred by decision.
+- Quality: accessibility checks in CI, flake labelling for E2E, a stricter coverage ratchet; Prisma 7 (#373) with a full-data rehearsal; the Next 16 question (#374) is closed as won't-do once Epic 4 lands.
 
 ## 7. Risks
 
@@ -117,13 +123,21 @@ Each epic ships independently; its gate must pass before the next starts. Epic 5
 | Big-bang migration | One vertical slice at a time, old path deleted only after the slice ships. |
 | Auth and CSRF regress | Same cookie and origin model; the pentest checks re-run before Epic 3 closes. |
 | Process changes confuse a solo flow | Each process change is its own small issue with a rollback. |
+| The SPA loads slower on mobile data than server rendering | Route-level code splitting, the service worker serving the cached shell, a bundle budget in CI and a Lighthouse gate in Epic 4; the Epic 0 spike measures it before any commitment. |
+| Retiring Next loses conveniences (image optimisation, fonts, metadata) | Each has a Vite-side replacement listed in the spike; the existing custom image loader and TypeScript service worker already do most of this work. |
+| No password recovery without email | Accepted for now and recorded as a known gap; revisited when an email provider is chosen. |
 
-## 8. Decisions needed from the owner
+## 8. Decisions
 
-1. **Branch flow.** The three-tier dev, staging, main flow costs about a third of merged PRs in promotion and sync merges. Options: keep it; or make `dev` trunk with staging as a Vercel preview or a fast-forward promotion. Recommended: simplify, but it is your call and independent of the code work.
-2. **Free-tier providers.** An email sender for password reset and verification; an exporter for traces and errors. Spikes in Epic 5 pick from free tiers; no spend.
-3. **API v1 casing.** Keep the snake_case check-in shape in v1 with camelCase aliases and fix it properly in a future v2 (recommended), or break v1 now while it has no external clients.
+Decided by the owner (2026-10-17):
+1. **Next.js is a bootstrap to move away from**, not a long-term base: the web client becomes a Vite SPA/PWA (Epic 4), subject to the Epic 0 feasibility spike.
+2. **Email is out of scope for now**; Resend's free tier leaves gaps to fill later. No password reset or verification in this phase.
+3. **Break v1 now and set the standard** (Epic 2), instead of carrying its flaws.
+
+Still open (your call, independent of the code work):
+4. **Branch flow.** The three-tier dev, staging, main flow costs about a third of merged PRs in promotion and sync merges. Options: keep it; or make `dev` trunk with staging as a Vercel preview or a fast-forward promotion. Recommended: simplify.
+5. **Free-tier observability provider** for traces and errors (spike in Epic 6; no spend).
 
 ## 9. Issue structure
 
-One epic issue per stage (Epic 0 to 5) in the v2 format: tasks as a checklist, a gate, "work one phase at a time". Existing issues are absorbed: #375 into Epic 2; #359 and #360 into Epic 1; #361 and #362 into Epic 2 and the budgets; #373 and #374 into Epic 5; #323 into Epic 5; #377 replaced by Epic 4. Each task is sized to one PR.
+One epic issue per stage (Epic 0 to 6) in the v2 format: tasks as a checklist, a gate, "work one phase at a time". Existing issues are absorbed: #375 into Epic 2; #359 and #360 into Epic 1; #361 and #362 into Epic 2 and the budgets; #373 into Epic 6; #374 closed as won't-do by Epic 4; #323 into Epic 6; #377 replaced by Epic 5. Each task is sized to one PR.
