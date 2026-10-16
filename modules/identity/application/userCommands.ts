@@ -105,6 +105,10 @@ export async function updateProfileAvatar(
     select: { avatarUrl: true },
   });
 
+  if (existing?.avatarUrl !== avatarUrl && !avatarPhotoService.isIssuedUrl(avatarUrl, userId)) {
+    return { error: "That photo isn't valid. Pick it again." };
+  }
+
   try {
     await db.user.update({
       where: { id: userId },

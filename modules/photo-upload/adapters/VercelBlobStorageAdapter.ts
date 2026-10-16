@@ -27,6 +27,16 @@ export class VercelBlobStorageAdapter implements IStorageAdapter {
     }
   }
 
+  isOwnUrl(url: string): boolean {
+    try {
+      const parsed = new URL(url);
+      // get() sends the store token to whatever host the URL names, so only Vercel Blob's own hosts qualify.
+      return parsed.protocol === "https:" && parsed.hostname.endsWith(".blob.vercel-storage.com");
+    } catch {
+      return false;
+    }
+  }
+
   async del(url: string): Promise<void> {
     try {
       await del(url, { token: this.config.token });

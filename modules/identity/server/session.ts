@@ -2,9 +2,8 @@ import crypto from "crypto";
 import { cookies, headers } from "next/headers";
 import { cache } from "react";
 import { sessionRepository } from "@/modules/identity/server/sessionRepository";
-import { TRUSTED_USER_HEADER } from "@/modules/identity/server/proxy-session";
+import { evictSessionUser, resolveSessionUser } from "@/modules/identity/server/proxy-session";
 import { SessionUserDTO } from "@/lib/dtos";
-import { SessionUserMapper } from "@/lib/mappers";
 import { Env } from "@/lib/env/Env";
 
 const SESSION_COOKIE = "birava_session";
@@ -63,11 +62,13 @@ export async function issueSessionToken(userId: string): Promise<{ token: string
 /** Ends one session by its token (cookie or bearer alike). */
 export async function revokeSessionToken(token: string): Promise<void> {
   await sessionRepository.deleteByToken(token);
+  evictSessionUser(token);
 }
 
 /** Ends every session a user has, on every device and in every client. */
 export async function revokeAllSessions(userId: string): Promise<void> {
   await sessionRepository.deleteAllForUser(userId);
+  evictSessionUser();
 }
 
 /** The bearer token a request carries, if any. */
@@ -94,6 +95,7 @@ export async function clearUserSession() {
   const token = await readSessionToken();
   if (token) {
     await sessionRepository.deleteByToken(token);
+    evictSessionUser(token);
   }
 
   const store = await cookies();
@@ -107,26 +109,15 @@ export async function clearUserSession() {
 }
 
 export const getCurrentUser = cache(async (): Promise<SessionUserDTO | null> => {
-  // middleware.ts already validated this request's session and attached the
-  // result here — reuse it instead of paying a second Session lookup on every
-  // page render. Routes outside the middleware matcher (api/*) fall through.
-  const trusted = (await headers()).get(TRUSTED_USER_HEADER);
-  if (trusted) {
-    const parsed = JSON.parse(trusted);
-    if (isSessionUserDTO(parsed)) return parsed;
-  }
-
+  // Resolved from the token on every request, never from a request header:
+  // a header a client can send is a header a client can forge (this once let
+  // a hand-made x-birava-session-user header sign in as anyone on any path the
+  // middleware matcher skips). The short TTL cache inside the resolver keeps
+  // this cheap.
   const token = (await readSessionToken()) ?? (await readBearerToken());
   if (!token) return null;
-
-  const session = await sessionRepository.findWithUser(token);
-
-  if (!session) return null;
-
-  if (session.expiresAt.getTime() <= Date.now()) {
-    await sessionRepository.deleteByToken(token);
-    return null;
-  }
-
-  return SessionUserMapper.toDTO(session.user);
+  const user = await resolveSessionUser(token);
+  // An unknown or expired token: drop its row (a no-op for an unknown one) so an expired session does not linger.
+  if (!user) await sessionRepository.deleteByToken(token);
+  return user;
 });
