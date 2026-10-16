@@ -107,8 +107,8 @@ Each epic ships independently; its gate must pass before the next starts. Epic 6
 
 **Epic 6: Operability and professional baseline (parallel).**
 - SLOs and alerting: availability 99.5% from an external monitor with 1 to 5 minute probes, check-in write success 99.5%, p95 feed under 800 ms and write under 600 ms, outbox sync success 99%, job freshness and backup freshness (already in `/api/health`), client errors under 1 per 1000 sessions; page on burn rate, not blips. Error-budget summary posted daily.
-- Observability: point OpenTelemetry at a free-tier exporter, error aggregation on a free tier, request-id correlation from browser to database.
-- Release engineering: conventional commits, release-please, tags on production releases only; a feature-flag table to separate deploy from release; a decision on collapsing the branch flow (see section 8).
+- Observability on the managed LGTM stack (Grafana Cloud free tier; self-hosting would need an always-on server and is excluded by the no-cost rule): OTLP traces and logs from `apps/api` through the already-wired `@vercel/otel`, exports flushed with `after()` or `waitUntil` so serverless freezes do not drop data; Grafana Faro for browser errors and real-user monitoring (replacing the hand-rolled `ClientErrorLog` once proven); request-id correlation from browser to database; Grafana alerting and synthetic probes replacing the email-only health check. Vercel log drains need a paid plan, so logs leave through OpenTelemetry, not drains. Spike first: confirm the current free-tier limits, the serverless flush behaviour and the alert delivery channels.
+- Release engineering inside the kept dev, staging, main flow: conventional commits, release-please, tags on production releases only (ending the tag-per-push cascade), automated sync PRs between branches to remove the promotion noise, `CODEOWNERS`, `CONTRIBUTING.md` and a PR checklist for the second developer; a feature-flag table to separate deploy from release.
 - Supply chain and security: CodeQL, `npm audit`, SBOM, secret scanning, the pentest leftovers (trusted `APP_ORIGIN` for blob callbacks, explicit `Origin` fallback for actions), a rotation table.
 - Account basics: data export (access and portability), sessions list with revoke. Email-dependent items (password reset, verification) are deferred by decision.
 - Quality: accessibility checks in CI, flake labelling for E2E, a stricter coverage ratchet; Prisma 7 (#373) with a full-data rehearsal; the Next 16 question (#374) is closed as won't-do once Epic 4 lands.
@@ -122,7 +122,7 @@ Each epic ships independently; its gate must pass before the next starts. Epic 6
 | Losing Server Action ergonomics | Accepted: one code path for web and native; generated client and TanStack Query replace the boilerplate. |
 | Big-bang migration | One vertical slice at a time, old path deleted only after the slice ships. |
 | Auth and CSRF regress | Same cookie and origin model; the pentest checks re-run before Epic 3 closes. |
-| Process changes confuse a solo flow | Each process change is its own small issue with a rollback. |
+| Process changes confuse the team | Each process change is its own small issue with a rollback; the second developer reviews `CONTRIBUTING.md` before it merges. |
 | The SPA loads slower on mobile data than server rendering | Route-level code splitting, the service worker serving the cached shell, a bundle budget in CI and a Lighthouse gate in Epic 4; the Epic 0 spike measures it before any commitment. |
 | Retiring Next loses conveniences (image optimisation, fonts, metadata) | Each has a Vite-side replacement listed in the spike; the existing custom image loader and TypeScript service worker already do most of this work. |
 | No password recovery without email | Accepted for now and recorded as a known gap; revisited when an email provider is chosen. |
@@ -134,9 +134,10 @@ Decided by the owner (2026-10-17):
 2. **Email is out of scope for now**; Resend's free tier leaves gaps to fill later. No password reset or verification in this phase.
 3. **Break v1 now and set the standard** (Epic 2), instead of carrying its flaws.
 
-Still open (your call, independent of the code work):
-4. **Branch flow.** The three-tier dev, staging, main flow costs about a third of merged PRs in promotion and sync merges. Options: keep it; or make `dev` trunk with staging as a Vercel preview or a fast-forward promotion. Recommended: simplify.
-5. **Free-tier observability provider** for traces and errors (spike in Epic 6; no spend).
+4. **Branch flow: keep dev, staging, main.** A second developer joins the project and staging is the shared integration point. The audit's concern (promotion and sync noise) is handled by automation and by tagging only on production releases, not by removing a tier.
+5. **Observability: the managed LGTM stack (Grafana Cloud free tier)**, subject to the Epic 6 spike confirming limits, serverless flushing and alert channels. Self-hosted LGTM is out (always-on cost).
+
+Nothing is open for the owner at the time of writing; the spikes in Epic 0 and Epic 6 can still overturn a decision with evidence, in which case the ADR records it.
 
 ## 9. Issue structure
 
