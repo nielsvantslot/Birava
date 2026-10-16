@@ -81,7 +81,7 @@
     "dotenv": "^16.4.5",
     "dotenv-cli": "^7.4.4",
     "esbuild": "^0.28.2",
-    "eslint": "^9",
+    "eslint": "^10",
     "eslint-config-next": "15.5.28",
     "fast-check": "^4.10.2",
     "tailwindcss": "^4",
